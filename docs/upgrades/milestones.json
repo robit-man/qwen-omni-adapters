@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Attention trial complete/rejected: A39/B39 natural errors/594 versus legacy9; all13environmental and16temporal responses identical. Joint existing projection+FFN trial running500updates against saved same-source same2000data controls after CPU+8CUDA checks.",
+      "status": "Attention trial rejectedA39/B39 vslegacy9. Joint projection+FFN500 complete and rejected: C100/594 speech errors vscontrolA40, broad environmental/temporal regressions. No new model promoted.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -347,7 +347,8 @@
         "attention-optimizer-recovery-20261101.json",
         "attention-export-feasibility-20261101.json",
         "attention-source-review-20261101.json",
-        "joint-projection-ffn-preflight-20261101.json"
+        "joint-projection-ffn-preflight-20261101.json",
+        "joint-projection-ffn-source-review-20261101.json"
       ]
     },
     {
@@ -384,12 +385,13 @@
     {
       "id": "E6",
       "objective": "Native Ollama ASR/TTS with exact bundled weights and full arbitrary-reference cloning, preserving adapter parity",
-      "status": "Both patched-native A100 mechanism gates pass. Native numeric controls pass parser-derived CPU cases and actual Ornith/A100 PCM comparison, including zero filters, seed bounds and rejection before loading. Orin/full native matrix remain pending.",
+      "status": "Both native A100 mechanism gates and numeric controls pass. Full-reference RAM cache passes20call Ornith/A100 comparison, all10PCM exact,6cache hits, median firstPCM32.0%lower. Orin/Qwen cache and full native matrix pending.",
       "evidence": [
         "native-ollama-audio-20261101.json",
         "native-ollama-ornith-mechanism-20261101.json",
         "native-ollama-qwen-mechanism-20261101.json",
-        "native-ollama-sampling-parity-20261101.json"
+        "native-ollama-sampling-parity-20261101.json",
+        "native-ollama-conditioning-cache-20261101.json"
       ]
     },
     {
@@ -419,7 +421,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Matched attention study rejected. Joint existing projection+FFN trial running after CPU+CUDA preflight; no learned candidate promoted.",
+    "status": "Joint projection+FFN500 rejected after fullsource116 and exact checkpoint/export audit; speech100/594vscontrol40 andlegacy9, broad regressions. Parity remains failed.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -434,7 +436,8 @@
       "attention-adaptation-preflight-20261101.json",
       "attention-optimizer-recovery-20261101.json",
       "attention-source-review-20261101.json",
-      "joint-projection-ffn-preflight-20261101.json"
+      "joint-projection-ffn-preflight-20261101.json",
+      "joint-projection-ffn-source-review-20261101.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
@@ -489,12 +492,12 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Joint existing FFN/projector training PID317685, fixed500updates; primary/encoder/TTS frozen;23552MiB Torch cap,24576lease. Observer323175 gates source116 on actual exit/release.",
+      "GPU0": "Completed joint training/source and native cache gate; actual workers exited and all own leases normally released.",
       "GPU2": "No current own work; other owner reservation currently prevents a24GiB full-trunk lease. GPU0 admitted instead.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Both previous projection studies rejected; attentionA39/B39 also rejected. Patched-native mechanism bothfamilies and actual Ornith numeric sampling gate pass. No model is release-qualified.",
-    "current_hypothesis": "Joint existing projection and FFN co-adaptation against saved same-source/same2000data FFN-only and projection-only controls; no new runtime graph.",
+    "latest_completed_trials": "AttentionA39/B39 and jointC100/594 rejected vslegacy9; no new full-projector export. Native conditioning cache achieves32.0% lower median firstPCM across6matchedhits, all10PCM exact.",
+    "current_hypothesis": "Prior tail-attention and joint-projector hypotheses rejected. Preserve frozen rich850 projection; next capacity hypothesis requires explicit CPU and zero-update CUDA gates before another neural run.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
@@ -514,7 +517,8 @@
       "attention-adaptation-preflight-20261101.json",
       "attention-optimizer-recovery-20261101.json",
       "attention-source-review-20261101.json",
-      "joint-projection-ffn-preflight-20261101.json"
+      "joint-projection-ffn-preflight-20261101.json",
+      "joint-projection-ffn-source-review-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
@@ -549,8 +553,8 @@
         "evidence": "attention-source-review-20261101.json"
       },
       "joint_projection_FFN_source": {
-        "status": "Fixed116source queued after current500update training, real process exit and normal lease release",
-        "evidence": "joint-projection-ffn-preflight-20261101.json",
+        "status": "All116source complete; C100vsA40 speech errors/594, broad semantic regressions; rejected, no full-projector GGUF export.",
+        "evidence": "joint-projection-ffn-source-review-20261101.json",
         "native_qualified": false
       }
     },
@@ -608,6 +612,7 @@
     "mechanism_evidence": "native-ollama-ornith-mechanism-20261101.json",
     "stock_unmodified_compatibility_verified": false,
     "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json",
-    "numeric_controls_evidence": "native-ollama-sampling-parity-20261101.json"
+    "numeric_controls_evidence": "native-ollama-sampling-parity-20261101.json",
+    "conditioning_cache_evidence": "native-ollama-conditioning-cache-20261101.json"
   }
 }

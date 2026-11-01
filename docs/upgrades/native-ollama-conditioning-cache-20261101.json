@@ -1,0 +1,634 @@
+{
+  "schema": "robit.omni.native-conditioning-cache-live.v1",
+  "complete": true,
+  "model": "robit/ornith-native-qualification:mechanism-20261101",
+  "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+  "retained_audio_files": 0,
+  "new_neural_downloads": 0,
+  "one_primary_at_a_time": true,
+  "release_qualified": false,
+  "public_weight_uploads": 0,
+  "phases": {
+    "baseline": {
+      "binary_sha256": "e097f9b7585af797c12f6be0295f55c6ced86ed138ba12b202c3dd1a5686b37e",
+      "cases": [
+        {
+          "name": "repeated-reference-0",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.1705034769838676,
+          "completion_s": 2.505753102945164,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "repeated-reference-1",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Seven yellow leaves.",
+          "first_PCM_s": 2.257254034979269,
+          "completion_s": 2.731108624022454,
+          "PCM_bytes": 65280,
+          "PCM_sha256": "b8c7247cdf7d01654c26803f071fdd86dadcb9976767c3892d99265fc3399ed3",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "repeated-reference-2",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.146848372067325,
+          "completion_s": 2.491245471057482,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "repeated-reference-3",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Seven yellow leaves.",
+          "first_PCM_s": 2.234985559945926,
+          "completion_s": 2.7109534619376063,
+          "PCM_bytes": 65280,
+          "PCM_sha256": "b8c7247cdf7d01654c26803f071fdd86dadcb9976767c3892d99265fc3399ed3",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "repeated-reference-4",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.1265210959827527,
+          "completion_s": 2.4445010470226407,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "repeated-reference-5",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Seven yellow leaves.",
+          "first_PCM_s": 2.19319788494613,
+          "completion_s": 2.7009221739135683,
+          "PCM_bytes": 65280,
+          "PCM_sha256": "b8c7247cdf7d01654c26803f071fdd86dadcb9976767c3892d99265fc3399ed3",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "different-reference",
+          "reference_SHA256": "e39d4a825de7cec9dd894e37de9c35aebd99ba7e428923dc347d3e693d275258",
+          "reference_transcript_SHA256": "356ac3d976f451e615b964209cde3ab360c0094f6ec7f2d77598a1c328ce14fd",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.150880121975206,
+          "completion_s": 2.737504714052193,
+          "PCM_bytes": 84480,
+          "PCM_sha256": "2add9a14a8a1c917c2d913183ca39a934a1ff6a2b84ec5ca88d639b421429a7b",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "return-to-original",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.1780929440865293,
+          "completion_s": 2.5115206349873915,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "reference-transcript-case-change",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "405da75679f1a162c9847d580037ab2ef6091de9686d1b88d80403f235c8f421",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.3033296780195087,
+          "completion_s": 2.9071029610931873,
+          "PCM_bytes": 84480,
+          "PCM_sha256": "bfc59cb4b933a57c27e40939e022f5cc5b08a9c16a062cbd13d3ea3b378d4d61",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        },
+        {
+          "name": "language-change",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "fr",
+          "text": "Bonjour.",
+          "first_PCM_s": 2.047347185900435,
+          "completion_s": 2.4105817559175193,
+          "PCM_bytes": 42240,
+          "PCM_sha256": "7639bbebc6e1694f96777adac8a81ba536b119e0c7a57810e0b74bbed3ca466d",
+          "reference_encoder_launches": 1,
+          "cache_hit": false
+        }
+      ],
+      "complete": true,
+      "primary_PID": 1056528,
+      "residency_receipts": [
+        {
+          "pid": 1056528,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-server"
+        },
+        {
+          "pid": 1058077,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1058284,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1058590,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1058684,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1059968,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1060063,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1060498,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1060662,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1061666,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1061751,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1062131,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1062235,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1062855,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1063331,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1063711,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1063865,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1064300,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1064478,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1065413,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1065581,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        }
+      ],
+      "primary_stable": true,
+      "request_generation_workers_fresh": true,
+      "server_exited": true,
+      "all_actual_workers_exited": true,
+      "temporary_request_files_removed": true
+    },
+    "candidate": {
+      "binary_sha256": "ebe8492afb2814424f8c0f2536f39fbe50d63b633cfbd876ac60b7ef79d66f23",
+      "cases": [
+        {
+          "name": "repeated-reference-0",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.1456079949857667,
+          "completion_s": 2.4785991340177134,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 1,
+          "cache_hit": false,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "repeated-reference-1",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Seven yellow leaves.",
+          "first_PCM_s": 1.4969436540268362,
+          "completion_s": 1.9604804649716243,
+          "PCM_bytes": 65280,
+          "PCM_sha256": "b8c7247cdf7d01654c26803f071fdd86dadcb9976767c3892d99265fc3399ed3",
+          "reference_encoder_launches": 0,
+          "cache_hit": true,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "repeated-reference-2",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 1.4545323689235374,
+          "completion_s": 1.8215967039577663,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 0,
+          "cache_hit": true,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "repeated-reference-3",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Seven yellow leaves.",
+          "first_PCM_s": 1.5102557310601696,
+          "completion_s": 1.9788612039992586,
+          "PCM_bytes": 65280,
+          "PCM_sha256": "b8c7247cdf7d01654c26803f071fdd86dadcb9976767c3892d99265fc3399ed3",
+          "reference_encoder_launches": 0,
+          "cache_hit": true,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "repeated-reference-4",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 1.4745061850408092,
+          "completion_s": 1.7920453230617568,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 0,
+          "cache_hit": true,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "repeated-reference-5",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Seven yellow leaves.",
+          "first_PCM_s": 1.4676539910724387,
+          "completion_s": 1.935909963096492,
+          "PCM_bytes": 65280,
+          "PCM_sha256": "b8c7247cdf7d01654c26803f071fdd86dadcb9976767c3892d99265fc3399ed3",
+          "reference_encoder_launches": 0,
+          "cache_hit": true,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "different-reference",
+          "reference_SHA256": "e39d4a825de7cec9dd894e37de9c35aebd99ba7e428923dc347d3e693d275258",
+          "reference_transcript_SHA256": "356ac3d976f451e615b964209cde3ab360c0094f6ec7f2d77598a1c328ce14fd",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.110470497980714,
+          "completion_s": 2.747676667990163,
+          "PCM_bytes": 84480,
+          "PCM_sha256": "2add9a14a8a1c917c2d913183ca39a934a1ff6a2b84ec5ca88d639b421429a7b",
+          "reference_encoder_launches": 1,
+          "cache_hit": false,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "return-to-original",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 1.531848213984631,
+          "completion_s": 1.8645426939474419,
+          "PCM_bytes": 38400,
+          "PCM_sha256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+          "reference_encoder_launches": 0,
+          "cache_hit": true,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "reference-transcript-case-change",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "405da75679f1a162c9847d580037ab2ef6091de9686d1b88d80403f235c8f421",
+          "language": "en",
+          "text": "Hello there.",
+          "first_PCM_s": 2.1173364019487053,
+          "completion_s": 2.6989590139128268,
+          "PCM_bytes": 84480,
+          "PCM_sha256": "bfc59cb4b933a57c27e40939e022f5cc5b08a9c16a062cbd13d3ea3b378d4d61",
+          "reference_encoder_launches": 1,
+          "cache_hit": false,
+          "exact_uncached_native_baseline_PCM": true
+        },
+        {
+          "name": "language-change",
+          "reference_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+          "reference_transcript_SHA256": "94644439c05fff25057d88fc9b64a0fe628eff945a6addcfcb05c12d43671fc2",
+          "language": "fr",
+          "text": "Bonjour.",
+          "first_PCM_s": 2.2485618049977347,
+          "completion_s": 2.56962244794704,
+          "PCM_bytes": 42240,
+          "PCM_sha256": "7639bbebc6e1694f96777adac8a81ba536b119e0c7a57810e0b74bbed3ca466d",
+          "reference_encoder_launches": 1,
+          "cache_hit": false,
+          "exact_uncached_native_baseline_PCM": true
+        }
+      ],
+      "complete": true,
+      "primary_PID": 1070119,
+      "residency_receipts": [
+        {
+          "pid": 1070119,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-server"
+        },
+        {
+          "pid": 1071462,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1071624,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1072081,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1072970,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1073510,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1073978,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1074731,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1075269,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1075503,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1076306,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1077149,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1077388,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        },
+        {
+          "pid": 1077775,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts-refer"
+        },
+        {
+          "pid": 1077825,
+          "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+          "resident": true,
+          "worker": "llama-tts"
+        }
+      ],
+      "primary_stable": true,
+      "request_generation_workers_fresh": true,
+      "server_exited": true,
+      "all_actual_workers_exited": true,
+      "temporary_request_files_removed": true
+    }
+  },
+  "all10_PCM_exact": true,
+  "baseline_encoder_launches": 10,
+  "candidate_encoder_launches": 4,
+  "cache_hit_cases": 6,
+  "matched_hit_first_PCM_median_baseline_s": 2.1856454145163298,
+  "matched_hit_first_PCM_median_candidate_s": 1.4857249195338227,
+  "matched_hit_first_PCM_reduction_fraction": 0.32023515357700205,
+  "cache_reuse_mechanism_passed": true,
+  "latency_improved": true,
+  "measurement_scope": "Six matched warm-reference requests in one serial control/candidate window; not population p95/p99, speaker fidelity or whole-profile release qualification.",
+  "UTC": "2026-11-01T21:30:11.574274+00:00",
+  "actual_all_workers_exit_verified": true,
+  "all_own_leases_normally_released": true,
+  "source_report_SHA256": "e61b6d1416a402c87e0a8cbcb9c8a990ec127db3aa39bb99066591e83bf82ced",
+  "live_script_SHA256": "e83a59173179574875cc7ae05487e32ad869f47c9483119a7e61b54e581bb551",
+  "source_gates": {
+    "schema": "robit.omni.native-conditioning-source-gates.v1",
+    "UTC": "2026-11-01T21:22:38.373537+00:00",
+    "binary_SHA256": "ebe8492afb2814424f8c0f2536f39fbe50d63b633cfbd876ac60b7ef79d66f23",
+    "version": "0.40.13-robit-omni.3",
+    "same_immutable_native_source_receipt": true,
+    "source_receipt": {
+      "upstream_commit": "04088e7c9d41cba5d33bafbf788d87a465c79d5b",
+      "source_archive_sha256": "17c24d7268a286722d8e02d0f1d940a94922ecb73c20fb4377d2ebd7b1f9640c",
+      "patch_sha256": "d999717e6dd03b66cdaafe564a581829f1c6a613952297a3612bc230d07186a8",
+      "native_files": {
+        "native/ollama/llm/omni_conditioning_test.go": "f994e8e65739f64d8bd64b55a4c20fc5aa0bd0c00691fb69df456b5045dcff1e",
+        "native/ollama/llm/omni.go": "0a7f23563daeb668ac02afc023fa7fea266edcb8a2bfa48a559caeb05f14f9fd",
+        "native/ollama/llm/omni_conditioning.go": "01dbcb652b870dfd42f4eb7480d190a655af8a957181c0e541149c38b386c115",
+        "native/ollama/llm/omni_sampling.go": "8e91a4c38eeefa35bc8b1d99ac3edd5d2eeb501e1ccdaa2b9f3b68ff1a0f0b10",
+        "native/ollama/llm/omni_sampling_test.go": "e7265066613160b0c3aee0d08bbf97f440894b7016326c69c08ed15e08032740",
+        "native/ollama/llm/omni_test.go": "4c3af9e7ebb26484c555b2aa54ab0b93adf20c52e14c54860411fca5b18a33f1",
+        "native/ollama/server/omni.go": "9e9bd8fe7b01f64e69a8aab259cc1712a38cd3345eed61ad2624c23bfe7fd19d",
+        "native/ollama/server/omni_sampling_test.go": "e0a2323e84d437aed2af8b1b07a73da0fc763b8c157af234ad8064de4fe5b57d",
+        "native/ollama/llm/testdata/omni-sampling-baseline.json": "120670b10506f144dade45f0a3d6b5f0d633e7cf097a851032d139d3a244679b"
+      },
+      "CUDA_started": false,
+      "release_qualified": false
+    },
+    "Go_runner_server_tests_passed": true,
+    "focused_concurrency_race_check_passed": true,
+    "repository_checks": {
+      "tests_passed": 6394,
+      "warnings": 2,
+      "elapsed_s": 288.34
+    },
+    "logs_SHA256": {
+      "runtime-data/native-conditioning-final-Go-tests.log": "507d35240e5a54bd217b052f4c2a7cf3ca4bcb7ab4303105f596f46e1b7cbd70",
+      "runtime-data/native-conditioning-race-tests.log": "e3b9db4650c7ba1724afd57534c5e0934994e28237eef280d0c97c0781d384cc",
+      "runtime-data/native-conditioning-source-validation-20261101.log": "73db34f8fcd32a5eaefd5abd506cedc19d9c091a50a59be04be099db397f107b"
+    },
+    "live_fixture_CPU_preparation": {
+      "CPU_only": true,
+      "CUDA_started": false,
+      "complete_preparation": true,
+      "planned_cases": 10,
+      "planned_cache_hits": 6,
+      "planned_candidate_reference_encodings": 4,
+      "baseline_reference_encodings": 10,
+      "one_primary_at_a_time": true,
+      "neural_downloads_or_saved_audio": 0,
+      "binary_SHA256": {
+        "ollama-native-sampling-candidate": "e097f9b7585af797c12f6be0295f55c6ced86ed138ba12b202c3dd1a5686b37e",
+        "ollama-native-conditioning-candidate": "ebe8492afb2814424f8c0f2536f39fbe50d63b633cfbd876ac60b7ef79d66f23"
+      },
+      "other_reference_ID": "librispeech-3853-163249-0011",
+      "other_reference_SHA256": "e39d4a825de7cec9dd894e37de9c35aebd99ba7e428923dc347d3e693d275258",
+      "other_reference_duration_s": 2.26,
+      "script_SHA256": "e83a59173179574875cc7ae05487e32ad869f47c9483119a7e61b54e581bb551",
+      "release_qualified": false
+    },
+    "actual_native_cache_or_latency_qualified": false,
+    "release_qualified": false,
+    "public_weights_uploaded": false
+  },
+  "same_Qwen3_TTS_Base_weights": true,
+  "cache_limits": {
+    "entries": 8,
+    "payload_bytes": 1048576,
+    "expiry_s": 600
+  },
+  "generation_state_cached": false,
+  "peer_lease_summary": [
+    {
+      "owner": "adjacent-conference-routing-0",
+      "gpu_uuids": [
+        "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0"
+      ],
+      "requested_mib": 12000
+    },
+    {
+      "owner": "adjacent-conference-routing-1",
+      "gpu_uuids": [
+        "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0"
+      ],
+      "requested_mib": 16000
+    },
+    {
+      "owner": "voryn/direct-cuda-inference",
+      "gpu_uuids": [
+        "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a"
+      ],
+      "requested_mib": 57344
+    }
+  ],
+  "persistent_cache_written_to_disk": false,
+  "request_local_files_created_then_removed": true
+}

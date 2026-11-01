@@ -38,6 +38,22 @@ checks and pre-scheduling handler tests pass. See the
 [sampling receipt](../../docs/upgrades/native-ollama-sampling-parity-20261101.json).
 This does not replace the pending full native or assigned-target matrix.
 
+Build `0.40.13-robit-omni.3` adds a bounded RAM cache for full reference
+conditioning. The key includes reference content, transcript, bundle/TTS/encoder
+identity, normalization version, language and conditioning algorithm. Each
+loaded configuration retains at most eight entries and 1 MiB of JSON payload,
+with ten-minute expiry. Each request still uses fresh generation state; request
+files are removed after synthesis and cached conditioning is never written as a
+persistent profile.
+
+The matched Ornith/A100 gate compared ten requests per build. All ten PCM
+outputs matched the uncached build exactly, including changed references,
+transcripts and language. Six cache hits reduced median first audio from
+2.186 s to 1.486 s (32.0%); reference encoder launches fell from ten to four.
+Both private servers and all CUDA workers exited normally. This is a bounded
+mechanism and latency result, not full voice-quality, Orin or Qwen qualification.
+See the [conditioning-cache receipt](../../docs/upgrades/native-ollama-conditioning-cache-20261101.json).
+
 ## Build and prepare
 
 Bootstrap the normal standalone checkout and build its pinned native engines.
@@ -119,6 +135,7 @@ base64 WAV envelope), `reference_text`, `language`, `temperature`, `top_k`,
 Reference bytes and derived acoustic codes live in a private temporary directory
 and are removed after the request. Full reference conditioning uses the same
 bundled native reference encoder and Base decoder; it is not reduced to a speaker
-embedding. Request cancellation terminates the native child. Reusing immutable
-conditioning in this new native path, complete profile import, CLI voice listing,
-broader error/status handling and the full release matrix still require work.
+embedding. Request cancellation terminates the native child. Immutable reference
+conditioning may be reused from the bounded per-configuration RAM cache.
+Complete profile import, CLI voice listing, broader error/status handling and
+the full release matrix still require work.

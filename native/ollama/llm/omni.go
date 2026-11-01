@@ -50,6 +50,7 @@ type OmniConfig struct {
 	SystemPrompt     string                  `json:"system_prompt"`
 	AudioSuffix      string                  `json:"audio_suffix"`
 	PromptSHA256     string                  `json:"prompt_sha256"`
+	conditioning     *omniConditioningCache
 }
 
 type omniFileIdentity struct {
@@ -156,6 +157,7 @@ func LoadOmniConfig(digest, model string, projectors []string) (*OmniConfig, err
 			return nil, fmt.Errorf("native Omni artifact verification: %w", err)
 		}
 	}
+	cfg.conditioning = newOmniConditioningCache()
 	return &cfg, nil
 }
 
@@ -438,7 +440,7 @@ func (s *llamaServerRunner) omniSpeech(ctx context.Context, req SpeechRequest, f
 	temp, topP, topK, seed, frames := sampling.Temperature, sampling.TopP, sampling.TopK, sampling.Seed, sampling.Frames
 	reference := ""
 	if o.ReferenceText != "" {
-		reference, err = omniReferencePrompt(ctx, cfg, speaker, o.ReferenceText, dir)
+		reference, err = omniCachedReferencePrompt(ctx, cfg, speaker, o.ReferenceText, language, dir)
 		if err != nil {
 			return err
 		}

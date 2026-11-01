@@ -47,6 +47,21 @@ The private server and CUDA workers exited and the lease released normally.
 See `docs/upgrades/native-ollama-sampling-parity-20261101.json`. This closes only
 the numeric-control criterion, not whole native/voice/model acceptance.
 
+Native build 0.40.13-robit-omni.3 now caches immutable full-reference conditioning
+in bounded RAM, with reference/transcript/checkpoint/runtime/normalization/
+language/algorithm keys. Limit eight entries and 1 MiB of payload per loaded
+configuration, ten-minute expiry; no generation state or persistent profile.
+Actual Ornith/A100 control/candidate gate completed ten requests per build:
+all ten PCM outputs match exactly, including changed reference, transcript and
+language. Six repeat-reference hits reduce median first PCM from 2.186 s to
+1.486 s (32.0%), and native reference encoder launches fall from ten to four.
+Primary PID stays fixed within each phase; each request uses a fresh synthesis
+worker. All request files and CUDA workers are gone; leases released normally.
+Go runner/server, focused race and 6,394 repository checks pass. This is a
+bounded native mechanism/latency result; full voice quality, Qwen and Orin native
+cache qualification remain pending. See
+`docs/upgrades/native-ollama-conditioning-cache-20261101.json`.
+
 
 ## Active convergence goal and GPU assignment — 2026-11-01
 
@@ -60,19 +75,19 @@ frozen weights and actual worker exits are verified. No trained 64-tensor native
 export or runtime activation was attempted. The synthetic export remains excluded.
 See `docs/upgrades/attention-source-review-20261101.json`.
 
-The next bounded hypothesis is JOINT adaptation of the existing final audio
-projection and 48 FFN tensors. Starting from original 15,696, use the same next
-2,000 saved-order TRAIN draws as the preserved FFN-only and projection-only
-controls (natural errors 40/50). Train only joint arm C for 500 updates, with
-the exact source FFN optimizer independently copied and fresh projection
-moments. No control retraining, new inference architecture, attention addition,
-audio/feature cache or full projector GGUF export. CPU preparation and eight
-zero-update CUDA checks pass; initial logits/loss match bit for bit, both
-components receive finite nonzero gradients, peak 21,144 MiB. Training PID 317685
-uses GPU0, 23,552 MiB Torch cap/24,576 MiB lease; observer queues unchanged
-source 116 only after actual worker exit and normal release. Do not edit or
-restart the healthy trainer. See
-`docs/upgrades/joint-projection-ffn-preflight-20261101.json`.
+JOINT adaptation of the existing final projection and 48 FFN tensors also
+completed and is REJECTED. From original 15,696, the same next 2,000 saved-order
+TRAIN draws and 500 updates produced 100 natural errors/594 versus saved
+FFN-only control 40 and legacy 9. Dog becomes silence, bells piano, printer a
+race car, and mixed/ordered speech invents unrelated transcripts. The steady
+chord improves, which does not offset mandatory regressions. Source 116 and
+checkpoint/optimizer audits are complete; F32 masters export exactly to the
+effective BF16 projector. Primary/encoder/TTS and disabled text logits remain
+unchanged. Actual training/source workers exited and leases released normally.
+No full projector GGUF export, control retraining, new inference architecture,
+attention addition or raw/feature cache. Do not continue this failed joint
+configuration. See `docs/upgrades/joint-projection-ffn-source-review-20261101.json`
+and `docs/upgrades/joint-projection-ffn-preflight-20261101.json`.
 
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.

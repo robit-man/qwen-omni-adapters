@@ -1,0 +1,76 @@
+{
+  "schema": "robit.omni.joint-projection-FFN-source-review.v1",
+  "UTC": "2026-11-01T21:28:37.226364+00:00",
+  "source_rows": 116,
+  "source_output_SHA256": "f1a8c3b0caad45db8d4c01885aeee8a137de9578e80c048c476aa651af50d1b5",
+  "source_script_SHA256": "02c1106137d36d2748f8e1d2c3ef70595629e9b9fa994138373fdc3e132f104d",
+  "source_elapsed_s": 125.46964966703672,
+  "checkpoint_CPU_integrity": {
+    "schema": "robit.omni.joint-final-checkpoint-CPU-audit.v1",
+    "CPU_only": true,
+    "CUDA_started": false,
+    "joint_updates": 500,
+    "FFN_all48_AdamW_step": 16196,
+    "projection_all2_AdamW_step": 500,
+    "source_parent_all48_steps_unchanged": 15696,
+    "same_order_RNG_and_seen_IDs_as_saved_control": true,
+    "seen_IDs": 26432,
+    "all48_F32_FFN_weights_shapes_finite_and_hash_exact": true,
+    "all_optimizer_moments_finite": true,
+    "projection_F32_master_and_BF16_export_all_values_exact": true,
+    "effective_4096x1280_projection_forward_exact": true,
+    "projection_and_FFN_both_changed": true,
+    "primary_encoder_TTS_frozen": true,
+    "disabled_text_logits_exact": true,
+    "new_training_optimizer_updates": 0,
+    "source_quality_not_established": true,
+    "release_qualified": false,
+    "adapter_SHA256": "e66d02fb857ddcf3c86edd1e530e3f1cb22c1bf35285e99cb4576d7e287e2f14",
+    "effective_bridge_SHA256": "f48a21ac9b7d55edb36911514fa2357d3a17762a1e5300cd5566e307d6ebe1f0",
+    "recovery_SHA256": "f9d540d65b7abe103370c2c62220d84fe80c792386bb036c3645d0c4ce02bf46"
+  },
+  "natural_speech": {
+    "A": {
+      "words": 594,
+      "errors": 40,
+      "legacy_errors": 9
+    },
+    "C": {
+      "words": 594,
+      "errors": 100,
+      "legacy_errors": 9
+    }
+  },
+  "same_primary_encoder_TTS_and_source_inputs": true,
+  "same_original_A_FFN_control_reproduces40_errors": true,
+  "semantic_review": {
+    "method": "Manual raw-output review against unchanged fixture construction and prior legacy outputs; no lexical grader substituted.",
+    "local_improvement": "Steady chord is described as simultaneous sustained tones; silence remains empty and intermittent alarm pauses remain correct.",
+    "mandatory_failures": {
+      "synthetic_blue_speech": "BEYOND THE GATE replaces beside the garden gate.",
+      "broadband_noise": "Low rumbling filtered noise.",
+      "clock_alarm": "Computer keyboard plus alarm.",
+      "dog": "Silence.",
+      "church_bells": "Piano.",
+      "group_voices": "Bus plus Crowd, adds a vehicle.",
+      "clapping": "Hammer.",
+      "printer": "Accelerating/race car.",
+      "gunfire": "Bus/Alarm.",
+      "siren": "Engine/Car, siren lost.",
+      "bells_then_dog": "Fabricated Chinese transcript and frog calls.",
+      "printer_then_voice": "Boat.",
+      "voice_then_printer": "Microwave oven/fan.",
+      "silence_then_speech": "Invented new-project transcript.",
+      "speech_with_alarm": "Invented bicycle-history transcript.",
+      "ordered_DSP_pairs": "Simultaneous mixtures replace sequential sources.",
+      "voices_with_siren": "Train.",
+      "bells_with_dog": "Electric guitar."
+    }
+  },
+  "decision": "Reject jointC500:100/594 speech errors vsA40 andlegacy9; broad single/mixed-source regressions despite exact checkpoint/export integrity. Do not continue this failed joint configuration or export a full projector GGUF.",
+  "new_raw_audio_or_feature_cache_bytes": 0,
+  "full_projector_GGUF_exported": false,
+  "quality_gate_passed": false,
+  "release_qualified": false,
+  "publication": false
+}
