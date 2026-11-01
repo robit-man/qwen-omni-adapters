@@ -50,6 +50,30 @@ the numeric-control criterion, not whole native/voice/model acceptance.
 
 ## Active convergence goal and GPU assignment — 2026-11-01
 
+The completed attention comparison is REJECTED: both valid arms produce
+39 natural-speech errors/594 versus legacy 9. All 13 environmental and 16
+temporal responses are identical; 54/58 total responses match. Four natural
+speech wordings change without reducing errors. All 48 FFNs differ and all
+16 attention tensors have nonzero learned changes, so this is not an unchanged
+checkpoint. Correct optimizer steps, source order/RNG, disabled text logits,
+frozen weights and actual worker exits are verified. No trained 64-tensor native
+export or runtime activation was attempted. The synthetic export remains excluded.
+See `docs/upgrades/attention-source-review-20261101.json`.
+
+The next bounded hypothesis is JOINT adaptation of the existing final audio
+projection and 48 FFN tensors. Starting from original 15,696, use the same next
+2,000 saved-order TRAIN draws as the preserved FFN-only and projection-only
+controls (natural errors 40/50). Train only joint arm C for 500 updates, with
+the exact source FFN optimizer independently copied and fresh projection
+moments. No control retraining, new inference architecture, attention addition,
+audio/feature cache or full projector GGUF export. CPU preparation and eight
+zero-update CUDA checks pass; initial logits/loss match bit for bit, both
+components receive finite nonzero gradients, peak 21,144 MiB. Training PID 317685
+uses GPU0, 23,552 MiB Torch cap/24,576 MiB lease; observer queues unchanged
+source 116 only after actual worker exit and normal release. Do not edit or
+restart the healthy trainer. See
+`docs/upgrades/joint-projection-ffn-preflight-20261101.json`.
+
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.
 Use physical GPU0 (`GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0`) and GPU2

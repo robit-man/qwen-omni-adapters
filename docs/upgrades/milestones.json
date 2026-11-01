@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Attention comparison: valid A500 complete; original B4 excluded for AdamW CPU-step alias. Corrected B-only500 now running with independent source optimizer after CPU+CUDA gates; preserved A versus corrected B source116 queued.",
+      "status": "Attention trial complete/rejected: A39/B39 natural errors/594 versus legacy9; all13environmental and16temporal responses identical. Joint existing projection+FFN trial running500updates against saved same-source same2000data controls after CPU+8CUDA checks.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -345,7 +345,9 @@
         "paired-projection-review-20261101.json",
         "attention-adaptation-preflight-20261101.json",
         "attention-optimizer-recovery-20261101.json",
-        "attention-export-feasibility-20261101.json"
+        "attention-export-feasibility-20261101.json",
+        "attention-source-review-20261101.json",
+        "joint-projection-ffn-preflight-20261101.json"
       ]
     },
     {
@@ -417,7 +419,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Valid attention control A500 complete; B optimizer alias corrected and B-only500 running. No model quality or native64-layout acceptance yet.",
+    "status": "Matched attention study rejected. Joint existing projection+FFN trial running after CPU+CUDA preflight; no learned candidate promoted.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -430,7 +432,9 @@
       "ornith15696-scene-review-20261101.json",
       "qwen8900-control-recovery-20261101.json",
       "attention-adaptation-preflight-20261101.json",
-      "attention-optimizer-recovery-20261101.json"
+      "attention-optimizer-recovery-20261101.json",
+      "attention-source-review-20261101.json",
+      "joint-projection-ffn-preflight-20261101.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
@@ -485,12 +489,12 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Corrected B-only attention training PID3784621, one frozen trunk, same2000records/500updates; A500 preserved. Torch23552/lease24576MiB. Observer3784091 queues source116 after actual exit/release.",
+      "GPU0": "Joint existing FFN/projector training PID317685, fixed500updates; primary/encoder/TTS frozen;23552MiB Torch cap,24576lease. Observer323175 gates source116 on actual exit/release.",
       "GPU2": "No current own work; other owner reservation currently prevents a24GiB full-trunk lease. GPU0 admitted instead.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Both paired source comparisons rejected: Ornith A40/B50 and Qwen A39/B31 natural errors/594 vslegacy9. Patched-native Ollama Ornith actual2ASR+5speech passed with exactPCMcontrols; full native/release gates remain open. Qwen same native2ASR+5speech gate now passes; all5PCMexact, stable primary, exit/release verified.",
-    "current_hypothesis": "Compare exact16196FFN continuation with sameFFN plus491520zero-residual-initialized q/k/v/o adapter parameters on existing attention layers27/31; same order/loss/LR/500updates; primary/encoder/projector/TTS frozen.",
+    "latest_completed_trials": "Both previous projection studies rejected; attentionA39/B39 also rejected. Patched-native mechanism bothfamilies and actual Ornith numeric sampling gate pass. No model is release-qualified.",
+    "current_hypothesis": "Joint existing projection and FFN co-adaptation against saved same-source/same2000data FFN-only and projection-only controls; no new runtime graph.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
@@ -508,7 +512,9 @@
       "qwen8900-control-recovery-20261101.json",
       "paired-projection-review-20261101.json",
       "attention-adaptation-preflight-20261101.json",
-      "attention-optimizer-recovery-20261101.json"
+      "attention-optimizer-recovery-20261101.json",
+      "attention-source-review-20261101.json",
+      "joint-projection-ffn-preflight-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
@@ -536,11 +542,16 @@
         "publication": false
       },
       "paired_attention_source": {
-        "status": "Recovered B evaluator/observer prepared; original A500 preserved; original B4 invalid and excluded",
+        "status": "All116source complete, checkpoint optimizer audit pass; quality rejected. All13environmental and16temporal outputs identical, naturalA39/B39 vslegacy9.",
         "rows_per_arm": 58,
         "total_rows": 116,
         "native_new_layout_verified": false,
-        "evidence": "attention-optimizer-recovery-20261101.json"
+        "evidence": "attention-source-review-20261101.json"
+      },
+      "joint_projection_FFN_source": {
+        "status": "Fixed116source queued after current500update training, real process exit and normal lease release",
+        "evidence": "joint-projection-ffn-preflight-20261101.json",
+        "native_qualified": false
       }
     },
     "GPU0_serial_reference": "Qwen source116 complete/rejected; original failed evaluator attempt retained, inference-tensor version-counter bug repaired and actual finite rerun completed.",
