@@ -224,6 +224,14 @@ Qwen3-TTS and the reasoning trunk are incompatible architectures. Do not claim
 hidden-state fusion, splice their transformer layers, or present a composite
 sidecar as a stock Ollama `FROM` target.
 
+The query-independent primary-vision control inventory plus same-trunk semantic
+ID selection passes the original 12 synthetic cases, but only 61/86 broader cases
+pass. Correct selection is 83/86; coordinate precision and ambiguous intent still
+fail. One bounded crop-refinement trial terminates with invalid structured
+output after 44 cases. The original pointing helper remains unchanged. Preserve
+`docs/upgrades/primary-pointing-inventory-review-20261101.json`; do not repeat
+geometry/prompt variants or call the 12-case result computer-use qualification.
+
 ## Every meaningful change must meaningfully upgrade the system
 
 Before a patch, name one failing acceptance criterion, its evidence and one
