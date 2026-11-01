@@ -106,7 +106,13 @@ GPU2:2,534additional updates, checkpoint14,162/15,162/15,696. Exact48 tensors,
 AdamW13,162, RNG, existing order and cursor4,000 are restored; no replay-pool
 reset. Data, architecture, loss4, LR, frozen primary/encoder/bridge/TTS and
 inference prompt are unchanged. This reaches the first3,534-update acoustic
-replay cycle at cursor14,136, not a full human-speech/corpus pass. Zero-update
+replay cycle at cursor14,136, not a full human-speech/corpus pass. Independent CPU
+order accounting matches live14,900 counts exactly and forecasts25,644cumulative
+unique IDs at15,696: all1,792acoustic virtual scenes, but only18/256speech/background
+scenes (238remain unseen). These256records explicitly belong to the31,654-row
+speech pool; this is not a loader defect. Do not call the acoustic-cycle boundary
+a complete2,048-scene pass. The final forecast is not actual completed training
+or semantic qualification; verify it against the final saved recovery and report. Zero-update
 four-backward memory preflight again passes21,066MiB under21GiB Torch/22GiB
 lease. Forecast0.25GiB of small learned/recovery checkpoints and reports; no
 new audio, feature cache or full-projector exports. Its observer assesses the

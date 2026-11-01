@@ -490,7 +490,17 @@
       "actual_TRAIN_waveforms_rehashed": 59800,
       "new_audio_bytes": 4720948,
       "evidence": "temporal-overlap-validation-20261101.json",
-      "paired_projection_source": "Fixed58clips per arm prepared against exact native8400 raw hashes; observer waits actual train worker exit and normal release."
+      "paired_projection_source": "Fixed58clips per arm prepared against exact native8400 raw hashes; observer waits actual train worker exit and normal release.",
+      "Ornith15696_exposure_forecast": {
+        "status": "CPU existing-order proof; live14900counts exact; final forecast only",
+        "cumulative_unique_IDs": 25644,
+        "acoustic_virtual_scenes": 1792,
+        "speech_background_scenes": 18,
+        "unseen_speech_background_scenes": 238,
+        "full_scene_or_speech_pass": false,
+        "schedule_changed": false,
+        "evidence": "ornith13162-scene-review-20261101.json"
+      }
     },
     "GPU0_serial_reference": "Qwen8400 native13/temporal16/full160 workers exited; new projection comparison starts only after safe zero-update preflight.",
     "attribution_audit": {

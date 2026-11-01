@@ -820,5 +820,76 @@
     "ram_required_bytes": 36507222016,
     "owned_allocated_bytes": 117210763264,
     "owned_limit_bytes": 128849018880
+  },
+  "saved_order_coverage_forecast_15696": {
+    "schema": "robit.omni.ornith-scene-cycle-coverage-forecast.v1",
+    "complete_accounting": true,
+    "CPU_only": true,
+    "source_recovery_sha256": "919e9b936eb78b692d0968dcc87f67e4900d2065bb6740cb1a7fe3b1965f64d9",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "unchanged_saved_order": true,
+    "current_log_counts_reproduced_exact": {
+      "step": 14900,
+      "position": 10952,
+      "unique_training_records": 23903,
+      "additional_unique_training_records": 6531,
+      "unique_virtual_scenes_seen": 1402,
+      "scene_families": {
+        "scene-v1-signal-overlap": 196,
+        "scene-v1-signal-sequence": 402,
+        "scene-v1-voice-overlap": 207,
+        "scene-v1-event-sequence": 392,
+        "scene-v1-event-overlap": 190,
+        "scene-v1-speech-background": 15
+      },
+      "seen_acoustic_replay_scenes": 1387,
+      "seen_speech_background_scenes": 15,
+      "unseen_scene_families": {
+        "scene-v1-signal-overlap": 60,
+        "scene-v1-speech-background": 241,
+        "scene-v1-voice-overlap": 49,
+        "scene-v1-signal-sequence": 110,
+        "scene-v1-event-sequence": 120,
+        "scene-v1-event-overlap": 66
+      },
+      "seen_IDs_sha256": "28126408717894d50478c23338b84bbce070bdee7df47d5fb0e4b476501bbc7c"
+    },
+    "live_progress_log_sha256_at_observation": "8cd9c8147cb4deb424108eb3ac77291989f70d01a13d91808de2b356221c25b3",
+    "predicted_final_15696": {
+      "step": 15696,
+      "position": 14136,
+      "unique_training_records": 25644,
+      "additional_unique_training_records": 9271,
+      "unique_virtual_scenes_seen": 1810,
+      "scene_families": {
+        "scene-v1-signal-overlap": 256,
+        "scene-v1-signal-sequence": 512,
+        "scene-v1-voice-overlap": 256,
+        "scene-v1-event-sequence": 512,
+        "scene-v1-event-overlap": 256,
+        "scene-v1-speech-background": 18
+      },
+      "seen_acoustic_replay_scenes": 1792,
+      "seen_speech_background_scenes": 18,
+      "unseen_scene_families": {
+        "scene-v1-speech-background": 238
+      },
+      "seen_IDs_sha256": "32b3062cbd9e160ddbe54cb3bc9e295c0660d11c5daad0edb2fe6c7160b373f7"
+    },
+    "prediction_is_not_completed_training": true,
+    "strata": {
+      "speech": 31654,
+      "acoustic_replay": 3534,
+      "event": 29174
+    },
+    "speech_background_records_are_in_speech_pool": true,
+    "control_cycle_complete_does_not_mean_all_scenes_or_speech_seen": true,
+    "new_audio_feature_cache_or_weights_bytes": 0,
+    "optimizer_steps": 0,
+    "CUDA_started": false,
+    "release_qualified": false,
+    "source_sha256": "77bf212f666ff58e8d3a9481ca3adcd200682bca16fa0311b48d83d7ab9d95c7",
+    "private_evidence_sha256": "5a944a6a46ea1c176eb121829c641963383131776e9637d464a404f8c1686416",
+    "scope": "CPU reconstruction of existing immutable order. Live counts at14900 reproduce exactly. Predicted final exposure is not completed training or quality qualification. No train schedule, labels, weights, optimizer, or healthy process changed."
   }
 }
