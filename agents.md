@@ -62,6 +62,21 @@ bounded native mechanism/latency result; full voice quality, Qwen and Orin nativ
 cache qualification remain pending. See
 `docs/upgrades/native-ollama-conditioning-cache-20261101.json`.
 
+Native build 0.40.13-robit-omni.4 adds explicit top-level `stream:false` for
+complete PCM/WAV, with exact WAV/HTTP lengths and a 16 MiB PCM payload bound.
+Default/true streaming remains unchanged. The old Qwen native endpoint was
+verified to ignore false and declare 2,147,483,647 frames for 19,200 real frames.
+The patched Qwen/A100 gate now passes four modes, both default voices, all ten
+language codes with byte-exact existing C++ controls, streamed/complete cancel
+and recovery, and two concurrent isolated complete requests. Canceled native
+TTS workers exit in approximately 0.20 s; the same primary remains resident.
+Actual workers/temp files are gone and the qualification lease released normally.
+The independent Ornith training worker/lease was preserved under concurrent
+broker admission. Go runner/server, focused race and all 6,394 source tests pass.
+No model parity, multilingual intelligibility, speaker-similarity or Orin claim.
+See `docs/upgrades/native-ollama-complete-speech-20261101.json` and the native
+extension contract in `docs/protocol.md`.
+
 
 ## Active convergence goal and GPU assignment — 2026-11-01
 

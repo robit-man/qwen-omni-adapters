@@ -528,6 +528,22 @@ generation and sends that text directly to the TTS graph. The same text is
 returned in `message.content` and as the optional `transcript` associated with
 `message.audio`.
 
+## Optional native Ollama audio
+
+The pinned patched Ollama build additionally exposes native
+`/v1/audio/transcriptions` and `/v1/audio/speech`; see
+[`native/ollama/README.md`](../native/ollama/README.md). These are separate native
+routes, and their extensions do not change adapter-v1's request or NDJSON schema.
+
+For native speech, omitted `stream` or `stream:true` retains streamed PCM/WAV.
+The native-only top-level `stream:false` returns complete output: a 24 kHz mono
+PCM16 WAV has exact RIFF/data lengths, and both complete PCM and WAV include
+their exact HTTP content length. A complete request buffers at most 16 MiB of
+PCM payload. Generation failure returns an error rather than a partial file;
+disconnect cancellation stops the request's generator while retaining the
+primary model. Voice, language, sampling and full reference-audio/transcript
+conditioning have the same meaning in both response modes.
+
 ## Response
 
 The adapter preserves the normal Ollama response object. It adds an `audio`

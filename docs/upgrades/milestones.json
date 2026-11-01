@@ -386,13 +386,14 @@
     {
       "id": "E6",
       "objective": "Native Ollama ASR/TTS with exact bundled weights and full arbitrary-reference cloning, preserving adapter parity",
-      "status": "Both native A100 mechanism gates and numeric controls pass. Full-reference RAM cache passes20call Ornith/A100 comparison, all10PCM exact,6cache hits, median firstPCM32.0%lower. Orin/Qwen cache and full native matrix pending.",
+      "status": "Native graph/numeric/cache gates pass. Qwen/A100 native4 complete and streamed modes pass, all10languages PCMexact to C++, both voices, cancel/recovery~0.20s and concurrent isolation. Orin/full perceptual/profile/final model native matrix pending.",
       "evidence": [
         "native-ollama-audio-20261101.json",
         "native-ollama-ornith-mechanism-20261101.json",
         "native-ollama-qwen-mechanism-20261101.json",
         "native-ollama-sampling-parity-20261101.json",
-        "native-ollama-conditioning-cache-20261101.json"
+        "native-ollama-conditioning-cache-20261101.json",
+        "native-ollama-complete-speech-20261101.json"
       ]
     },
     {
@@ -621,6 +622,7 @@
     "stock_unmodified_compatibility_verified": false,
     "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json",
     "numeric_controls_evidence": "native-ollama-sampling-parity-20261101.json",
-    "conditioning_cache_evidence": "native-ollama-conditioning-cache-20261101.json"
+    "conditioning_cache_evidence": "native-ollama-conditioning-cache-20261101.json",
+    "complete_speech_evidence": "native-ollama-complete-speech-20261101.json"
   }
 }

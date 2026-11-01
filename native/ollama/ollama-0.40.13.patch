@@ -79,7 +79,7 @@
 +		Omni:                 m.Omni,
 --- a/server/speech.go
 +++ b/server/speech.go
-@@ -30,7 +30,8 @@
+@@ -30,7 +30,9 @@
 -		Model          string   `json:"model"`
 -		Input          string   `json:"input"`
 -		Voice          string   `json:"voice"`
@@ -95,18 +95,19 @@
 +		Speed          *float64               `json:"speed"`
 +		Instructions   string                 `json:"instructions"`
 +		StreamFormat   string                 `json:"stream_format"`
-@@ -38 +39 @@
++		Stream         *bool                  `json:"stream,omitempty"`
+@@ -38 +40 @@
 -	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 +	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<20)
-@@ -67,0 +69,5 @@
+@@ -67,0 +70,5 @@
 +	if err := llm.ValidateOmniSpeechOptions(req.Omni); err != nil {
 +		openAIError(c, http.StatusBadRequest, err.Error())
 +		return
 +	}
 +
-@@ -81 +87 @@
+@@ -81 +88 @@
 -	streamSpeech(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter}, format)
-+	streamSpeech(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter, Omni: req.Omni}, format)
++	omniSpeechResponse(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter, Omni: req.Omni}, format, req.Stream)
 --- a/server/transcription.go
 +++ b/server/transcription.go
 @@ -92,0 +93,4 @@

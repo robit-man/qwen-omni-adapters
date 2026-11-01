@@ -24,9 +24,10 @@ released normally. No audio files or public weights were created.
 
 See the exact [Ornith receipt](../../docs/upgrades/native-ollama-ornith-mechanism-20261101.json)
 and [Qwen receipt](../../docs/upgrades/native-ollama-qwen-mechanism-20261101.json).
-This gate does not prove Orin compatibility, complete WAV handling,
-cancellation, language coverage, perception quality, speaker similarity, all
-sampling/profile controls, or performance improvements. Those remain release work.
+These initial gates cover native graph execution. The bounded format,
+cancellation, language-control and performance results below add coverage.
+Full Orin, perceptual quality, saved-profile and final bundle acceptance remain
+release work.
 
 Build `0.40.13-robit-omni.2` also passes the bounded native sampling gate on
 Ornith/A100. Default controls, explicit zero filters and the maximum supported
@@ -53,6 +54,24 @@ transcripts and language. Six cache hits reduced median first audio from
 Both private servers and all CUDA workers exited normally. This is a bounded
 mechanism and latency result, not full voice-quality, Orin or Qwen qualification.
 See the [conditioning-cache receipt](../../docs/upgrades/native-ollama-conditioning-cache-20261101.json).
+
+Build `0.40.13-robit-omni.4` adds native-only **`stream:false`** to
+`/v1/audio/speech`. It returns complete PCM or a seekable WAV with exact RIFF,
+data and HTTP content lengths. Omitted `stream` and `stream:true` keep immediate
+streaming, including the unknown-length streaming WAV header. Complete output
+buffers at most 16 MiB of PCM payload, rejects partial/empty/invalid output and
+propagates cancellation to the generator.
+
+The Qwen/A100 gate verified four response modes, both default voices, all ten
+supported language codes against exact existing C++ PCM controls, streamed and
+complete interruption, and two concurrent complete requests. Both canceled TTS
+workers exited in approximately 0.20 s; recovery PCM remained exact. One primary
+PID stayed resident and at most one native TTS worker ran during the concurrent
+calls. Temporary files and native workers were removed, and the scoped lease
+released normally while the independent Ornith training run continued.
+This proves format/control preservation, not multilingual intelligibility,
+speaker similarity or model audio parity. See the
+[complete-speech receipt](../../docs/upgrades/native-ollama-complete-speech-20261101.json).
 
 ## Build and prepare
 
@@ -109,6 +128,8 @@ Ordinary text/vision/reasoning/tool requests explicitly use adapter scale0.
 
 Speech accepts the standard native `model`, `input`, `voice` and
 `response_format` (`pcm` or `wav`). The default references are `female` and `male`.
+The native-only top-level `stream:false` selects complete output; omission or
+`stream:true` selects streaming.
 The optional **native-only** `omni` object carries `speaker_audio` (the existing
 base64 WAV envelope), `reference_text`, `language`, `temperature`, `top_k`,
 `top_p`, `seed` and `max_frames`. This does not alter adapter-v1's schema.
@@ -118,7 +139,8 @@ base64 WAV envelope), `reference_text`, `language`, `temperature`, `top_k`,
   "model": "<installed-indexed-tag>",
   "input": "Hello there.",
   "voice": "female",
-  "response_format": "pcm",
+  "response_format": "wav",
+  "stream": false,
   "omni": {
     "speaker_audio": {
       "mime_type": "audio/wav",

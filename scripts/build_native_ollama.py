@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COMMIT = '04088e7c9d41cba5d33bafbf788d87a465c79d5b'
 ARCHIVE_SHA256 = '17c24d7268a286722d8e02d0f1d940a94922ecb73c20fb4377d2ebd7b1f9640c'
 TOOLCHAIN = 'go1.26.10'
-VERSION = '0.40.13-robit-omni.3'
+VERSION = '0.40.13-robit-omni.4'
 
 def sha(path: Path) -> str:
     with path.open('rb') as stream:
