@@ -1,0 +1,126 @@
+{
+  "schema": "robit.omni.qwen-NF4-matched-trial-preparation.v1",
+  "UTC": "2026-11-01T23:18:57.729822+00:00",
+  "state": "training_running",
+  "policy": {
+    "schema": "robit.omni.qwen-NF4-comparison-policy.v1",
+    "failure": "Qwen8400/8900 still fail environmental/temporal parity; saved BF16control8900 natural speech39/594 versus legacy9. Prior BF16training lease cannot fit current allowed GPU promises.",
+    "hypothesis": "The verified NF4 frozen-trunk representation allows continuing the existing conditional audio adapter under current scoped memory. Compare one fixed500update run from8400 with preserved BF16trained8900 on the exact same2000draws; no control retraining.",
+    "only_training_change": "Frozen primary numeric representation NF4/doublequant/BF16 compute; exact48 F32 LoRA/AdamW restored, architecture/projection/data/order/LR/loss unchanged.",
+    "source_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-scene-captions-pass-1/checkpoint-008400",
+    "source_adapter_SHA256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+    "source_recovery_SHA256": "582977d5383c6fd05603636d54a2f3dcc2d316861fd1b1e87d993f16d3de96e3",
+    "control_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-projection-comparison-1/arm-A-checkpoint-000500",
+    "control_adapter_SHA256": "146d56965f864c97fc8e7481b2919b19ee4c63e4a60bea53155b7acf48f93f18",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "future_order_SHA256": "d9423c486ba8acb96a87145aeb0dc41521f0403e135b15fbf559a1a3bc62edb0",
+    "new_updates": 500,
+    "accumulation": 4,
+    "source_step": 8400,
+    "final_step": 8900,
+    "source_cursor": 4000,
+    "final_cursor": 6000,
+    "checkpoints_for_recovery": [
+      125,
+      250,
+      500
+    ],
+    "LR": 0.0001,
+    "weight_decay": 0.01,
+    "event_loss_factor": 4.0,
+    "clip_grad_norm": 1.0,
+    "expected_final_seen_unique_IDs": 19665,
+    "Torch_cap_MiB": 24576,
+    "lease_MiB": 25600,
+    "expected_write_GiB": 0.35,
+    "RAM_reserve_GiB": 32,
+    "disk_reserve_GiB": 50,
+    "no_CPU_offload": true,
+    "one_primary_language_trunk": true,
+    "no_new_neural_downloads": true,
+    "no_raw_audio_feature_or_GGUF_exports": true,
+    "production_checkpoint_quantization_unchanged": true,
+    "source_validation": "Fixed3states x58 same raw held-out audio/prompt/greedy generation in one shared NF4 inference trunk; no label/title/groundtruth in generation. Does not substitute for native/assigned-target/full release gates.",
+    "source_script_SHA256": "012e655c55436d481e4aa344ad0a751d43d7210b68a347fe65b350befb2f8016",
+    "resource_preflight_SHA256": "8d9be8bd74c0a523fc5319401dccfffcbabc0825574345a6f15c7ddd0e3c163d",
+    "release_qualified": false,
+    "publication": false
+  },
+  "actual_warm_start": {
+    "worker_PID": 3171584,
+    "GPU0_residency_verified": true,
+    "all_parameters_CUDA_no_offload": true,
+    "all48_weights_and_AdamW_moments_exact": true
+  },
+  "latest_actual_progress": {
+    "updates": 25,
+    "loss": 0.3078165967017412,
+    "gradient_norm": 2.682370662689209,
+    "elapsed_s": 310.72414143697824,
+    "peak_reserved_MiB": 24318.0
+  },
+  "resource_guard": {
+    "storage_admitted": true,
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release",
+    "free_bytes": 94477185024,
+    "reserve_bytes": 53687091200,
+    "expected_write_bytes": 644245094,
+    "ram_available_bytes": 341520470016,
+    "ram_required_bytes": 88046829568,
+    "owned_allocated_bytes": 120837455872,
+    "owned_limit_bytes": 128849018880
+  },
+  "source_evaluator_preparation": {
+    "complete_preparation": true,
+    "rows_per_arm": 58,
+    "total_rows": 174,
+    "states": [
+      "S8400",
+      "BF16_A500",
+      "NF4_N500"
+    ],
+    "same_native_input_hashes": true,
+    "same_frozen_projector": true,
+    "same_prompt_and_decode": true,
+    "baseline_WER_scorer_reproduced39": true,
+    "CUDA_started": false,
+    "training_completion_not_claimed": true
+  },
+  "observer": {
+    "PID": 3221614,
+    "actual_process_alive": true,
+    "state": {
+      "state": "waiting_for_fixed_training_and_actual_worker_exit",
+      "publication": false,
+      "release_qualified": false,
+      "observed_worker_identity": {
+        "PID": 3171584,
+        "start_ticks": "68388000"
+      }
+    },
+    "will_wait_for_actual_training_exit_normal_release_and_CPU_audit": true,
+    "automatic_export_or_publication": false
+  },
+  "proof_SHA256": {
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/train_qwen_nf4_comparison.py": "012e655c55436d481e4aa344ad0a751d43d7210b68a347fe65b350befb2f8016",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/evaluate_qwen_nf4_comparison_source.py": "6bc580e293be29e2403f82a055d8559a9df711db15658f367890e5c2d4eeefaf",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/observe_qwen_nf4_comparison.py": "e202110733d7de38b64c850f97efc5b3ee8fa4ebd5dde036ac43fcf71733fe4e",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen-nf4-comparison-preparation.json": "d967fff5895422383e81aa846d0d74ae1a0fc8e7321890f22024736410101061",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen-nf4-source-preparation.json": "386c2c172bcbd07a149ba70f644b0761e4d890f0762ded6fde20052d9fb4b509",
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-nf4-comparison-observer-1/pinned-source.json": "b718f4ac00ac4f2037dd9dabd5a189a45cf5289f64fa75627f45b0263a3a72a9"
+  },
+  "peer_workload_changes": false,
+  "Ornith_training_preserved": true,
+  "new_neural_downloads": 0,
+  "new_raw_audio_or_feature_caches": false,
+  "new_optimizer_updates_permitted": 500,
+  "quality_gate_passed": false,
+  "release_qualified": false,
+  "public_weight_uploads": 0,
+  "limitations": [
+    "Training ongoing; a finite loss or successful update is not semantic acceptance.",
+    "Frozen NF4 training representation changes logits relative to BF16; deployed checkpoint/quantization unchanged.",
+    "Fixed source174 uses the same NF4 inference trunk for original8400, saved BF16trained8900 and new NF4trained8900; native and assigned-target parity remain required.",
+    "Keep only125/250/500 recovery checkpoints unless cooperative recovery is actually needed."
+  ]
+}

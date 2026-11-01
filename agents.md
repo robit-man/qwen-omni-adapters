@@ -104,6 +104,18 @@ memory or quality gain. Deployed Q4_K_M weights are unchanged. Source/native/ful
 release gates remain mandatory. The initial wrapper-order failure is retained.
 See `docs/upgrades/qwen-nf4-resource-preflight-20261101.json`.
 
+The bounded Qwen NF4 trial is now running: restore exact8400 conditional48
+and AdamW, then500 updates on the same next2000 original draws as preserved
+BF16control8900. Architecture, rich750 projection, data/order, LR and loss stay
+fixed. The first25 actual updates pass within24GiB Torch/25GiB scoped lease;
+GPU0 only, all parameters on CUDA, other owners and Ornith training preserved.
+Keep125/250/500 checkpoints for recovery. Its observer waits for actual exit,
+normal release and a CPU recovery audit before fixed174 source cases: original
+8400, BF16trained8900 and NF4trained8900 through one shared NF4 inference trunk.
+Do not edit/restart healthy workers or export a failing candidate. No quality,
+native compatibility, runtime-memory or publication claim follows from updates.
+See `docs/upgrades/qwen-nf4-comparison-preparation-20261101.json`.
+
 The completed attention comparison is REJECTED: both valid arms produce
 39 natural-speech errors/594 versus legacy 9. All 13 environmental and 16
 temporal responses are identical; 54/58 total responses match. Four natural
