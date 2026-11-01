@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith fixed4000/5000/6400 all rejected; completed6400 fits eight seen TRAIN families in source/native but validation still fails. Separate Ornith data-only and Qwen sampling-only finite trials running. Conditional adapter mechanism and registry transport verified for both families; no semantic release pass.",
+      "status": "Ornith fixed4000/5000/6400 all rejected; completed6400 fits eight seen TRAIN families in source/native but validation still fails. Separate Ornith data-only and Qwen sampling-only finite trials running. Conditional adapter mechanism and registry transport verified for both families; no semantic release pass. First data-only7400 recovers Siren but remains rejected; predeclared8400/10662 retained.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -331,7 +331,8 @@
         "paired-training-fit-review-20261101.json",
         "diversity-and-qwen-sampling-trials-20261101.json",
         "conditional-audio-component-20261101.json",
-        "bounded-trial-resources-20261101.json"
+        "bounded-trial-resources-20261101.json",
+        "diversity-7400-review-20261101.json"
       ]
     },
     {
@@ -397,7 +398,13 @@
       "cc0-diversity-data-20261101.json",
       "diversity-and-qwen-sampling-trials-20261101.json"
     ],
-    "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user."
+    "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
+    "latest_native_checkpoint": {
+      "family": "ornith",
+      "step": 7400,
+      "status": "rejected",
+      "evidence": "diversity-7400-review-20261101.json"
+    }
   },
   "conditional_audio_component": {
     "status": "Both exact-family A100 mechanism gates and actual stock private push/pull verified; whole-model semantic gate remains blocked",

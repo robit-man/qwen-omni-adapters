@@ -224,6 +224,13 @@ gates and remain unqualified. See
 `docs/upgrades/diversity-and-qwen-sampling-trials-20261101.json`. A checkpoint
 observer may export and run diagnostics; it cannot approve semantics or publish.
 
+The first Ornith data-only checkpoint7,400 is rejected: Siren recovered and
+Church bell became specific, but group voices, clapping, printer, gunfire, clock
+alarm and negative controls still fail. Speech and Bark remain correct. Preserve
+`docs/upgrades/diversity-7400-review-20261101.json`; the original8,400/10,662
+checkpoints remain, with no extra Orin outage or automatic extension.
+
+
 Exact digital silence is handled by a deterministic PCM check in the adapter.
 It cannot repair noise or event-recognition errors and must never be used to
 relabel failed native-model silence results as a neural quality pass. Preserve
