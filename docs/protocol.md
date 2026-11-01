@@ -105,7 +105,9 @@ sound-only capture cannot consume the language or TTS stages. Leave it false
 for explicit environmental-audio questions.
 
 For audio-only input, the adapter can prove digital silence when every sample
-in every complete 16 kHz mono PCM16 WAV is exactly zero. It then returns an
+in every complete 16 kHz mono PCM16 WAV is exactly zero. This requires a single
+unambiguous data stream and complete RIFF chunks; ambiguous containers retain
+ordinary comprehension. It then returns an
 empty transcript and a silence observation without invoking a neural worker.
 This uses no amplitude threshold: any nonzero sample, incomplete container or
 attached image/video retains ordinary comprehension. Voice references are not

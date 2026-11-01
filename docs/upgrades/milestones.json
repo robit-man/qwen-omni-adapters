@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Completed source/native seen-training audit identifies underlearned event labels. One sampling-only continuation runs to fixed6400;4000 rejected on A100/HF and Orin. No new architecture, data or loss changes; publication remains gated.",
+      "status": "Sampling-only continuation to fixed6400 remains active;4000 rejected on A100/HF and Orin,5000 rejected on A100. Exact-zero adapter DSP handling verified separately; native sound parity remains failed.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -323,7 +323,10 @@
         "legacy-expanded-audio-20261031.json",
         "audio-lora-seen-training-20261101.json",
         "class-uniform-continuation-20261101.json",
-        "class-uniform-4000-review-20261101.json"
+        "class-uniform-4000-review-20261101.json",
+        "audio-training-pairing-20261101.json",
+        "class-uniform-5000-review-20261101.json",
+        "digital-silence-20261101.json"
       ]
     },
     {

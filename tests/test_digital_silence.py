@@ -72,6 +72,35 @@ def test_partial_sample_and_oversized_declared_data_are_not_silence():
     assert not is_digital_silence(bytes(raw))
 
 
+def append_riff_chunk(raw, kind, payload):
+    result = bytearray(raw + kind + struct.pack("<I", len(payload)) + payload)
+    if len(payload) % 2:
+        result.append(0)
+    struct.pack_into("<I", result, 4, len(result) - 8)
+    return bytes(result)
+
+
+@pytest.mark.parametrize("raw", [
+    append_riff_chunk(pcm_wav(), b"data", b"\1\0"),
+    append_riff_chunk(pcm_wav(), b"data", b"\0\0"),
+    append_riff_chunk(pcm_wav(), b"fmt ", pcm_wav()[20:36]),
+    append_riff_chunk(pcm_wav(), b"LIST", b"wavl" + b"data\2\0\0\0\1\0"),
+    pcm_wav() + b"trailing bytes",
+    pcm_wav()[:-1],
+    append_riff_chunk(pcm_wav(), b"JUNK", b"odd")[:-1],
+])
+def test_ambiguous_and_incomplete_riff_containers_are_not_silence(raw):
+    assert not is_digital_silence(raw)
+
+
+@pytest.mark.parametrize("raw", [
+    append_riff_chunk(pcm_wav(), b"JUNK", b"odd"),
+    append_riff_chunk(pcm_wav(), b"LIST", b"INFO"),
+])
+def test_complete_metadata_chunks_do_not_hide_real_zero_pcm(raw):
+    assert is_digital_silence(raw)
+
+
 @pytest.mark.parametrize("streaming", [False, True])
 def test_silent_live_turn_uses_no_backend_and_preserves_provenance(streaming):
     def unexpected(_):
@@ -96,7 +125,7 @@ def test_silent_live_turn_uses_no_backend_and_preserves_provenance(streaming):
     assert result["adapter"]["evidence_provenance"]["current_visual_input"] is False
 
 
-@pytest.mark.parametrize("variant", ["one_lsb", "mixed_audio", "image", "truncated"])
+@pytest.mark.parametrize("variant", ["one_lsb", "mixed_audio", "image", "truncated", "multiple_chunks"])
 def test_nonzero_mixed_media_and_incomplete_audio_still_reach_neural_backend(variant):
     body = request_body(pcm_wav())
     message = body["messages"][0]
@@ -106,6 +135,8 @@ def test_nonzero_mixed_media_and_incomplete_audio_still_reach_neural_backend(var
         message["audios"].append({"data": base64.b64encode(pcm_wav(b"\1\0")).decode()})
     elif variant == "image":
         message["images"] = [base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\0" * 16).decode()]
+    elif variant == "multiple_chunks":
+        message["audios"][0]["data"] = base64.b64encode(append_riff_chunk(pcm_wav(), b"data", b"\1\0")).decode()
     else:
         message["audios"][0]["data"] = base64.b64encode(pcm_wav()[:-1]).decode()
     calls = []
