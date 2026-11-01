@@ -31,7 +31,7 @@ hypotheses have separate source/data/policy/checkpoints and bounded assessments.
 
 Fresh target audit: leaf-only supervision reduces provided human-group labels
 208→7 and Music2,262→2 on the unchanged17,045 TRAIN rows. A target-only500-update
-Ornith ablation now runs10,662→11,162 on GPU2: retain annotated parents before
+Ornith ablation ran10,662→11,162 on GPU2: retain annotated parents before
 specific categories. Audio, IDs, splits, replay, loss factor, architecture and
 optimizer remain fixed. The sampler uses the ORIGINAL immutable manifest view
 because its algorithm reads target metadata. Original197 classes, RNG/order and
@@ -40,6 +40,30 @@ input preflight peaks21,074MiB under21GiB Torch/22GiB lease. Work:
 `ornith-annotated-parent-target-pass-1`; its native13 observer waits for trainer
 exit to avoid exceeding GPU2's shared promises. Admission-only retries must
 never restart an initialized training job or fall back to GPU1.
+
+The parent-first trial completed11,162 and is REJECTED: bells and printer
+regress and group/clap/gunfire remain wrong. Full fixed160 replay raises speech
+WER7.014%→8.064%. Baseline10,662 natural-speech WER is36/594 versus legacy9/594;
+overall lower WER is not natural-speech parity. Preserve
+`docs/upgrades/parent-target-and-control-balance-20261101.json`.
+
+Next bounded hypothesis is sampling only, rollback to exact10,662: each500-update
+trial accumulation group draws two class-uniform events, one speech replay and
+one procedural control, instead of68.8/28.5/2.7% event/speech/control exposure.
+All17,045 original rows and leaf targets, loss factor4, optimizer, learning rate,
+architecture and frozen weights remain fixed. Original sampling order is
+intentionally replaced; AdamW/RNG and all48 parameters are restored exactly.
+Work `ornith-control-balanced-pass-1`, final11,162, GPU2,21GiB Torch/22GiB lease.
+Deterministic RNG, exact group counts, replay cycling and TRAIN-only checks pass.
+Its observer waits for actual trainer exit before native13 qualification. No
+publication or release approval follows automatically from training completion.
+
+An additional26,539 already-local human-transcribed train-clean100 FLAC clips
+are hash/header/speaker-split verified and prepared as a separate data-only
+manifest `natural-speech-diversity-data-20261101`,43,584 TRAIN rows total. The
+original manifest bytes and all targets/splits are preserved; no audio download,
+copy, cache or training activation. License CC BY4.0. This corpus is NOT used by
+the sampling-only trial. The attributed event corpus below is also inactive.
 
 An additional17,450 attributed DEV recordings are verified and prepared from the
 already-local checksum-verified archives, with raw/normalized hash, protected
