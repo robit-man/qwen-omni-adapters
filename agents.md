@@ -161,19 +161,21 @@ source quality and a new native binding/generation gate are required before
 any integration. No GGUF export or quality/compatibility claim yet. See
 `docs/upgrades/full-depth-ffn-preflight-20261101.json`.
 
-The active continuation restores D500 exactly: all 192 learned tensors and
-both AdamW groups, with tail step 16,196 and earlier-FFN step 500. The new earlier
-adapters have seen only 1,959 unique TRAIN clips, so test 1,000 further updates
-on the next 4,000 original-order draws while holding architecture, LR, sampler,
-loss, precision and the original projection fixed. Save global steps 16,696 and
-17,196 (earlier-FFN steps 1,000/1,500), then compare D500/D1000/D1500 on the same
-58 held-out cases each. Full CPU restoration and four zero-update CUDA tests
-pass; both moment sets match exactly, all gradients are finite and peak is
-21,220 MiB. GPU0 lease is 29,696 MiB with 28,672 MiB Torch cap, adding one GiB of
-allocator margin over the prior actual 27,416 MiB peak. No new architecture,
-GGUF export, raw/feature cache or publication. Do not edit/restart the healthy
-trainer. Its observer waits for actual exit and normal release before source
-174. See `docs/upgrades/full-ffn-continuation-preflight-20261101.json`.
+The unchanged full-depth continuation completed its1,000 updates and source174.
+All192 weights and both AdamW groups restored exactly; fixed checkpoints have
+tail steps16,696/17,196 and earlier-FFN steps1,000/1,500. Independent CPU audits
+pass all tensor/moment shapes and values, counters, order/RNG and seen sets;
+parent files are unchanged. D500/D1000/D1500 score39/39/36 natural errors/594
+versus legacy9. Broadband hiss/chord descriptions improve, but D1500 printer
+regresses to Skateboard, voices remain Bird/Train, the single dog invents
+Clapping and reverse/mixed sequences still omit or misidentify events. All
+remain UNQUALIFIED; both new checkpoints carry exclusion markers. Actual
+training/source workers exited and both leases released normally, preserving
+Qwen NF4 training and peers. Peak Torch reserve28,492MiB stayed inside28,672 cap.
+No192 GGUF/native activation or full-projector export. Retain recovery, not a
+publication claim. See
+`docs/upgrades/full-ffn-continuation-source-review-20261101.json` and the original
+`docs/upgrades/full-ffn-continuation-preflight-20261101.json`.
 
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.
