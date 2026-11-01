@@ -322,5 +322,25 @@
       "peak_reserved_mib": 60972.0
     },
     "fixed_final": 6400
+  },
+  "active_training_attribution_audit": {
+    "schema": "robit.omni.active-training-attribution-audit.v1",
+    "complete": true,
+    "UTC": "2026-11-01T11:22:02.331990+00:00",
+    "current_training_work": "ornith-full-diversity-pass-1",
+    "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+    "per_record_credits": 17450,
+    "every_active_attributed_TRAIN_ID_covered_exactly_once": true,
+    "creator_title_source_and_license_match_records": true,
+    "normalization_changes_disclosed": true,
+    "noncommercial_and_sampling_licenses_excluded": true,
+    "attribution_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
+    "attribution_bytes": 6913127,
+    "manifest_sha256": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+    "canonical_file": "attributed-audio-diversity-20261101/ATTRIBUTION.jsonl",
+    "release_requirement": "Publish this exact ledger with provenance onHF; carry complete applicable attribution/license notices with theOllama bundle and verify both remote artifacts. Model publication is still gated by semantic qualification.",
+    "new_audio_or_weight_bytes": 0,
+    "public_model_publication": false,
+    "release_qualified": false
   }
 }

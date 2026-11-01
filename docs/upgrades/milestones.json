@@ -460,6 +460,13 @@
       "actual_TRAIN_waveforms_rehashed": 59800,
       "new_audio_bytes": 4720948,
       "evidence": "temporal-overlap-validation-20261101.json"
+    },
+    "GPU0_serial_reference": "After Qwen6400 actual trainer/observer/native exit: legacy fixed16 temporal/overlap reference, then nextGPU0 training",
+    "attribution_audit": {
+      "active_attributed_TRAIN_rows": 17450,
+      "exact_ledger_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
+      "record_fields_verified": true,
+      "remote_publication_verified": false
     }
   }
 }

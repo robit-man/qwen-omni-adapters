@@ -117,6 +117,23 @@ inference is NOT run or qualified. See
 `docs/upgrades/temporal-overlap-validation-20261101.json`. Use this as additional
 parity evidence, never replace the original gates or infer quality from setup.
 
+GPU0 serial qualification is scheduled after the live Qwen6,400 trainer AND
+its fixed-checkpoint observer/native worker actually exit. A separate CPU-only
+observer `legacy-temporal-gpu0-observer-1` then requests24GiB on GPU0 for one
+fixed16 legacy temporal/overlap reference. It uses fresh broker discovery and
+artifact/RAM admission, never starts on GPU1, never restarts an initialized
+reference, and retries only pre-launch VRAM refusal. Complete that reference
+before starting the next heavy GPU0 training job. Its waiting state is not an
+inference result or a release gate pass.
+
+The active attributed-data release audit verifies all17,450 exact creator/title/
+source/license/change records against the actual TRAIN metadata. Canonical
+`ATTRIBUTION.jsonl` SHA256 is
+`375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9`.
+Ship this exact ledger with Hugging Face provenance and carry the full applicable
+notices with the Ollama bundle; verify remote artifacts before calling
+publication complete. No model publication follows from the attribution audit.
+
 ## Resource requirement, clarified 2026-11-01
 
 The user requires completing the upgrades, tracking artifacts and preventing
