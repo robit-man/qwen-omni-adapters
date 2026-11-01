@@ -223,6 +223,33 @@ B has64tensors and requires new export/binding/runtime qualification: the curren
 operators are read-only feasibility evidence, not proof of compatibility or
 quality. See `docs/upgrades/attention-adaptation-preflight-20261101.json`.
 
+The original control A completed500updates at16,696, position18,136; its48
+AdamW steps and unchanged saved order/RNG are audited. Its checkpoint is valid
+and must not be retrained. A loader bug was then found: noncapturable AdamW
+CPU step tensors alias the dictionary passed to `load_state_dict`. The in-memory
+source counters advanced during A, so original B's first4updates had FFN step
+16,700 while its metadata said16,200. Those B4weights are explicitly excluded
+from quality and packaging. Original files remain; the known worker cooperatively
+stopped after preserving A500, exited, and normally released its lease. No peer
+was signaled. This is a control-integrity repair, not a quality rejection of A.
+
+Corrected B-only training now runs onGPU0, PID3784621, from the original16,196
+weights and an independent deep copy of the original optimizer. CPU regression
+proves source steps/moments stay immutable. The fresh zero-update CUDA preflight
+passes all8checks and its initial forward matches the original control exactly.
+Script56cdf6d6... is pinned; data/order/LR/loss/precision remain unchanged.
+Do not restart this healthy recovered worker. Observer3784091 waits for actual
+exit/release, then compares preserved original A500 with recovered B500 on the
+fixed116source requests. Its pins and complete lineage are in
+`docs/upgrades/attention-optimizer-recovery-20261101.json`.
+
+The64-tensor CPU conversion fixture now preserves every F32 value and exact
+base-linear shape, including nonzero query/key/value/output sentinels. The
+current48-tensor validator correctly rejects it. This synthetic fixture is
+never a model candidate and must never be attached/uploaded. Native generation,
+the extended required binding/runtime contract and semantic gates remain open.
+See `docs/upgrades/attention-export-feasibility-20261101.json`.
+
 Qwen's scene-data-only7,400→8,400 trial completed and is REJECTED.
 Native13, fixed16temporal and full160 all completed against unchanged raw audio,
 prompt, F16 KV and explicit audio-adapter scale1. Noise/printer recover, but dog

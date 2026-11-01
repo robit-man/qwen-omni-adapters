@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Prior paired projection source trials rejected. Ornith FFN-only versus FFN+attention fixed500+500 now running GPU0 after zero-update preflight; source116 queued. No quality/native64-layout claim.",
+      "status": "Attention comparison: valid A500 complete; original B4 excluded for AdamW CPU-step alias. Corrected B-only500 now running with independent source optimizer after CPU+CUDA gates; preserved A versus corrected B source116 queued.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -343,7 +343,9 @@
         "ornith15696-scene-review-20261101.json",
         "qwen8900-control-recovery-20261101.json",
         "paired-projection-review-20261101.json",
-        "attention-adaptation-preflight-20261101.json"
+        "attention-adaptation-preflight-20261101.json",
+        "attention-optimizer-recovery-20261101.json",
+        "attention-export-feasibility-20261101.json"
       ]
     },
     {
@@ -414,7 +416,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Ornith attention comparison running; both previous projection-only comparisons remain rejected. Qwen awaits matched hypothesis results.",
+    "status": "Valid attention control A500 complete; B optimizer alias corrected and B-only500 running. No model quality or native64-layout acceptance yet.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -426,7 +428,8 @@
       "qwen8400-scene-review-20261101.json",
       "ornith15696-scene-review-20261101.json",
       "qwen8900-control-recovery-20261101.json",
-      "attention-adaptation-preflight-20261101.json"
+      "attention-adaptation-preflight-20261101.json",
+      "attention-optimizer-recovery-20261101.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
@@ -481,7 +484,7 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Ornith attention comparison, PID3081309, one frozen trunk; same2000source records,500updates perarm; Torch23552/lease24576MiB; observer3221201 queues source116 after actual exit/release.",
+      "GPU0": "Corrected B-only attention training PID3784621, one frozen trunk, same2000records/500updates; A500 preserved. Torch23552/lease24576MiB. Observer3784091 queues source116 after actual exit/release.",
       "GPU2": "No current own work; other owner reservation currently prevents a24GiB full-trunk lease. GPU0 admitted instead.",
       "GPU1": "excluded from our work"
     },
@@ -503,7 +506,8 @@
       "ornith15696-scene-review-20261101.json",
       "qwen8900-control-recovery-20261101.json",
       "paired-projection-review-20261101.json",
-      "attention-adaptation-preflight-20261101.json"
+      "attention-adaptation-preflight-20261101.json",
+      "attention-optimizer-recovery-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
@@ -531,11 +535,11 @@
         "publication": false
       },
       "paired_attention_source": {
-        "status": "CPU preparation and original29speech metric regression passed; finite post-exit observer active",
+        "status": "Recovered B evaluator/observer prepared; original A500 preserved; original B4 invalid and excluded",
         "rows_per_arm": 58,
         "total_rows": 116,
         "native_new_layout_verified": false,
-        "evidence": "attention-adaptation-preflight-20261101.json"
+        "evidence": "attention-optimizer-recovery-20261101.json"
       }
     },
     "GPU0_serial_reference": "Qwen source116 complete/rejected; original failed evaluator attempt retained, inference-tensor version-counter bug repaired and actual finite rerun completed.",

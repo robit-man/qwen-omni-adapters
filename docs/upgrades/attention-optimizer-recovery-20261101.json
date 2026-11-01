@@ -1,0 +1,170 @@
+{
+  "schema": "robit.omni.attention-optimizer-alias-recovery.v1",
+  "UTC": "2026-11-01T20:21:17.222164+00:00",
+  "audit": {
+    "schema": "robit.omni.attention-trial-optimizer-alias-audit.v1",
+    "CPU_only": true,
+    "valid_control_A500_preserved": true,
+    "A_checkpoint_step": 16696,
+    "A_all48_AdamW_steps": 16696,
+    "A_source_order_and_Python_RNG_exact": true,
+    "source_parent_all48_AdamW_steps": 16196,
+    "source_parent_file_unchanged": true,
+    "discarded_B_updates": 4,
+    "bad_B_metadata_step": 16200,
+    "bad_B_actual_FFN_steps": [
+      16700.0
+    ],
+    "bad_B_actual_attention_steps": [
+      4.0
+    ],
+    "cause": "Noncapturable AdamW step tensors alias the source CPU dictionary in load_state_dict. A advanced dictionary step tensors; B reused them.",
+    "CPU_fix_regression": {
+      "schema": "robit.omni.optimizer-recovery-isolation.v1",
+      "CPU_only": true,
+      "original_alias_reproduced": true,
+      "original_source_step_mutated_without_copy": true,
+      "deepcopy_preserves_original_step_and_both_moments": true,
+      "both_arms_restore_same16196_step": true,
+      "new_training_optimizer_steps": 0,
+      "CUDA_started": false,
+      "source_script_sha256": "580d2dfd6098d00de6e1782afc501fc1c119ebc0af0b4b95f4a13ea1588d712e"
+    },
+    "corrective_action": "Retain A500; rerun B only from independent deepcopy of original16196optimizer, same2000examples,500updates. Bad B4 is retained but excluded from quality and paired report.",
+    "A_adapter_sha256": "46495ed48adbff0565bb7b35039c06adac75685a480f65158f1e47dec4115b52",
+    "A_recovery_sha256": "47da320219b4598395559ae85c9dee9944c03ec207571fff632ca2b5b5e98782",
+    "no_new_training_steps": true,
+    "release_qualified": false
+  },
+  "old_worker_actual_exit_verified": true,
+  "old_training_lease_normally_released": true,
+  "cooperative_stop_used": true,
+  "new_zero_update_preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "initial_audio_loss_bit_exact": true,
+    "initial_audio_logits_bit_exact": true,
+    "checks": [
+      {
+        "arm": "A",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.21013745665550232,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 20908.0,
+        "peak_allocated_MiB": 20323.50390625
+      },
+      {
+        "arm": "A",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.08066558837890625,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 21068.0,
+        "peak_allocated_MiB": 20437.314453125
+      },
+      {
+        "arm": "A",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.19625602662563324,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 20046.0,
+        "peak_allocated_MiB": 19603.9091796875
+      },
+      {
+        "arm": "A",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.1176428347826004,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 19846.0,
+        "peak_allocated_MiB": 19444.53125
+      },
+      {
+        "arm": "B",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.21013745665550232,
+        "attention_gradient_squared_norm": 0.09976623533293605,
+        "peak_reserved_MiB": 20938.0,
+        "peak_allocated_MiB": 20329.12890625
+      },
+      {
+        "arm": "B",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.08066558837890625,
+        "attention_gradient_squared_norm": 0.0014597161134588532,
+        "peak_reserved_MiB": 21072.0,
+        "peak_allocated_MiB": 20442.939453125
+      },
+      {
+        "arm": "B",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.19625602662563324,
+        "attention_gradient_squared_norm": 0.010596958978567272,
+        "peak_reserved_MiB": 20054.0,
+        "peak_allocated_MiB": 19609.5341796875
+      },
+      {
+        "arm": "B",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.1176428347826004,
+        "attention_gradient_squared_norm": 0.005421880166977644,
+        "peak_reserved_MiB": 19850.0,
+        "peak_allocated_MiB": 19450.15625
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21072.0,
+    "source_script_sha256": "56cdf6d6038b85bfc36cc9cf45f8d4e044b31f0b93cba17e309389ff822e4a90",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "one_language_trunk": true,
+    "primary_encoder_projection_TTS_frozen": true,
+    "disabled_logits_max_abs_delta": 0,
+    "GPU_residency_verified": true,
+    "new_audio_or_feature_cache_bytes": 0,
+    "Torch_cap_MiB": 23552,
+    "lease_MiB": 24576,
+    "release_qualified": false
+  },
+  "new_training": {
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-attention-comparison-B-recovery-1",
+    "PID": 3784621,
+    "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "owner": "qwen-omni-upgrade/ornith-attention-B-optimizer-recovered-training",
+    "exec_session": 47590,
+    "same_original16196_FFN_weights_and_AdamW": true,
+    "source_step_and_moment_aliases_prevented": true,
+    "initial_forward_matches_original_control": true,
+    "source_script_sha256": "56cdf6d6038b85bfc36cc9cf45f8d4e044b31f0b93cba17e309389ff822e4a90",
+    "fixed_B_updates": 500,
+    "source_cursor": 16136,
+    "final_cursor": 18136,
+    "control_A500_retrained": false
+  },
+  "source_evaluation": {
+    "observer_PID": 3784091,
+    "observer_exec_session": 34903,
+    "fixed_rows_per_arm": 58,
+    "total_rows": 116,
+    "control_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-attention-comparison-1/arm-A-checkpoint-000500",
+    "B_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-attention-comparison-B-recovery-1/arm-B-checkpoint-000500",
+    "source_script_sha256": "428eb04f8f6a8b861a9c71cd304971529bcb915e8a6a1ddccb60a822a1f6cb31",
+    "CPU_preparation": {
+      "complete_preparation": true,
+      "rows_per_arm": 58,
+      "all_input_hashes_match_native15696": true,
+      "same_frozen4096wide_bridge_in_both_arms": true,
+      "source_labels_or_references_in_prompt": false,
+      "CUDA_started": false,
+      "new_optimizer_steps": 0
+    }
+  },
+  "quality_gate_passed": false,
+  "native64tensor_generation_qualified": false,
+  "release_qualified": false,
+  "publication": false
+}
