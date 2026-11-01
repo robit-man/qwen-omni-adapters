@@ -1,0 +1,574 @@
+{
+  "schema": "robit.omni.virtual-scene-bounded-trial.v1",
+  "UTC": "2026-11-01T14:00:45.521786+00:00",
+  "failing_criterion": "12162 native and unquantized source miss ordered/mixed-source scenes that full Omni handles. Natural speech remains36source/41native word errors versus legacy9. Single-event classification training alone has not restored temporal understanding.",
+  "bounded_hypothesis": "Add2048 deterministic TRAIN-only virtual ordered/overlapping event, signal, voice and speech-background scenes; grounded captions with unknown transcripts masked. Original62314 rows/targets unchanged. Same2event/1speech/1acoustic replay strategy, frozen base/encoder/bridge/TTS, architecture, weighted loss4, optimizer and LR. Assess fixed1000update checkpoint.",
+  "data": {
+    "schema": "robit.omni.virtual-scene-data-preparation.v1",
+    "complete": true,
+    "base_dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+    "TRAIN_scenes": 2048,
+    "scene_kinds": {
+      "event-sequence": 512,
+      "event-overlap": 256,
+      "signal-sequence": 512,
+      "signal-overlap": 256,
+      "voice-overlap": 256,
+      "speech-background": 256
+    },
+    "unknown_transcripts_mask_required": 1024,
+    "known_speech_transcripts": 256,
+    "all_parent_IDs_hashes_and_splits_verified": true,
+    "all_rendered_hashes_reproduced_and_disjoint_protected": true,
+    "no_speech_or_event_source_trimmed": true,
+    "background_noise_only_may_be_cropped": true,
+    "renderer_sha256": "af31989e99a110588db7c05e963608d671eff4a81711b526009ce1df4f25b1fe",
+    "manifest_sha256": "a6ffef3e52b243a8787abc092b1665ccb0450f93cbed469eb4c7c0de69992a66",
+    "new_audio_bytes": 0,
+    "new_feature_cache_bytes": 0,
+    "new_model_or_archive_download_bytes": 0,
+    "metadata_bytes": 4439921,
+    "maximum_duration_s": 11.9729375,
+    "training_activated": false,
+    "caption_limitations": "Parent event labels are weak clip annotations. Peak-aligned, level-matched overlap is construction truth, not a human perceptual qualification.",
+    "release_qualified": false
+  },
+  "pretraining_verification": {
+    "schema": "robit.omni.virtual-scenes-pretraining-verification.v1",
+    "complete": true,
+    "CPU_only": true,
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "all2048_wave_hashes_verified": true,
+    "original_records_and_protected_rows_unchanged": true,
+    "old_sampler_output_and_RNG_bit_exact_at16_1000_2000updates": true,
+    "new_sampler_exact2_1_1_groups": true,
+    "all_source_split_hash_and_caption_checks_passed": true,
+    "old_collator_all_tensors_exact": true,
+    "unknown_transcripts_still_masked": true,
+    "independent_scalar_PCM_reference": [
+      {
+        "kind": "event-sequence",
+        "frames": 115472,
+        "scalar_reference_exact": true
+      },
+      {
+        "kind": "event-overlap",
+        "frames": 32365,
+        "scalar_reference_exact": true
+      },
+      {
+        "kind": "signal-sequence",
+        "frames": 62473,
+        "scalar_reference_exact": true
+      },
+      {
+        "kind": "signal-overlap",
+        "frames": 34049,
+        "scalar_reference_exact": true
+      },
+      {
+        "kind": "voice-overlap",
+        "frames": 66720,
+        "scalar_reference_exact": true
+      },
+      {
+        "kind": "speech-background",
+        "frames": 36720,
+        "scalar_reference_exact": true
+      }
+    ],
+    "virtual_collator_checks": [
+      {
+        "kind": "event-sequence",
+        "exact_against_materialized_memory_wave": true,
+        "scored_tokens": 24
+      },
+      {
+        "kind": "event-overlap",
+        "exact_against_materialized_memory_wave": true,
+        "scored_tokens": 26
+      },
+      {
+        "kind": "signal-sequence",
+        "exact_against_materialized_memory_wave": true,
+        "scored_tokens": 59
+      },
+      {
+        "kind": "signal-overlap",
+        "exact_against_materialized_memory_wave": true,
+        "scored_tokens": 55
+      },
+      {
+        "kind": "voice-overlap",
+        "exact_against_materialized_memory_wave": true,
+        "scored_tokens": 16
+      },
+      {
+        "kind": "speech-background",
+        "exact_against_materialized_memory_wave": true,
+        "scored_tokens": 43
+      }
+    ],
+    "maximum_virtual_target_tokens": 64,
+    "sampler_audit": {
+      "classes": 198,
+      "updates": 1000,
+      "event_draws": 2000,
+      "speech_draws": 1000,
+      "control_draws": 1000,
+      "speech_pool": 31654,
+      "control_pool": 3534,
+      "unique_rows": 3830,
+      "per_optimizer_group": {
+        "events": 2,
+        "speech": 1,
+        "controls": 1
+      }
+    },
+    "new_audio_or_feature_cache_bytes": 0,
+    "training_started": false,
+    "release_qualified": false
+  },
+  "resource_preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "source_adapter_sha256": "6a5bfcc13b361e141b2de162d1c6f12e249472bf0163aef2d0ae8b1491799aaf",
+    "checks": [
+      {
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.25288689136505127,
+        "peak_reserved_MiB": 20908.0,
+        "peak_allocated_MiB": 20325.19140625
+      },
+      {
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.09803654998540878,
+        "peak_reserved_MiB": 21066.0,
+        "peak_allocated_MiB": 20441.263671875
+      },
+      {
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 2.1142547130584717,
+        "peak_reserved_MiB": 20048.0,
+        "peak_allocated_MiB": 19605.6435546875
+      },
+      {
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.9617819786071777,
+        "peak_reserved_MiB": 19844.0,
+        "peak_allocated_MiB": 19446.96875
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21066.0,
+    "GPU2_22528_lease_21504_Torch_cap_safe": true,
+    "serial_accumulation": 4,
+    "optimizer_state_loaded": true,
+    "no_weights_or_raw_audio_or_feature_cache_created": true,
+    "source_script_sha256": "b72fe340f010d10841ed464da43232501777be137a5a8e8f17e027314c302151",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "GPU_residency_verified": true
+  },
+  "policy": {
+    "schema": "robit.omni.audio-lora-virtual-scene-policy.v1",
+    "failure": "12162 native and unquantized source miss ordered/mixed-source scenes that full Omni handles. Natural speech remains36source/41native word errors versus legacy9. Single-event classification training alone has not restored temporal understanding.",
+    "hypothesis": "Add2048 deterministic TRAIN-only virtual ordered/overlapping event, signal, voice and speech-background scenes; grounded captions with unknown transcripts masked. Original62314 rows/targets unchanged. Same2event/1speech/1acoustic replay strategy, frozen base/encoder/bridge/TTS, architecture, weighted loss4, optimizer and LR. Assess fixed1000update checkpoint.",
+    "only_neural_experiment_change": "TRAIN data support/diversity; no architecture, loss, learning-rate, inference prompt, precision or quantization change.",
+    "initialization": "Exact full-diversity12162 adapter, AdamW and RNG; expanded scene corpus requires a new declared sampling schedule. Materialize one speech-pool horizon in RAM, execute only1000updates, save unused order for continuation.",
+    "base_source": "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-sources/ornith15-standard",
+    "frozen_bridge": "ornith-train-rich1/checkpoint-000850",
+    "data": {
+      "source_manifest_sha256s": {
+        "class-guided-cc0-diversity-data-20261101": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+        "natural-speech-diversity-data-20261101": "68b2061c1297b65df713a55e62464b1b9090a11f380c334df07f5157cc2aff50",
+        "attributed-audio-diversity-20261101": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+        "procedural-acoustic-diversity-20261101": "b4228d7dd9602ec3f385af407e6a5b70f657db77f959e9bf05646b419059db34"
+      },
+      "additions": {
+        "class-guided-cc0-diversity-data-20261101": 17985,
+        "natural-speech-diversity-data-20261101": 26539,
+        "attributed-audio-diversity-20261101": 17450,
+        "procedural-acoustic-diversity-20261101": 1280
+      },
+      "TRAIN_rows": 64362,
+      "event_rows": 29174,
+      "speech_rows": 31654,
+      "control_rows": 1742,
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "protected_rows_unchanged": true,
+      "duplicate_metadata_identical": true,
+      "no_audio_or_combined_manifest_copies": true,
+      "attribution_manifest": "attributed-audio-diversity-20261101/ATTRIBUTION.jsonl",
+      "base_dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+      "acoustic_replay_rows": 3534,
+      "virtual_scenes": 2048,
+      "virtual_scene_signature": {
+        "base": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+        "scenes": "a6ffef3e52b243a8787abc092b1665ccb0450f93cbed469eb4c7c0de69992a66",
+        "renderer": "af31989e99a110588db7c05e963608d671eff4a81711b526009ce1df4f25b1fe"
+      },
+      "original_rows_and_protected_splits_unchanged": true,
+      "new_audio_or_feature_cache_bytes": 0
+    },
+    "adapter": {
+      "rank": 8,
+      "alpha": 8,
+      "layers": [
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "modules": [
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ],
+      "parameters": 3145728
+    },
+    "training": {
+      "steps": 1000,
+      "serial_accumulation": 4,
+      "seed": 47,
+      "lr": 0.0001,
+      "optimizer": "AdamW",
+      "weight_decay": 0.01,
+      "clip_norm": 1.0,
+      "event_token_weight": 4.0,
+      "unknown_transcripts": "masked by unchanged audited partial collator",
+      "start_step": 12162,
+      "final_step": 13162,
+      "additional_steps": 1000,
+      "sampler_horizon_updates": 31654
+    },
+    "fixed_checkpoints": [
+      13162
+    ],
+    "native_gates": "Unchanged13 source/speech/negative controls, full160ASR/full240environment and legacy comparison, fixed16temporal/overlap then Orin operational/cloning/concurrency. No automatic promotion.",
+    "resource_limits": {
+      "expected_write_GiB": 0.15,
+      "srv_reserve_GiB": 50,
+      "checkout_reserve_GiB": 10,
+      "RAM_reserve_GiB": 32,
+      "Torch_cap_MiB": 21504,
+      "lease_MiB": 22528,
+      "no_projector_exports_or_feature_caches": true
+    },
+    "sampler_source_sha256": "77c6651e8fd18c5739b7404495d7efa5df930c8d15a9cfc3505ad83de3b80fa0",
+    "data_loader_source_sha256": "974691a0cb41f10b8dbe86bfc8ebc6d68cdaf3d363712c392c6ac6c014a36ab3",
+    "primary_encoder_projector_TTS_weight_updates": false,
+    "attributed_credits_required": true,
+    "preflight_only": false,
+    "optimizer_updates_permitted": true,
+    "runtime_integration": false,
+    "publication": false,
+    "release_qualified": false,
+    "resource_preflight_sha256": "a72663de1e6139f4844b0a019217965767a70e6507e44ce79d9137beb51e0ea2"
+  },
+  "exact_resume": {
+    "source_adapter_sha256": "6a5bfcc13b361e141b2de162d1c6f12e249472bf0163aef2d0ae8b1491799aaf",
+    "all48_parameters_exact": true,
+    "optimizer_step": 12162,
+    "disabled_logits_max_abs_delta": 0.0,
+    "source_weights_frozen": true,
+    "data_only_continuation": true,
+    "original_sampling_order_position": 4000,
+    "new_sampling_position": 0
+  },
+  "actual_training": {
+    "PID": 269003,
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-scene-captions-pass-1",
+    "fixed_final_step": 13162,
+    "progress": {
+      "step": 12625,
+      "loss": 0.488429001532495,
+      "gradient_norm": 4.9935221672058105,
+      "unique_training_records": 18584,
+      "additional_unique_training_records": 1821,
+      "elapsed_s": 1630.9046806519618,
+      "reserved_mib": 21142.0,
+      "peak_reserved_mib": 21456.0
+    },
+    "complete": false,
+    "only48_adapter_tensors_trainable": true
+  },
+  "source_sha256": {
+    "virtual_scene_audio.py": "af31989e99a110588db7c05e963608d671eff4a81711b526009ce1df4f25b1fe",
+    "virtual_scene_corpus.py": "974691a0cb41f10b8dbe86bfc8ebc6d68cdaf3d363712c392c6ac6c014a36ab3",
+    "scene_stratified_acoustic_sampler.py": "77c6651e8fd18c5739b7404495d7efa5df930c8d15a9cfc3505ad83de3b80fa0",
+    "train_ornith_scene_captions.py": "b72fe340f010d10841ed464da43232501777be137a5a8e8f17e027314c302151",
+    "prepare_virtual_scene_data.py": "d6521a24a74169a10270aff21bc44d0b2dabd88854f20ba5578bd9556a38767c"
+  },
+  "resource_guard": {
+    "max_owned_GiB": 120,
+    "srv_reserve_GiB": 50,
+    "RAM_reserve_GiB": 32,
+    "expected_this_trial_write_GiB": 0.15,
+    "new_full_projector_exports_or_feature_cache_bytes": 0,
+    "all_learned_and_recovery_states_retained": true,
+    "forecast_combined_scene_trials_write_GiB": 0.3
+  },
+  "GPU1_used": false,
+  "primary_encoder_bridge_TTS_updates": false,
+  "full_parity_passed": false,
+  "publication": false,
+  "release_qualified": false,
+  "Qwen_trial": {
+    "policy": {
+      "schema": "robit.omni.qwen-audio-lora-virtual-scene-policy.v1",
+      "failure": "Completed7400 source and native share wrong unseen acoustic identities; native natural speech37errors versus legacy9. Exact16 seen-TRAIN fit improves eventCE1.4799to.5303, supports generalization/data gap before changing architecture. Temporal/mixed-source caption coverage is missing.",
+      "hypothesis": "Add2048 deterministic TRAIN-only ordered/overlapping event, signal, voice and speech-background scenes; grounded construction captions and unknown-transcript masks. Original62314 targets unchanged. Keep ORIGINAL class-uniform-event plus once-per-row replay algorithm, frozen base/encoder/bridge/TTS, architecture, loss4, optimizer and LR. No2/1/1 Qwen sampler. Assess fixed1000update checkpoint.",
+      "only_neural_experiment_change": "TRAIN data support/diversity; no architecture, loss, learning-rate, inference prompt, precision or quantization change.",
+      "initialization": "Exact Qwen7400 adapter, AdamW and RNG; new scene corpus requires a new declared sampling schedule. Save unused order for recovery.",
+      "base_source": "/srv/fine_tuning_suite/training_suite/outputs/sessions/qwen38-27b-obliterated-e03-20260829/source",
+      "frozen_bridge": "qwen-train-rich1/checkpoint-000750",
+      "data": {
+        "source_manifest_sha256s": {
+          "class-guided-cc0-diversity-data-20261101": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+          "natural-speech-diversity-data-20261101": "68b2061c1297b65df713a55e62464b1b9090a11f380c334df07f5157cc2aff50",
+          "attributed-audio-diversity-20261101": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+          "procedural-acoustic-diversity-20261101": "b4228d7dd9602ec3f385af407e6a5b70f657db77f959e9bf05646b419059db34"
+        },
+        "additions": {
+          "class-guided-cc0-diversity-data-20261101": 17985,
+          "natural-speech-diversity-data-20261101": 26539,
+          "attributed-audio-diversity-20261101": 17450,
+          "procedural-acoustic-diversity-20261101": 1280
+        },
+        "TRAIN_rows": 64362,
+        "event_rows": 29174,
+        "speech_rows": 31654,
+        "control_rows": 1742,
+        "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+        "protected_rows_unchanged": true,
+        "duplicate_metadata_identical": true,
+        "no_audio_or_combined_manifest_copies": true,
+        "attribution_manifest": "attributed-audio-diversity-20261101/ATTRIBUTION.jsonl",
+        "base_dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+        "acoustic_replay_rows": 3534,
+        "virtual_scenes": 2048,
+        "virtual_scene_signature": {
+          "base": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+          "scenes": "a6ffef3e52b243a8787abc092b1665ccb0450f93cbed469eb4c7c0de69992a66",
+          "renderer": "af31989e99a110588db7c05e963608d671eff4a81711b526009ce1df4f25b1fe"
+        },
+        "original_rows_and_protected_splits_unchanged": true,
+        "new_audio_or_feature_cache_bytes": 0
+      },
+      "adapter": {
+        "rank": 8,
+        "alpha": 8,
+        "layers": [
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63
+        ],
+        "modules": [
+          "gate_proj",
+          "up_proj",
+          "down_proj"
+        ],
+        "parameters": 4325376
+      },
+      "training": {
+        "steps": 1000,
+        "serial_accumulation": 4,
+        "seed": 47,
+        "lr": 0.0001,
+        "optimizer": "AdamW",
+        "weight_decay": 0.01,
+        "clip_norm": 1.0,
+        "event_token_weight": 4.0,
+        "unknown_transcripts": "masked by unchanged audited partial collator",
+        "start_step": 7400,
+        "final_step": 8400,
+        "additional_steps": 1000
+      },
+      "fixed_checkpoints": [
+        8400
+      ],
+      "native_gates": "Unchanged13 source/speech/negative controls, full160ASR/full240environment and legacy comparison, fixed16temporal/overlap then A100 operational/cloning/concurrency. No automatic promotion.",
+      "resource_limits": {
+        "expected_write_GiB": 0.15,
+        "srv_reserve_GiB": 50,
+        "checkout_reserve_GiB": 10,
+        "RAM_reserve_GiB": 32,
+        "Torch_cap_MiB": 61440,
+        "lease_MiB": 63232,
+        "no_projector_exports_or_feature_caches": true
+      },
+      "sampler_source_sha256": "14396311a99a2c6443a1eb81985c78f8ec3e0d88b9dfc2e8b357596fd48dea41",
+      "data_loader_source_sha256": "974691a0cb41f10b8dbe86bfc8ebc6d68cdaf3d363712c392c6ac6c014a36ab3",
+      "primary_encoder_projector_TTS_weight_updates": false,
+      "attributed_credits_required": true,
+      "preflight_only": false,
+      "optimizer_updates_permitted": true,
+      "runtime_integration": false,
+      "publication": false,
+      "release_qualified": false,
+      "resource_preflight_sha256": "15b2dfe1bc046f4a67d50ea04419ddede5b4076fbafd4b4e292c7beff046ce45"
+    },
+    "source_resume_and_collator_proof": {
+      "schema": "robit.omni.qwen-scene-continuation-proof.v1",
+      "CPU_only": true,
+      "source_step": 7400,
+      "source_adapter_sha256": "2d4927c9276fd4a4dc43c9c3d9bd87ebe8688ac1e706ecfbc89113eff66c55a6",
+      "recovery_sha256": "28eaa7f65a95e7dd04f6a7d34757634d60209c6d4f050e5536cd2f50a03ac3b6",
+      "seen_train_count": 15465,
+      "source_order_and_RNG_reconstructed_exact": true,
+      "source_position": 4000,
+      "original_rows_unchanged": true,
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "new_schedule_declared": true,
+      "first1000updates": {
+        "unique_IDs": 3874,
+        "new_IDs": 2814,
+        "virtual_scene_draws": 123
+      },
+      "Qwen_tokenizer_collator_equality_checks": [
+        {
+          "id": "fsd50k-100465",
+          "all_tensors_exact": true
+        },
+        {
+          "id": "libri100-103-1240-0057",
+          "all_tensors_exact": true
+        },
+        {
+          "id": "base-nonspeech-0001-room-tone",
+          "all_tensors_exact": true
+        },
+        {
+          "kind": "event-sequence",
+          "all_tensors_exact_against_materialized_memory_wave": true
+        },
+        {
+          "kind": "event-overlap",
+          "all_tensors_exact_against_materialized_memory_wave": true
+        },
+        {
+          "kind": "signal-sequence",
+          "all_tensors_exact_against_materialized_memory_wave": true
+        },
+        {
+          "kind": "signal-overlap",
+          "all_tensors_exact_against_materialized_memory_wave": true
+        },
+        {
+          "kind": "voice-overlap",
+          "all_tensors_exact_against_materialized_memory_wave": true
+        },
+        {
+          "kind": "speech-background",
+          "all_tensors_exact_against_materialized_memory_wave": true
+        }
+      ],
+      "optimizer_steps": 0,
+      "CUDA_started": false,
+      "release_qualified": false
+    },
+    "resource_preflight": {
+      "complete": true,
+      "optimizer_steps": 0,
+      "source_adapter_sha256": "2d4927c9276fd4a4dc43c9c3d9bd87ebe8688ac1e706ecfbc89113eff66c55a6",
+      "checks": [
+        {
+          "id": "fsd50k-323041",
+          "duration_s": 30.0,
+          "loss": 0.23558402061462402,
+          "peak_reserved_MiB": 55530.0,
+          "peak_allocated_MiB": 54803.931640625
+        },
+        {
+          "id": "libri100-7859-102521-0017",
+          "duration_s": 24.525,
+          "loss": 0.03886638209223747,
+          "peak_reserved_MiB": 55684.0,
+          "peak_allocated_MiB": 54938.50390625
+        },
+        {
+          "id": "scene-v1-event-sequence-0336",
+          "duration_s": 11.9729375,
+          "loss": 2.213881015777588,
+          "peak_reserved_MiB": 54466.0,
+          "peak_allocated_MiB": 53996.2060546875
+        },
+        {
+          "id": "scene-v1-speech-background-1816",
+          "duration_s": 5.895,
+          "loss": 0.6328016519546509,
+          "peak_reserved_MiB": 54280.0,
+          "peak_allocated_MiB": 53820.357421875
+        }
+      ],
+      "maximum_peak_reserved_MiB": 55684.0,
+      "GPU0_63232_lease_61440_Torch_cap_safe": true,
+      "serial_accumulation": 4,
+      "optimizer_state_loaded": true,
+      "no_weights_or_raw_audio_or_feature_cache_created": true,
+      "source_script_sha256": "f2e58e4cc70523edf269db06f09f70d704416713586277b957cc7a9f1959d2dd",
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "GPU_residency_verified": true
+    },
+    "exact_resume": {
+      "source_adapter_sha256": "2d4927c9276fd4a4dc43c9c3d9bd87ebe8688ac1e706ecfbc89113eff66c55a6",
+      "all48_parameters_exact": true,
+      "optimizer_step": 7400,
+      "disabled_logits_max_abs_delta": 0.0,
+      "source_weights_frozen": true,
+      "data_only_continuation": true,
+      "original_sampling_order_position": 4000,
+      "new_sampling_position": 0
+    },
+    "PID": 615955,
+    "source_script_sha256": "f2e58e4cc70523edf269db06f09f70d704416713586277b957cc7a9f1959d2dd",
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-scene-captions-pass-1",
+    "fixed_final_step": 8400,
+    "complete": false,
+    "new_audio_or_feature_cache_bytes": 0,
+    "new_full_projector_exports": 0,
+    "release_qualified": false,
+    "progress": {
+      "step": 7450,
+      "loss": 0.14974871277809143,
+      "gradient_norm": 2.3167524337768555,
+      "unique_training_records": 15603,
+      "additional_unique_training_records": 199,
+      "elapsed_s": 328.5404959099833,
+      "reserved_mib": 59178.0,
+      "peak_reserved_mib": 59178.0
+    }
+  },
+  "runtime_source_validation": {
+    "passed": true,
+    "tests": 6380,
+    "warnings": 2,
+    "CUDA_VISIBLE_DEVICES": "-1",
+    "log_sha256": "6400eef158d3dc75d03f13c780fef0b2ddc549477bc797175467923466cecc5a",
+    "production_runtime_changes_this_cycle": false,
+    "does_not_establish_neural_quality": true
+  },
+  "latest_resource_snapshot": {
+    "storage_admitted": true,
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release",
+    "free_bytes": 96161558528,
+    "reserve_bytes": 53687091200,
+    "expected_write_bytes": 322122547,
+    "ram_available_bytes": 359481208832,
+    "ram_required_bytes": 36507222016,
+    "owned_allocated_bytes": 117122809856,
+    "owned_limit_bytes": 128849018880
+  }
+}

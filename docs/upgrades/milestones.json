@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith12162 complete/rejected after native13,full160,paired32temporal andHF45source checks. Prepare virtual TRAIN scenes next; Qwen6400to7400 continues onGPU0. Parity and publication remain open.",
+      "status": "Virtual TRAIN scenes prepared and verified without new audio/cache. Ornith12162to13162 onGPU2 and Qwen7400to8400 onGPU0 are running after zero-update memory/exact-resume gates. Qwen7400 rejected by native13/full160/source42; seen16 audit complete. Parity/publication open.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -333,7 +333,9 @@
         "conditional-audio-component-20261101.json",
         "bounded-trial-resources-20261101.json",
         "diversity-7400-review-20261101.json",
-        "qwen-sampling-4000-review-20261101.json"
+        "qwen-sampling-4000-review-20261101.json",
+        "virtual-scene-training-20261101.json",
+        "qwen7400-source-native-review-20261101.json"
       ]
     },
     {
@@ -392,19 +394,21 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Two finite evidence-driven trials running; all prior fixed trials rejected",
+    "status": "Two bounded scene-data trials running; Qwen7400 and Ornith12162 previous trials rejected; full parity not achieved.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
       "cc0-diversity-data-20261101.json",
-      "diversity-and-qwen-sampling-trials-20261101.json"
+      "diversity-and-qwen-sampling-trials-20261101.json",
+      "qwen7400-source-native-review-20261101.json",
+      "virtual-scene-training-20261101.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
-      "family": "ornith",
+      "family": "qwen",
       "step": 7400,
       "status": "rejected",
-      "evidence": "diversity-7400-review-20261101.json"
+      "evidence": "qwen7400-source-native-review-20261101.json"
     },
     "first_fixed_checkpoints": {
       "ornith7400": "rejected; Siren and Church bell correct but other mandatory identities fail",
@@ -424,6 +428,19 @@
         "qwen-sampling-4000-review-20261101.json"
       ],
       "public_model_publication": false
+    },
+    "latest_native_by_family": {
+      "qwen": {
+        "family": "qwen",
+        "step": 7400,
+        "status": "rejected",
+        "evidence": "qwen7400-source-native-review-20261101.json"
+      },
+      "ornith": {
+        "step": 12162,
+        "status": "rejected",
+        "evidence": "ornith12162-source-native-review-20261101.json"
+      }
     }
   },
   "conditional_audio_component": {
@@ -438,11 +455,11 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Qwen data-only6400to7400 on62314 verified TRAIN rows; ORIGINAL class-uniform event/replay sampler,60GiB Torch",
-      "GPU2": "Ornith12162 completed/rejected; native13/full160/paired32/HF45 diagnostics complete. Next: virtual TRAIN scene preparation and gated training.",
+      "GPU0": "Qwen scene-data-only7400to8400 running after55684MiB zero-update preflight/exact7400resume; original class-uniform sampler retained.",
+      "GPU2": "Ornith scene-only data expansion12162to13162 running; fixed1000 updates after verified64362-row virtual corpus and21066MiB zero-update preflight.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Ornith12162 improves some categories but fails temporal/source and natural speech parity; HFsource36versusnative41versuslegacy9 naturalworderrors. QwenGPU0 data-only6400to7400 remains active.",
+    "latest_completed_trials": "Ornith12162 and Qwen7400 are rejected. Qwen7400 native13/full160/HFsource42 and exact16 seen-TRAIN audit completed; source shares wrong unseen identities. Scene-data-only trials now run onGPU0/2.",
     "current_hypothesis": "Add grounded ordered/mixed-source TRAIN scenes generated virtually from existing verified parents; source and native both lack temporal capability. Preserve neural architecture/TTS/inference prompt and all original gates.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
@@ -451,19 +468,21 @@
       "parent-target-and-control-balance-20261101.json",
       "data-diversity-convergence-20261101.json",
       "qwen6400-and-temporal-baseline-20261101.json",
-      "ornith12162-source-native-review-20261101.json"
+      "ornith12162-source-native-review-20261101.json",
+      "qwen7400-source-native-review-20261101.json",
+      "virtual-scene-training-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
     "additional_parity_suite": {
-      "status": "legacy_reference_complete_candidate_comparison_pending",
+      "status": "Legacy16 complete; Ornith12162 native32 paired and HF16 comparisons complete/rejected. New scene checkpoints await unchanged16-suite assessment.",
       "sequence_cases": 12,
       "overlap_cases": 4,
       "actual_TRAIN_waveforms_rehashed": 59800,
       "new_audio_bytes": 4720948,
       "evidence": "temporal-overlap-validation-20261101.json"
     },
-    "GPU0_serial_reference": "Complete; reference workers exited before newQwen training",
+    "GPU0_serial_reference": "Qwen7400 source42 and seen16 complete; reference workers exited before new scene training.",
     "attribution_audit": {
       "active_attributed_TRAIN_rows": 17450,
       "exact_ledger_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",

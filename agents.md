@@ -22,7 +22,7 @@ still fail bells/printer/gunfire/siren/noise/tones/clock-alarm, so6,400 is REJEC
 Full160 replay yields215/3,336 word errors(6.445%), zero false transcripts on six
 nonspeech controls, but natural speech36/594 versus legacy9/594 remains open.
 
-Current Qwen DATA-only trial `qwen-full-diversity-pass-1` runs6,400→7,400 on GPU0,
+Qwen DATA-only trial `qwen-full-diversity-pass-1` completed6,400→7,400 on GPU0,
 fixed1,000 updates, same62,314-row verified corpus as Ornith. Preserve Qwen's
 ORIGINAL class-uniform-event plus once-per-row replay algorithm; do NOT claim
 it uses Ornith's2/1/1 sampler. Original12,458 rows/targets are an exact prefix.
@@ -30,9 +30,9 @@ All48 tensors, AdamW/RNG and source position342 are verified; a new sampling
 schedule is declared for the expanded corpus. Source parameters remain frozen.
 The four-backward maximum-input preflight peaks55,684MiB after reset under60GiB
 Torch/61.75GiB lease, zero optimizer updates. Whole-process training allocation
-may be higher and remains monitored. The first1,000 updates forecast3,007 novel
-IDs; this is not a full-corpus pass or convergence claim. Its observer waits for
-actual trainer exit before native13 assessment. See
+peaked60,902MiB and remained within the resource limits. The first1,000 updates
+forecast3,007 novel IDs; this is not a full-corpus pass or convergence claim.
+Native13/full160 and source42 assessments are now complete and rejected. See
 `docs/upgrades/qwen6400-and-temporal-baseline-20261101.json`.
 
 Latest Ornith DATA-only trial completed12,162 and is REJECTED. Noise/tonal
@@ -53,8 +53,22 @@ remain frozen. One source response has malformed tags (41tokens, endedEOS),
 retained as a failure. These results do not establish quantization as the sole
 cause and do not justify another arbitrary precision/prompt sweep.
 
-Current GPU0 Qwen DATA-only6,400→7,400 trial remains live. Ornith training and
-all its evaluation workers have exited. Only its independently verified dead
+Qwen7,400 is REJECTED: clapping improves but dog→cat, bells→piano and other
+environmental errors remain. Full160 replay217/3,336 errors versus prior215;
+natural speech37/594 versus legacy9; all six nonspeech transcripts empty.
+A matched BF16 source diagnostic completed42clips: natural speech41/594 source
+versus37native and9legacy. Source also misidentifies dog/cat, bells/piano and
+printer/cupboard, so precision alone cannot explain the learned errors. Source
+and native differ on additional clips; retain both gates and generation-backend
+comparison limits. The zero-update audit of the exact16 previously seen TRAIN
+examples completed:
+eventCE1.4799 at3,200→0.5303 at7,400, remainingCE0.1280, zero first-event
+argmax changes with/without future targets. Bark/siren/printer/group examples
+recover; clapping/details still fail. Seen fit does not establish generalization
+or isolate the effect of the latest data expansion. Retain frozen projection
+and assess data-only virtual scenes next; do not stack an architecture change. See
+`docs/upgrades/qwen7400-source-native-review-20261101.json`.
+Previous Ornith12,162 training/evaluation workers exited. Its verified dead
 training reservation was reclaimed; all peer scopes/budgets/contexts remained
 unchanged. See `docs/upgrades/ornith12162-source-native-review-20261101.json`.
 The exact12,162 sampler/order/RNG and17,389-record seen set are reconstructable;
@@ -62,18 +76,40 @@ a longer deterministic schedule preserves the completed4,000-draw prefix and
 can avoid resetting the remaining speech pool. This is bookkeeping, not proof
 that unchanged classification training will restore temporal comprehension.
 
-NEXT bounded work: prepare virtual TRAIN-only composed scenes with grounded
-order/overlap captions, including different human voices and speech with known
-nonspeech backgrounds. Use retained verified TRAIN parents, never any validation
-or test sources. Generate deterministic PCM in RAM from hashed parent/recipe
-metadata rather than creating another audio/cache generation. Preserve the
-original raw manifests, licenses/attributions, frozen trunk/encoder/projector/
-TTS, rank8 last8 FFN adapter, and inference prompt. Validate parent/split/hash
-exclusion, exact PCM reconstruction, caption truth, unknown-transcript masking,
-old-record collator equality, and actual maximum-input memory before training.
-Keep original parity gates. No scene corpus or scene training is implemented
-by the report above; implement this next instead of blindly extending only
-single-event labels. Do not change healthy Qwen training while preparing it.
+Virtual TRAIN scene preparation is now COMPLETE:2,048 metadata-only recipes
+(512event sequences,256event overlaps,512DSP sequences,256DSP overlaps,
+256different-voice overlaps,256speech/background mixtures). The original62,314
+records/targets remain unchanged; total TRAIN64,362. All parents are retained,
+hashed TRAIN-only sources; no validation/test audio is used. All wave hashes,
+whole-parent spans, grounded construction captions and unknown-transcript masks
+pass. Six independent scalar PCM references match vectorized rendering; old
+sampler/RNG and collator tensors remain exact. Metadata adds4,439,921bytes and
+no audio/feature files. Weak source event labels and peak-aligned mixtures still
+require perceptual evaluation; construction checks are not semantic parity.
+
+Ornith's zero-update four-backward maximum-input preflight passed21,066MiB
+under21GiB Torch/22GiB GPU2 lease. Bounded scene-data-only training is RUNNING
+12,162→13,162, fixed1,000updates, exact48 adapter tensors/AdamW/RNG resumed.
+Frozen primary/encoder/rich850 bridge/TTS, rank8 last8 FFN, loss4, LR and
+inference prompt are unchanged. Same2event/1speech/1acoustic-replay sampling;
+materialize a31,654-update speech-pool horizon in RAM but execute only1,000,
+saving unused order for recovery. Full parity and publication stay gated. Its
+observer waits for actual trainer exit before fixed native13 evaluation. See
+`docs/upgrades/virtual-scene-training-20261101.json`. Do not change this healthy
+trainer while reviewing Qwen or preparing independent diagnostic inputs.
+
+Qwen's scene-data-only7,400→8,400 trial is also RUNNING onGPU0, fixed1,000
+updates. Same64,362 TRAIN rows and unchanged ORIGINAL class-uniform event plus
+once-per-row replay sampler, not Ornith2/1/1. Source7,400 order/RNG/15,465 seen
+IDs reconstruct exactly; all48 tensors and AdamW7,400 are restored. Qwen-specific
+three old-record and six scene collator comparisons are tensor-exact. Forecast:
+2,814 novel IDs and123virtual-scene draws in the first4,000 microbatches; this
+is not a full scene/corpus pass. Zero-update four-backward preflight55,684MiB
+under60GiB Torch/61.75GiB lease passed before training. Its fixed8,400 observer
+waits for actual CUDA trainer exit. Next: assess each completed trial with the
+unchanged native13, full160/240, fixed16temporal/overlap and legacy controls;
+then assigned-target operational/cloning/concurrency gates. Keep publication
+gated and retain both source/adapter recovery states without bulk exports.
 
 The complete Ornith data-only pass ended10,662. Every fixed checkpoint is
 rejected despite recovery of alarm, clock alarm, bark, church bells, printer and
