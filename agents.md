@@ -195,6 +195,34 @@ Training/checkpoints were not changed. Both actual workers exited and all own
 leases released normally. No full projector GGUF or public weights were created.
 See `docs/upgrades/paired-projection-review-20261101.json`.
 
+The next bounded audio hypothesis is now ACTIVE: conditional rank8 adapters on
+the existing full-attention q/k/v/o projections in Ornith layers27/31. This adds
+491,520parameters to the same trunk; it adds no separate reasoning model. A
+continues exact16,196FFN+AdamW; B starts from the same FFN/moments and adds
+zero-residual-initialized attention adapters with fresh moments. Both receive
+the identical next2,000saved-order TRAIN records, cursor16,136→18,136, fixed
+500updates, accumulation4, LR1e-4, event factor4 and clip1. Original rich850
+projection, primary, audio encoder and TTS stay frozen. Forecast750novel IDs,
+27,182cumulative IDs per arm; this is not a full-corpus/convergence claim.
+
+CPU shape/gradient/zero-residual checks pass. The actual CUDA zero-update
+preflight passes eight maximum-input four-backward tests, identical initial
+audio logits/loss and exact disabled text logits. Peak21,072MiB is below the
+23GiB Torch cap/24GiB lease. Source hash29a3ac1e... is pinned in the preflight
+and running trial. GPU0 worker3081309 runs the fixed comparison; GPU1 is excluded.
+GPU2 remains available only subject to its other owner's reservation. Do not
+change or restart the healthy training process.
+
+The finite observer3221201 waits for actual trainer exit and normal lease
+release, then runs the same58held-out raw clips per arm on one frozen source
+trunk. Actual4096-wide bridge and raw hashes are verified; its WER formula
+reproduces the prior40/50errors using the unchanged authoritative normalizer.
+Its evaluator/helper hashes are pinned. It never exports/promotes automatically.
+B has64tensors and requires new export/binding/runtime qualification: the current
+48-tensor component ABI must reject it. Native q/k/v/o shapes and existing LoRA
+operators are read-only feasibility evidence, not proof of compatibility or
+quality. See `docs/upgrades/attention-adaptation-preflight-20261101.json`.
+
 Qwen's scene-data-only7,400→8,400 trial completed and is REJECTED.
 Native13, fixed16temporal and full160 all completed against unchanged raw audio,
 prompt, F16 KV and explicit audio-adapter scale1. Noise/printer recover, but dog
