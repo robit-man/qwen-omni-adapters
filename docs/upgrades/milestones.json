@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith parent-target11162 completed and rejected; full160ASR regresses7.014to8.064percent, natural speech still below legacy. Sampling-only rollback10662to11162 onGPU2; Qwen5000to6400 recovery onGPU0. GPU1 excluded; parity/publication open.",
+      "status": "Sampling-only11162 completed/rejected despite clapping recovery; DATA-only62314-row11162to12162 now training onGPU2 after corrected-data zero-update21,066MiB preflight. Qwen5000to6400 onGPU0. No parity/publication approval.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -439,19 +439,20 @@
     "status": "active",
     "GPU_assignment": {
       "GPU0": "Qwen exact5000 recovery toward original6400",
-      "GPU2": "Ornith sampling-only10662to11162;2events/1speech/1control per update, native assessment after actual trainer exit",
+      "GPU2": "Ornith data-only11162to12162 on62314 verified TRAIN rows, same2/1/1 sampler; native assessment after actual trainer exit",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Parent-target Ornith11162 rejected in native13 and full160ASR; prior10662 also fails environmental and natural-speech parity",
-    "current_hypothesis": "Sampling-only control exposure25percent versus2.7percent; unchanged original17045 rows and leaf targets, loss and optimizer",
-    "prepared_attributed_data": "17450 verified rows, credits retained, NOT activated in current target-only ablation",
+    "latest_completed_trials": "Parent-target11162 and sampling-only11162 both rejected; Qwen original6400 recovery remains live onGPU0",
+    "current_hypothesis": "Expand verified TRAIN support only:17450human-event,26539human-transcribed and1280varied DSP examples; preserve architecture/loss/sampling rule/optimizer/frozen weights",
+    "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
       "gpu0-gpu2-convergence-20261101.json",
-      "parent-target-and-control-balance-20261101.json"
+      "parent-target-and-control-balance-20261101.json",
+      "data-diversity-convergence-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
-    "prepared_natural_data": "26539 additional already-local human-transcribed TRAIN FLAC clips verified; original manifest bytes preserved; NOT activated",
+    "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
     "additional_parity_suite": {
       "status": "prepared_only_no_native_quality_claim",
       "sequence_cases": 12,

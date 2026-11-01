@@ -47,34 +47,56 @@ WER7.014%→8.064%. Baseline10,662 natural-speech WER is36/594 versus legacy9/59
 overall lower WER is not natural-speech parity. Preserve
 `docs/upgrades/parent-target-and-control-balance-20261101.json`.
 
-Next bounded hypothesis is sampling only, rollback to exact10,662: each500-update
-trial accumulation group draws two class-uniform events, one speech replay and
-one procedural control, instead of68.8/28.5/2.7% event/speech/control exposure.
-All17,045 original rows and leaf targets, loss factor4, optimizer, learning rate,
-architecture and frozen weights remain fixed. Original sampling order is
-intentionally replaced; AdamW/RNG and all48 parameters are restored exactly.
-Work `ornith-control-balanced-pass-1`, final11,162, GPU2,21GiB Torch/22GiB lease.
-Deterministic RNG, exact group counts, replay cycling and TRAIN-only checks pass.
-Its observer waits for actual trainer exit before native13 qualification. No
-publication or release approval follows automatically from training completion.
+The sampling-only trial `ornith-control-balanced-pass-1` completed11,162 and is
+REJECTED. Clapping recovers, but alarm and printer regress and group/gunfire/
+silence/noise/tones still fail. Six native identities pass. All48 GGUF tensors
+are exact; frozen weights and disabled logits remain unchanged. The native
+admission retry followed an already-exited-owner lease cleanup: PID898715 was
+the sole registered context, its process and CUDA residency were absent, two
+normal releases failed on changed foreign allocation, then only that dead
+owner's reservation was reclaimed with documented force. Other owner tokens,
+scopes, budgets and registered contexts were verified unchanged. Never use this
+as permission to force admission or release a live/unverified owner.
+
+Current bounded trial is DATA ONLY, `ornith-full-diversity-pass-1`:
+11,162→12,162 on GPU2, fixed1,000 updates. It retains the2event/1speech/1control
+sampling rule, rank8 last8 FFNs, event loss factor4, AdamW/LR and all frozen
+primary/encoder/projector/TTS weights. Exact48 parameters, optimizer/RNG and the
+14,740-record source seen-set are verified. The62,314 TRAIN rows comprise29,174
+human event recordings,31,398 speech recordings and1,742 procedural controls.
+Load the original/natural/attributed/DSP manifests as a verified union in RAM;
+duplicate rows must be identical and protected rows remain unchanged. No audio
+or combined-manifest copies, feature caches or full projector exports.
+
+Added DSP controls cover10 varied signal families,128 each, about123MiB total.
+A pre-training audit corrected37 captions for single short beeps/nearly steady
+sweeps; all audio bytes were preserved and no optimizer ran on those captions.
+CPU collator/sampler checks pass, including unknown-transcript masking,
+unchanged real encoder inputs and exact2/1/1 groups. The corrected-data
+four-backward maximum-input preflight peaks21,066MiB under21GiB Torch/22GiB
+lease, zero optimizer updates. Its exact dataset/source hashes gate training.
+The observer waits for trainer exit before checking12,162 on native13. See
+`docs/upgrades/data-diversity-convergence-20261101.json`; no release is qualified.
 
 An additional26,539 already-local human-transcribed train-clean100 FLAC clips
 are hash/header/speaker-split verified and prepared as a separate data-only
 manifest `natural-speech-diversity-data-20261101`,43,584 TRAIN rows total. The
 original manifest bytes and all targets/splits are preserved; no audio download,
-copy, cache or training activation. License CC BY4.0. This corpus is NOT used by
-the sampling-only trial. The attributed event corpus below is also inactive.
+copy or cache. License CC BY4.0. It was NOT used by the sampling-only trial;
+it is activated by the current data-only trial together with attributed events.
 
 An additional17,450 attributed DEV recordings are verified and prepared from the
 already-local checksum-verified archives, with raw/normalized hash, protected
 uploader/ID and ESC exclusions and per-file creator/title/source/license credits.
 Only CC-BY3.0 was added; other license types remain excluded. New bytes are about
 4GB and no archive/model downloads or feature caches were created. This corpus
-is NOT activated in the target-only ablation. If later trained, ship its
+was NOT activated in the target-only ablation. It is now trained in the
+data-only trial, so ship its
 `attributed-audio-diversity-20261101/ATTRIBUTION.jsonl` with release provenance.
 Do not silently combine target and data changes or omit those credits.
 
-See `docs/upgrades/gpu0-gpu2-convergence-20261101.json` for actual live PID,
+See `docs/upgrades/data-diversity-convergence-20261101.json` for current PID and
+`docs/upgrades/gpu0-gpu2-convergence-20261101.json` for earlier
 lease, resource, restoration and fit evidence. The20-record source fit diagnostic
 covers16 TRAIN and four already-used validation clips; it is not broad parity.
 One teacher-versus-prefix argmax changed, with cause unproven. Do not infer that
