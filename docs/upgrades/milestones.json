@@ -451,6 +451,14 @@
       "parent-target-and-control-balance-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
-    "prepared_natural_data": "26539 additional already-local human-transcribed TRAIN FLAC clips verified; original manifest bytes preserved; NOT activated"
+    "prepared_natural_data": "26539 additional already-local human-transcribed TRAIN FLAC clips verified; original manifest bytes preserved; NOT activated",
+    "additional_parity_suite": {
+      "status": "prepared_only_no_native_quality_claim",
+      "sequence_cases": 12,
+      "overlap_cases": 4,
+      "actual_TRAIN_waveforms_rehashed": 59800,
+      "new_audio_bytes": 4720948,
+      "evidence": "temporal-overlap-validation-20261101.json"
+    }
   }
 }

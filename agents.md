@@ -83,6 +83,18 @@ legacy, ASR/environmental, assigned-target, cloning and operational gates before
 publishing and verifying both Hugging Face and Ollama. Do not mark the goal done
 merely because a bounded training job, source test or small diagnostic completes.
 
+A separate fixed16 compound VALIDATION suite now covers12 ordered/reversed
+sequences and four overlapping sources, including speech plus alarm/printer,
+group voices plus siren, and claps plus bells. All samples derive from existing
+held-out validation audio. Every source and compound hash is disjoint from the
+actual59,800 TRAIN waveforms across all current/prepared corpora, independently
+rehashed; all PCM and source timestamps are verified. New bytes4,720,948 only.
+Do not train on these derivatives or redistribute their evaluation-only source
+audio. Legacy/candidate CPU preparation passes; native semantic/temporal
+inference is NOT run or qualified. See
+`docs/upgrades/temporal-overlap-validation-20261101.json`. Use this as additional
+parity evidence, never replace the original gates or infer quality from setup.
+
 ## Resource requirement, clarified 2026-11-01
 
 The user requires completing the upgrades, tracking artifacts and preventing

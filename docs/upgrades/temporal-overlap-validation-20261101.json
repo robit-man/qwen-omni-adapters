@@ -1,0 +1,189 @@
+{
+  "schema": "robit.omni.compound-audio-validation-preparation.v1",
+  "complete": true,
+  "rows": 16,
+  "sequence_rows": 12,
+  "overlap_rows": 4,
+  "manifest_sha256": "5521a65eb4a70b2947524a48bfff4aa158b7ce6e3bb57570d7835bc9fce2a5fb",
+  "source_manifest_sha256": "598bd863b4b67997324bed0a68647fd0ec17f3d928dacd02148c892146bfb91d",
+  "builder_sha256": "e1f6f0177e1a7675d09abb0c9fffb140addb714cacbf515bf838c12eee9d9ce2",
+  "training_manifest_sha256s": [
+    "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+    "75832a7f630d29542b6ac7418a7bf92fa27a7abecbe53264d4ef5fde9de59cbb",
+    "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+    "68b2061c1297b65df713a55e62464b1b9090a11f380c334df07f5157cc2aff50"
+  ],
+  "all_source_ids_and_hashes_disjoint_TRAIN": true,
+  "all_written_PCM_exactly_reproduced": true,
+  "sequential_sources_unchanged": true,
+  "overlap_rule": "round-to-even half-sum of int16 samples, zero-padded; no clipping",
+  "source_waveforms_and_timestamps_retained": true,
+  "labels_or_titles_permitted_in_inference": false,
+  "training_or_inference_performed": false,
+  "new_audio_bytes": 4720948,
+  "feature_caches_created": false,
+  "quality_qualified": false,
+  "next_gate": "Legacy reference and viable candidate on identical raw audio; manual temporal/source/overlap assessment, no keyword grader.",
+  "independent_TRAIN_hash_proof_sha256": "a6ac9e8d6a1d386cbab35e727025882b6611efdb80757f6660b2fe0dfc6b6477",
+  "all_training_hashes_read_from_actual_audio": true,
+  "prepared_runner_source_sha256s": {
+    "evaluate_legacy_temporal_overlap.py": "773fd55f56f989c20375b138e120228c4cd16175ae177c33fa5b97021cef5f3a",
+    "evaluate_conditional_temporal_overlap.py": "65485c32bca19d0b3d9b975967270051ca1670e172a663a047717d53f00bf5da"
+  },
+  "legacy_and_candidate_CPU_preparation_checks_passed": true,
+  "native_inference_performed": false,
+  "independent_training_hash_proof": {
+    "schema": "robit.omni.compound-validation-independent-hash-proof.v1",
+    "all_training_hashes_read_from_actual_audio": true,
+    "actual_train_paths_hashed": 59800,
+    "TRAIN_ID_union": 61034,
+    "all_source_and_derived_audio_disjoint_actual_TRAIN_hashes": true,
+    "source_and_derived_validation_audio_verified": true,
+    "elapsed_s": 15.809830285026692,
+    "training_or_inference_performed": false
+  },
+  "acoustic_training_support_audit": {
+    "schema": "robit.omni.acoustic-training-support-audit.v1",
+    "manifest_sha256": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+    "rows": 17045,
+    "event_classes": 197,
+    "original_mixture_percent": {
+      "events": 68.78263420357877,
+      "speech": 28.50689351716046,
+      "controls": 2.7104722792607805
+    },
+    "control_rows": 462,
+    "control_unique_audio_files": 66,
+    "control_augmentations": {
+      "room-tone": 105,
+      "fan": 105,
+      "alarm": 77,
+      "clicks": 84,
+      "silence": 91
+    },
+    "unique_control_augmentations": {
+      "room-tone": 15,
+      "fan": 15,
+      "alarm": 11,
+      "clicks": 12,
+      "silence": 13
+    },
+    "interpretation": "Coverage counts identify absent labels, not a proven causal explanation of model errors. Current sampling-only trial keeps corpus unchanged.",
+    "validation_or_test_used_for_training": false,
+    "weights_or_audio_written": false,
+    "new_training_activated": false
+  },
+  "natural_speech_sequence_preflight": {
+    "schema": "robit.omni.prepared-natural-corpus-token-budget.v1",
+    "CPU_only": true,
+    "training_activated": false,
+    "manifest_sha256": "68b2061c1297b65df713a55e62464b1b9090a11f380c334df07f5157cc2aff50",
+    "families": {
+      "ornith": {
+        "train_rows": 43584,
+        "maximum_target_tokens": 137,
+        "median_target_tokens": 66.0,
+        "p99_target_tokens": 102,
+        "preflight_candidates": [
+          {
+            "id": "libri100-7859-102521-0017",
+            "duration_s": 24.525,
+            "target_tokens": 137,
+            "estimated_audio_plus_target_tokens": 444
+          },
+          {
+            "id": "libri100-298-126791-0067",
+            "duration_s": 19.295,
+            "target_tokens": 133,
+            "estimated_audio_plus_target_tokens": 375
+          },
+          {
+            "id": "libri100-103-1241-0033",
+            "duration_s": 15.745,
+            "target_tokens": 125,
+            "estimated_audio_plus_target_tokens": 322
+          },
+          {
+            "id": "libri100-103-1241-0023",
+            "duration_s": 16.67,
+            "target_tokens": 124,
+            "estimated_audio_plus_target_tokens": 333
+          },
+          {
+            "id": "fsd50k-245666",
+            "duration_s": 29.7155625,
+            "target_tokens": 43,
+            "estimated_audio_plus_target_tokens": 415
+          },
+          {
+            "id": "fsd50k-382646",
+            "duration_s": 29.451,
+            "target_tokens": 42,
+            "estimated_audio_plus_target_tokens": 411
+          },
+          {
+            "id": "fsd50k-323041",
+            "duration_s": 30.0,
+            "target_tokens": 29,
+            "estimated_audio_plus_target_tokens": 404
+          }
+        ],
+        "actual_GPU_memory_preflight_still_required": true,
+        "no_features_or_model_weights_written": true
+      },
+      "qwen": {
+        "train_rows": 43584,
+        "maximum_target_tokens": 137,
+        "median_target_tokens": 66.0,
+        "p99_target_tokens": 102,
+        "preflight_candidates": [
+          {
+            "id": "libri100-7859-102521-0017",
+            "duration_s": 24.525,
+            "target_tokens": 137,
+            "estimated_audio_plus_target_tokens": 444
+          },
+          {
+            "id": "libri100-298-126791-0067",
+            "duration_s": 19.295,
+            "target_tokens": 133,
+            "estimated_audio_plus_target_tokens": 375
+          },
+          {
+            "id": "libri100-103-1241-0033",
+            "duration_s": 15.745,
+            "target_tokens": 125,
+            "estimated_audio_plus_target_tokens": 322
+          },
+          {
+            "id": "libri100-103-1241-0023",
+            "duration_s": 16.67,
+            "target_tokens": 124,
+            "estimated_audio_plus_target_tokens": 333
+          },
+          {
+            "id": "fsd50k-245666",
+            "duration_s": 29.7155625,
+            "target_tokens": 43,
+            "estimated_audio_plus_target_tokens": 415
+          },
+          {
+            "id": "fsd50k-382646",
+            "duration_s": 29.451,
+            "target_tokens": 42,
+            "estimated_audio_plus_target_tokens": 411
+          },
+          {
+            "id": "fsd50k-323041",
+            "duration_s": 30.0,
+            "target_tokens": 29,
+            "estimated_audio_plus_target_tokens": 404
+          }
+        ],
+        "actual_GPU_memory_preflight_still_required": true,
+        "no_features_or_model_weights_written": true
+      }
+    }
+  },
+  "updated_UTC": "2026-11-01T10:44:57.719631+00:00"
+}
