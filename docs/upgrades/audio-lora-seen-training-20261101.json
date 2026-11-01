@@ -1,0 +1,209 @@
+{
+  "schema": "robit.omni.completed-lora-seen-training-audit.v1",
+  "utc": "2026-11-01T01:09:16.484329+00:00",
+  "family": "ornith",
+  "step": 3200,
+  "training_rows": 16,
+  "new_validation_or_test_rows": 0,
+  "new_optimizer_steps": 0,
+  "manifest_sha256": "f391b0c7dc903a78c7c3a2eef8eb9b261c1e5a521a929b361dc6a14aa1474b68",
+  "source_adapter_sha256": "764bfc3fc3bda7c748df453efbc7f3e1fb329a1dc34489cd654a199efff51045",
+  "native_adapter_sha256": "51c4c40ee445903fdf8f19599b83cb9489554578fec4b5b7eb2400236e4e089f",
+  "source_report_sha256": "463b5f0c912b963aa9ca4c2383a6c8e15454f601c1753b89997b5c3e7c4c2b58",
+  "native_report_sha256": "bcb5cf53705ed892f45bb62eb441551a1d76ee7e7895c26c84b315acb8dd0977",
+  "mean_event_name_CE": 1.247919707908295,
+  "mean_remaining_token_CE": 0.1520717431412777,
+  "first_event_argmax_changes_from_gold_future": 0,
+  "minimum_teacher_prefix_logit_cosine": 0.9997893571853638,
+  "HF_peak_cuda_reserved_mib": 20194.0,
+  "HF_cuda_residency_verified": true,
+  "native_cuda_residency_verified": true,
+  "neural_parameters_changed": false,
+  "conclusion": "Errors remain in unquantized training-backend free generation on already-seen audio. Native reproduces several errors. Export/quantization is not the sole blocker; event learning remains incomplete after one full pass. Differences such as printer versus drill remain recorded.",
+  "limits": [
+    "Small repeated training sample; no held-out quality estimate.",
+    "FSD labels are weak acoustic annotations; no unknown transcript promoted to truth.",
+    "No head activation or runtime/prompt changes.",
+    "No new model weight files or feature cache; only compact diagnostic receipts.",
+    "No publication or release qualification."
+  ],
+  "rows": [
+    {
+      "id": "fsd50k-377642",
+      "audio_sha256": "e8cf906f950038e9217c1331269d126ba93f08ac960c477400a9d41dea8cc01c",
+      "training_labels": [
+        "Bell"
+      ],
+      "event_name_CE": 0.4143460690975189,
+      "remaining_token_CE": 0.3134911358356476,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bell; Doorbell. A high-pitched, metallic bell rings repeatedly in a rapid, rhythmic pattern.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Bell."
+    },
+    {
+      "id": "fsd50k-155309",
+      "audio_sha256": "484d3b2730541eca7d7f2529c9e0b58657cae3690e42e6bfcc9dbe25cad069d7",
+      "training_labels": [
+        "Bark"
+      ],
+      "event_name_CE": 0.822104275226593,
+      "remaining_token_CE": 0.039771176874637604,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Dog. A dog barks once.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Bark."
+    },
+    {
+      "id": "fsd50k-324275",
+      "audio_sha256": "c7ff2b7d0ecd3ead803e2599590c8c56c043d74a1a05205a5d3dfa8b7439cf31",
+      "training_labels": [
+        "Siren"
+      ],
+      "event_name_CE": 1.9458045959472656,
+      "remaining_token_CE": 0.14887742698192596,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Organ. A single, sustained organ chord is played, creating a deep and resonant timbre.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Organ."
+    },
+    {
+      "id": "fsd50k-259143",
+      "audio_sha256": "44447fa58ed2433646c7d72e601cbd666e83c0985b34f335a7b27b5c99addb31",
+      "training_labels": [
+        "Clapping"
+      ],
+      "event_name_CE": 0.017341341823339462,
+      "remaining_token_CE": 0.07714948803186417,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clapping. Clapping</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Clapping."
+    },
+    {
+      "id": "fsd50k-345053",
+      "audio_sha256": "514a95d01b85086c4a3b6efb4165e7e2f964c106bd3610d3fdfbbb2805e34145",
+      "training_labels": [
+        "Printer"
+      ],
+      "event_name_CE": 0.9951434135437012,
+      "remaining_token_CE": 0.2519300878047943,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Drill."
+    },
+    {
+      "id": "fsd50k-239137",
+      "audio_sha256": "ba4059bb43544b62f48025ef137319e37814e269609036020b4f593aa54320a6",
+      "training_labels": [
+        "Gunshot, gunfire"
+      ],
+      "event_name_CE": 0.3545766770839691,
+      "remaining_token_CE": 0.04080978035926819,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Fireworks.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Gunshot, gunfire."
+    },
+    {
+      "id": "fsd50k-165898",
+      "audio_sha256": "4a9c2a9873bd551dc773bb5c580957fb6f45505e5d433af4c23966d0238918af",
+      "training_labels": [
+        "Shout",
+        "Human group actions"
+      ],
+      "event_name_CE": 4.557548999786377,
+      "remaining_token_CE": 0.014958617277443409,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Dog. A dog is barking in the distance.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Laughter."
+    },
+    {
+      "id": "fsd50k-416692",
+      "audio_sha256": "c92076e6e209043fc72d187917a6ba615aae17f33ca6102ac0439a6f89dab344",
+      "training_labels": [
+        "Child speech, kid speaking"
+      ],
+      "event_name_CE": 1.2088440656661987,
+      "remaining_token_CE": 0.0022443984635174274,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Speech.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Speech."
+    },
+    {
+      "id": "fsd50k-117562",
+      "audio_sha256": "e78b0be6132bd0018fc0d4b9a34012484128ef3fa35b0d7834a249fde5bd10de",
+      "training_labels": [
+        "Ringtone"
+      ],
+      "event_name_CE": 0.010227145627140999,
+      "remaining_token_CE": 0.07383072376251221,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Ringtone. A high-pitched, electronic ringtone plays in a repeating pattern.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Ringtone."
+    },
+    {
+      "id": "fsd50k-325262",
+      "audio_sha256": "401a8e0dc7786cc9df8ec0701b3e83e6eea37869df1dfd5a370ca7b3916717db",
+      "training_labels": [
+        "Finger snapping"
+      ],
+      "event_name_CE": 0.24244116246700287,
+      "remaining_token_CE": 0.00086433463729918,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Finger snapping.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Finger snapping."
+    },
+    {
+      "id": "fsd50k-164039",
+      "audio_sha256": "5ada9353d07a2a23a7729b43d0015b1715d8b1158fb7f4d73d161a5528459cde",
+      "training_labels": [
+        "Stream"
+      ],
+      "event_name_CE": 0.7654005885124207,
+      "remaining_token_CE": 0.6164590120315552,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Stream.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Stream."
+    },
+    {
+      "id": "fsd50k-369112",
+      "audio_sha256": "101a719673aeea231928e4e89117ef67244a3198e1d9be2dfec33a8beba5c5d7",
+      "training_labels": [
+        "Thump, thud"
+      ],
+      "event_name_CE": 0.14025013148784637,
+      "remaining_token_CE": 0.08676314353942871,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Thump, thud. A single, low-pitched thump is heard, followed by a brief silence.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Thump, thud."
+    },
+    {
+      "id": "fsd50k-67669",
+      "audio_sha256": "759d959ff3ae1496d5574fc1263605b65bab3da243feed2bfe55d67a10923737",
+      "training_labels": [
+        "Male speech, man speaking"
+      ],
+      "event_name_CE": 0.11400548368692398,
+      "remaining_token_CE": 0.004712238907814026,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Male speech, man speaking.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Speech."
+    },
+    {
+      "id": "fsd50k-324464",
+      "audio_sha256": "ea10f4b387965365b3b42f48e93dd8fe05989986ec7d3d5d26aa29216c75a08f",
+      "training_labels": [
+        "Microwave oven"
+      ],
+      "event_name_CE": 1.9628959894180298,
+      "remaining_token_CE": 0.3249051570892334,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird; Cricket. A high-pitched, rapid chirp from a bird is heard, followed by the rhythmic clicking of a cricket.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Boat, Water vehicle."
+    },
+    {
+      "id": "fsd50k-392498",
+      "audio_sha256": "6d13a09e739274efb8ba1abf834c2a28996e507f1079b4e024a6e99c68493f39",
+      "training_labels": [
+        "Clock"
+      ],
+      "event_name_CE": 6.223261833190918,
+      "remaining_token_CE": 0.07279668003320694,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Raindrop; Drip.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Raindrop."
+    },
+    {
+      "id": "fsd50k-324637",
+      "audio_sha256": "528b1bdd044f1c7fb9e1723178614547141f876f6f22b0650b9a3b0dceea1770",
+      "training_labels": [
+        "Fart"
+      ],
+      "event_name_CE": 0.1925235539674759,
+      "remaining_token_CE": 0.3635844886302948,
+      "HF_generated": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Fart. A single, low-pitched fart is heard.</audio_observation><|im_end|>",
+      "native_observation": "Audible sound events: Fart."
+    }
+  ]
+}

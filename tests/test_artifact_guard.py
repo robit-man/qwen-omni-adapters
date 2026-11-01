@@ -128,6 +128,17 @@ def test_admitted_budget_executes_workload(tmp_path):
     assert result.returncode == 0 and marker.exists()
 
 
+def test_workload_receives_nested_separator_and_options_unchanged(tmp_path):
+    output = tmp_path / "received-arguments.json"
+    command = f"import json,sys; from pathlib import Path; Path({str(output)!r}).write_text(json.dumps(sys.argv[1:]))"
+    expected = ["--", "env", "PYTHONPATH=src:.", "--gpu", "test-uuid"]
+    result = subprocess.run([sys.executable, str(SCRIPT), "check", "--path", str(tmp_path),
+                             "--reserve-gib", "0", "--expected-write-gib", "0", "--execute",
+                             sys.executable, "-c", command, *expected], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(output.read_text()) == expected
+
+
 @pytest.mark.parametrize("value", ["nan", "inf", "-1"])
 def test_invalid_disk_estimates_cannot_admit_work(tmp_path, value):
     assert guard.main(["check", "--path", str(tmp_path), "--expected-write-gib", value]) == 1

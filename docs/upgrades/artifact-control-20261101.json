@@ -58,7 +58,12 @@
       "seconds": 291.43
     },
     "new_safety_tests": 21,
-    "source_contract_browser_npm_shell_gates_passed": true
+    "source_contract_browser_npm_shell_gates_passed": true,
+    "launcher_separator_regression": {
+      "passed": 6325,
+      "seconds": 295.14,
+      "safety_tests": 22
+    }
   },
   "resource_admission": {
     "before_cleanup_refused": true,
@@ -79,6 +84,10 @@
       "free_bytes": 253373485056,
       "reserve_bytes": 10737418240,
       "expected_write_bytes": 1073741824
+    },
+    "real_nested_command": {
+      "first_attempt": "CLI rejected nested -- before any CUDA launch; fixed and regression-tested",
+      "after_fix": "same guarded Docker command admitted; read-only HF and native jobs completed and released their scoped leases"
     }
   },
   "CUDA_workloads_started_by_cleanup": 0,

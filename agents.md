@@ -176,6 +176,15 @@ hallucination is retained; no reference-model words become verified transcripts.
 See `docs/upgrades/legacy-expanded-audio-20261031.md`. The legacy model is a
 benchmark reference only and must not be restored as a second release reasoner.
 
+A paired 16-recording TRAIN-only audit of final Ornith LoRA verifies unchanged
+weights and repeats several semantic errors in both unquantized HF generation
+and native inference. Event-name CE is 1.248 versus 0.152 for remaining scored
+tokens; the first event argmax is unchanged when gold future tokens are removed.
+Export/quantization alone cannot explain the failure. See
+`docs/upgrades/audio-lora-seen-training-20261101.json`. Do not stack a new
+architecture, new data, sampling and loss changes in response; first test a
+bounded learning hypothesis while preserving the existing frozen components.
+
 Upgrade the existing GGUF/Ollama bundle architecture. Keep the trained Omni
 audio bridge, native vision and Qwen3-TTS Base reference-voice cloning. Produce
 two independently versioned releases: **Ornith Omni Edge v2** and **Qwen3.8 Omni

@@ -228,7 +228,19 @@ def main(argv: list[str] | None = None) -> int:
     clean.add_argument("--plan", type=Path, required=True)
     clean.add_argument("--receipt", type=Path, required=True)
     clean.add_argument("--apply", action="store_true")
-    args = parser.parse_args(argv)
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+    execute = None
+    if "--execute" in raw_args:
+        boundary = raw_args.index("--execute")
+        execute = raw_args[boundary + 1:]
+        raw_args = raw_args[:boundary]
+        if not execute:
+            parser.error("--execute requires a command")
+    args = parser.parse_args(raw_args)
+    if execute is not None:
+        if args.command != "check":
+            parser.error("--execute is supported only by check")
+        args.execute = execute
     try:
         check_budget(args) if args.command == "check" else reclaim(args)
     except (OSError, ValueError, KeyError, TypeError) as error:
