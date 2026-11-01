@@ -305,7 +305,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Both data-only62314-row trials active:Ornith11162to12162 onGPU2;Qwen6400to7400 onGPU0. Qwen6400 and priorOrnith trials rejected. Natural ASR and environmental/temporal parity remain open; no public promotion.",
+      "status": "Ornith12162 complete/rejected after native13,full160,paired32temporal andHF45source checks. Prepare virtual TRAIN scenes next; Qwen6400to7400 continues onGPU0. Parity and publication remain open.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -439,18 +439,19 @@
     "status": "active",
     "GPU_assignment": {
       "GPU0": "Qwen data-only6400to7400 on62314 verified TRAIN rows; ORIGINAL class-uniform event/replay sampler,60GiB Torch",
-      "GPU2": "Ornith data-only11162to12162 on62314 verified TRAIN rows, same2/1/1 sampler; native assessment after actual trainer exit",
+      "GPU2": "Ornith12162 completed/rejected; native13/full160/paired32/HF45 diagnostics complete. Next: virtual TRAIN scene preparation and gated training.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "Qwen6400 rejected; full160 speech215/3336errors but natural36/594versuslegacy9/594. Fixed16legacytemporal reference completed with limitations. Ornith prior11162 trials rejected.",
-    "current_hypothesis": "Both families expand verified data only, each preserving its existing sampler/model/loss/optimizer and frozen components; no publication gate weakened",
+    "latest_completed_trials": "Ornith12162 improves some categories but fails temporal/source and natural speech parity; HFsource36versusnative41versuslegacy9 naturalworderrors. QwenGPU0 data-only6400to7400 remains active.",
+    "current_hypothesis": "Add grounded ordered/mixed-source TRAIN scenes generated virtually from existing verified parents; source and native both lack temporal capability. Preserve neural architecture/TTS/inference prompt and all original gates.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
       "gpu0-gpu2-convergence-20261101.json",
       "parent-target-and-control-balance-20261101.json",
       "data-diversity-convergence-20261101.json",
-      "qwen6400-and-temporal-baseline-20261101.json"
+      "qwen6400-and-temporal-baseline-20261101.json",
+      "ornith12162-source-native-review-20261101.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",

@@ -1,0 +1,184 @@
+{
+  "schema": "robit.omni.ornith12162-source-native-assessment.v1",
+  "UTC": "2026-11-01T13:08:02.093993+00:00",
+  "goal_status": "active",
+  "release_qualified": false,
+  "publication": false,
+  "checkpoint": {
+    "step": 12162,
+    "elapsed_s": 3521.038616165053,
+    "unique_training_records": 17389,
+    "adapter_sha256": "6a5bfcc13b361e141b2de162d1c6f12e249472bf0163aef2d0ae8b1491799aaf",
+    "disabled_logits_max_abs_delta": 0.0,
+    "base_encoder_bridge_unchanged": true,
+    "peak_reserved_mib": 21350.0,
+    "resource_minima": {
+      "minimum_RAM_available_GiB": 311.22716522216797,
+      "minimum_srv_free_GiB": 89.32875061035156,
+      "minimum_checkout_free_GiB": 214.2344970703125
+    },
+    "release_qualified": false
+  },
+  "conversion": {
+    "complete": true,
+    "family": "ornith",
+    "tensors": 48,
+    "all_exported_values_exact": true,
+    "adapter_sha256": "8edfd81968d3dcea45d1022873315ac8dd0f66e36deb6dfa4892ef194f3c5aab",
+    "release_qualified": false
+  },
+  "decision": "REJECT: full auditory parity remains incomplete",
+  "native13": {
+    "completed": true,
+    "output_sha256": "fdd6c7eb8a70ddbc25d84ffe53fd09c87c14d4a6593d9597d5bf82bbcae9a58c",
+    "category_recoveries": "Broadband hiss and electronic tones; alarm and printer categories recovered versus sampling-only11162",
+    "remaining_identity_failures": {
+      "silence": "Buzz/Insect",
+      "human_group_voices": "Crow",
+      "clapping": "Hammer",
+      "gunfire": "Boom omits gunfire"
+    },
+    "additional_faithfulness_failures": {
+      "alarm": "Calls intermittent alarm continuous",
+      "tones": "Calls a steady three-tone chord a melody"
+    },
+    "other_retained_categories": [
+      "exact speech sentence",
+      "clock alarm",
+      "bark",
+      "church bell",
+      "printer",
+      "siren"
+    ],
+    "no_new_graded_threshold_or_gate_waiver": true
+  },
+  "full_replay160": {
+    "groups": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 232,
+        "wer": 0.06954436450839328
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 18,
+        "wer": 0.011842105263157895
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 41,
+        "wer": 0.06902356902356903
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 173,
+        "wer": 0.14157119476268412
+      }
+    },
+    "false_transcripts": 0,
+    "metric_sha256": "a45869d637850e13eb0a2866c3b231c6c7e92bd4b1c5bee6e62f9975191c26b6",
+    "interpretation": "232/3336 overall errors is similar to10662(234); natural41/594 is worse than10662(36) and legacy(9)."
+  },
+  "paired_temporal16": {
+    "completed": true,
+    "results": 32,
+    "scales": [
+      0,
+      1
+    ],
+    "outputs_sha256": "65c9eebb149268864cbf08e0576283cdc450f8a256938e7240a68e887352c8c9",
+    "same_raw_audio_prompt_and_frozen_base_projector": true,
+    "finding": "Both repaired bridge without adapter and current adapter fail temporal/source combinations the full-Omni reference handles. Adapter outputs often collapse to class names.",
+    "candidate_temporal_parity_passed": false
+  },
+  "HF_source_diagnostic": {
+    "complete": true,
+    "rows": 45,
+    "natural_speech": {
+      "clips": 29,
+      "words": 594,
+      "source_errors": 36,
+      "native_errors": 41,
+      "legacy_errors": 9
+    },
+    "native_inputs_and_training_prompt_exact": true,
+    "prompt_sha256": "9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758",
+    "labels_or_titles_in_generation_input": false,
+    "all_parameters_frozen_no_updates": true,
+    "outputs_sha256": "41ae997d6a3adb88a491c706ec792f17b84d46cb1867e1ae8a0cb93b42850e1f",
+    "elapsed_s": 59.86052450304851,
+    "peak_reserved_MiB": 19004.0,
+    "interpretation": "Source also misses temporal structure and natural speech. Deployment introduces additional differences, but quantization/backend alone cannot explain the source failures. No precision or inference-prompt sweep is authorized by this result.",
+    "schema_failure_example": "Source temporal03 emits malformed tags despite ending atim_end after41tokens; preserved as failure, not silently repaired."
+  },
+  "sampler_continuation_proof": {
+    "schema": "robit.omni.finite-schedule-extension-proof.v1",
+    "CPU_only": true,
+    "source_step": 12162,
+    "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+    "source_adapter_sha256": "6a5bfcc13b361e141b2de162d1c6f12e249472bf0163aef2d0ae8b1491799aaf",
+    "recovery_sha256": "b17870e1ae636e9d3f0117e56630b9dfeea4f1352dd1eb4667ae3197ba508b2e",
+    "source_seen_train_count": 17389,
+    "completed4000sample_order_and_RNG_reconstructed_exact": true,
+    "extended_order_prefix4000_exact": true,
+    "extended_updates_materialized_in_RAM_only": 31398,
+    "each_speech_ID_once_before_pool_reset": true,
+    "extended_order_sha256": "11fb63dd51765af4d315e68b6c822aa703ae0b3326f8f70c861147ae5e58e856",
+    "source_initial_schedule_checkpoint": "ornith-control-balanced-pass-1/checkpoint-011162",
+    "new_resume_position": 4000,
+    "interpretation": "A further fixed continuation can extend the same deterministic generator, preserving the completed prefix and remaining replay pools. This proves bookkeeping, not model quality or a requirement to run all31398updates. No new weights/audio/features/order files are written.",
+    "neural_updates": 0,
+    "release_qualified": false
+  },
+  "owner_cleanup": {
+    "schema": "robit.omni.exited-owner-lease-reclamation.v1",
+    "UTC": "2026-11-01T12:13:33.706632+00:00",
+    "owner": "qwen-omni-upgrade/ornith-full-diversity-training",
+    "registered_CUDA_PIDs": [
+      1772896
+    ],
+    "training_complete": true,
+    "all_registered_owner_PIDs_exited": true,
+    "independent_CUDA_residency_false": true,
+    "normal_release_exit_code": 1,
+    "documented_already_gone_owner_force_used": true,
+    "own_reservation_released": true,
+    "all_peer_tokens_scopes_budgets_registered_contexts_preserved": true,
+    "new_admission_not_bypassed": true
+  },
+  "next_bounded_hypothesis": {
+    "failure": "Single-event classification data does not teach the observed ordered/mixed-source failures; source and deployment both fail them.",
+    "change": "Add verified TRAIN-only composed scenes with known order/overlap and faithful captions, including speech with known nonspeech backgrounds; keep model/weights frozen outside the existing small adapter, loss, main inference prompt and TTS intact.",
+    "storage": "Virtual PCM generated deterministically from retained TRAIN parents and hashed recipes; no new wave/cache generations.",
+    "prerequisites": "Verify protected-source exclusion, parent hashes/licenses, exact PCM reconstruction, truthful temporal captions, unknown-transcript masking, old-record collator equivalence and bounded memory preflight before training.",
+    "status": "next work; not implemented or trained in this assessment",
+    "release_gates": "Keep original native/ASR/environmental/temporal and assigned-target/voice/operational gates; no publication before both families qualify."
+  },
+  "active_Qwen_GPU0": {
+    "PID": 2353996,
+    "latest": {
+      "step": 7150,
+      "loss": 0.2071001164149493,
+      "gradient_norm": 1.7403696775436401,
+      "unique_training_records": 14730,
+      "additional_unique_training_records": 2928,
+      "elapsed_s": 4966.602112059016,
+      "reserved_mib": 60312.0,
+      "peak_reserved_mib": 60892.0
+    },
+    "fixed_final": 7400,
+    "CUDA_residency_verified": true
+  },
+  "resources": {
+    "owned_allocated_bytes": 117045317632,
+    "owned_limit_bytes": 128849018880,
+    "srv_free_bytes": 96391434240,
+    "checkout_free_bytes": 225572274176,
+    "all_learned_and_recovery_states_retained": true,
+    "new_feature_cache_or_full_projector_bytes": 0
+  }
+}

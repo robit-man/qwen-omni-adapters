@@ -35,6 +35,46 @@ IDs; this is not a full-corpus pass or convergence claim. Its observer waits for
 actual trainer exit before native13 assessment. See
 `docs/upgrades/qwen6400-and-temporal-baseline-20261101.json`.
 
+Latest Ornith DATA-only trial completed12,162 and is REJECTED. Noise/tonal
+categories improve and alarm/printer recover, but raw silence, group voices,
+clapping and gunfire remain wrong; continuous-alarm and melody wording also
+misdescribe the intermittent alarm and steady three-tone chord fixtures.
+Full160 replay is232/3,336errors(6.955%); natural speech41/594 versus legacy9/594.
+All48 exported tensors remain exact and frozen checkpoint/disabled logits match.
+
+Matched temporal control ran16 original validation clips twice in one native
+PID, explicit adapter scale0/1, identical audio/prompt/frozen primary/projector.
+BOTH repaired850 bridge and12,162 adapter miss ordered/mixed-source combinations
+that full Omni handles. A read-only unquantized BF16 source diagnostic then ran
+the same29 natural and16 temporal WAVs: source36/594word errors versus native41
+and legacy9; temporal structure also fails in source. No labels/titles/answers
+enter source generation, the prompt matches exact SHA9f7386..., and all weights
+remain frozen. One source response has malformed tags (41tokens, endedEOS),
+retained as a failure. These results do not establish quantization as the sole
+cause and do not justify another arbitrary precision/prompt sweep.
+
+Current GPU0 Qwen DATA-only6,400→7,400 trial remains live. Ornith training and
+all its evaluation workers have exited. Only its independently verified dead
+training reservation was reclaimed; all peer scopes/budgets/contexts remained
+unchanged. See `docs/upgrades/ornith12162-source-native-review-20261101.json`.
+The exact12,162 sampler/order/RNG and17,389-record seen set are reconstructable;
+a longer deterministic schedule preserves the completed4,000-draw prefix and
+can avoid resetting the remaining speech pool. This is bookkeeping, not proof
+that unchanged classification training will restore temporal comprehension.
+
+NEXT bounded work: prepare virtual TRAIN-only composed scenes with grounded
+order/overlap captions, including different human voices and speech with known
+nonspeech backgrounds. Use retained verified TRAIN parents, never any validation
+or test sources. Generate deterministic PCM in RAM from hashed parent/recipe
+metadata rather than creating another audio/cache generation. Preserve the
+original raw manifests, licenses/attributions, frozen trunk/encoder/projector/
+TTS, rank8 last8 FFN adapter, and inference prompt. Validate parent/split/hash
+exclusion, exact PCM reconstruction, caption truth, unknown-transcript masking,
+old-record collator equality, and actual maximum-input memory before training.
+Keep original parity gates. No scene corpus or scene training is implemented
+by the report above; implement this next instead of blindly extending only
+single-event labels. Do not change healthy Qwen training while preparing it.
+
 The complete Ornith data-only pass ended10,662. Every fixed checkpoint is
 rejected despite recovery of alarm, clock alarm, bark, church bells, printer and
 siren. Group voices, clapping, gunfire and negative controls still fail. Qwen5,000 and6,400
@@ -72,7 +112,7 @@ owner's reservation was reclaimed with documented force. Other owner tokens,
 scopes, budgets and registered contexts were verified unchanged. Never use this
 as permission to force admission or release a live/unverified owner.
 
-Current bounded trial is DATA ONLY, `ornith-full-diversity-pass-1`:
+The completed bounded DATA-only trial `ornith-full-diversity-pass-1`:
 11,162→12,162 on GPU2, fixed1,000 updates. It retains the2event/1speech/1control
 sampling rule, rank8 last8 FFNs, event loss factor4, AdamW/LR and all frozen
 primary/encoder/projector/TTS weights. Exact48 parameters, optimizer/RNG and the
@@ -89,7 +129,7 @@ CPU collator/sampler checks pass, including unknown-transcript masking,
 unchanged real encoder inputs and exact2/1/1 groups. The corrected-data
 four-backward maximum-input preflight peaks21,066MiB under21GiB Torch/22GiB
 lease, zero optimizer updates. Its exact dataset/source hashes gate training.
-The observer waits for trainer exit before checking12,162 on native13. See
+The observer waited for trainer exit; completed native/source reviews are above. See
 `docs/upgrades/data-diversity-convergence-20261101.json`; no release is qualified.
 
 An additional26,539 already-local human-transcribed train-clean100 FLAC clips
