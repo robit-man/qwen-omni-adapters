@@ -626,7 +626,7 @@
   },
   "native_ollama_audio": {
     "required": true,
-    "status": "Both patched-native A100 mechanism gates verified; Orin/full matrix and stock compatibility remain open",
+    "status": "Both backbone A100 and Ornith/Orin patched-native mechanism gates pass. Final conditional weights, full voice/audio/performance matrix and stock-unmodified compatibility remain open.",
     "evidence": "native-ollama-audio-20261101.json",
     "verified": false,
     "mechanism_evidence": "native-ollama-ornith-mechanism-20261101.json",
@@ -634,6 +634,8 @@
     "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json",
     "numeric_controls_evidence": "native-ollama-sampling-parity-20261101.json",
     "conditioning_cache_evidence": "native-ollama-conditioning-cache-20261101.json",
-    "complete_speech_evidence": "native-ollama-complete-speech-20261101.json"
+    "complete_speech_evidence": "native-ollama-complete-speech-20261101.json",
+    "orin_mechanism_evidence": "native-ollama-orin-mechanism-20261102.json",
+    "Python310_setup_evidence": "native-audio-binding-python310-20261102.json"
   }
 }

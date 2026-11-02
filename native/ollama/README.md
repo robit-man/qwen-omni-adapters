@@ -26,8 +26,18 @@ See the exact [Ornith receipt](../../docs/upgrades/native-ollama-ornith-mechanis
 and [Qwen receipt](../../docs/upgrades/native-ollama-qwen-mechanism-20261101.json).
 These initial gates cover native graph execution. The bounded format,
 cancellation, language-control and performance results below add coverage.
-Full Orin, perceptual quality, saved-profile and final bundle acceptance remain
-release work.
+Final weights, full Orin coverage, perceptual quality and saved-profile acceptance
+remain release work.
+
+Build `0.40.13-robit-omni.5` also passes the bounded **Ornith/Orin** mechanism
+gate on Tegra234. Native speech/silence ASR returns the exact phrase/empty text;
+all five speech outputs match same-device C++ controls byte for byte, including
+A→B→A, both default voices, complete 24 kHz mono PCM16 WAV and full reference
+audio plus transcript/acoustic conditioning. One primary stays resident with
+all33 layers offloaded. The new workers exit and the old service is restored
+with integrated-GPU residency verified. This uses the installed foundation
+bridge; final conditional adapters and broad audio/voice parity remain open.
+See the [Orin receipt](../../docs/upgrades/native-ollama-orin-mechanism-20261102.json).
 
 Build `0.40.13-robit-omni.2` also passes the bounded native sampling gate on
 Ornith/A100. Default controls, explicit zero filters and the maximum supported
@@ -127,6 +137,11 @@ loopback and preserve the existing authenticated front door. On broker hosts,
 reserve the complete primary plus auxiliary budget, register the supervising
 process and verify actual workers. Never start this as an anonymous CUDA process
 or as an additional reasoning runner beside an existing deployment.
+
+The serving account needs write access to its model metadata directory:
+Ollama0.40.13 creates `manifests-v2` there even when resolving an installed tag.
+The isolated Orin gate uses private metadata and hard links to the existing
+immutable blobs, with zero weight copies and unchanged shared-store permissions.
 
 The scheduler reserves8GiB of auxiliary headroom per native Omni runner, separately
 from actual resident-memory reports. This is conservative admission policy,

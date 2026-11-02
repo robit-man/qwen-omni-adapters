@@ -101,11 +101,21 @@ The complete exact-tag configuration preparation and deployment doctor pass
 on Orin, with zero weight copies and no CUDA/service changes. That prepared
 binding-v2 tag has no conditional LoRA; actual final native/v3 weights remain
 unqualified. See `docs/upgrades/native-audio-binding-python310-20261102.json`.
-The ARM native build is not qualified: its guarded
-CPU build stopped at the2GiB available-memory floor, preserving the active old
-service. Keep its source/toolchain/caches and rejection report; no automatic
-retry or native/weight release claim. See
-`docs/upgrades/native-setup-python310-20261102.json`.
+The initial ARM CPU build stopped at its2GiB RAM floor and its rejection is
+retained. After fresh headroom rose to5.7GiB, a bounded cached build passes
+native ARM Go tests/build while preserving the active old service. Native5
+now also passes the real Ornith/Orin mechanism gate:2 ASR and5 speech calls,
+all5 PCM exact to same-device native controls, female/male,A→B→A, finite WAV
+and arbitrary full-reference cloning. One primary offloads33/33 layers and all
+seven native CUDA workers exit. The old service is restored, healthy and GPU
+resident; temporary request files are removed and rollback canceled afterward.
+The first GPU attempt failed before loading because Ollama0.40.13 creates
+manifests-v2 in the model store. Private writable metadata with8 hard-linked
+immutable blobs fixes that exact cause; no blob bytes copied or shared-store
+permissions changed. Keep both failed attempts and successful evidence. Final
+conditional adapters, environmental/temporal/full-ASR parity, broad voice
+quality and whole-application performance remain unqualified. See
+`docs/upgrades/native-ollama-orin-mechanism-20261102.json`.
 
 ## Active convergence goal and GPU assignment — 2026-11-01
 
