@@ -840,6 +840,17 @@ parity still fails. The head remains disabled, with no shared live encoder
 residency or streaming qualification. See
 `docs/upgrades/current-encoder-ctc-20261031.md`. Private precision probes did
 not clear the unchanged numerical gate and must not become production flags.
+A bounded178-tensor A100/Orin layer trace now reproduces the original final
+features byte-for-byte on each device. It shows small CNN differences growing
+across multiple transformer layers; final relativeRMSE remains1.76%, above the
+unchanged1% limit. No single faulty operation or production fix is established.
+The original F32 diagnostic requires `NVIDIA_TF32_OVERRIDE=0`; an omitted-setting
+attempt is excluded and retained as failed-control evidence. No precision sweep,
+head activation, model export or live-service restart followed. Encoder-only
+GPU2 and Orin workers exited, the lease released normally, and662 disposable
+feature files were reclaimed with exact-file receipts. Selected frontend/layer0/
+final arrays and all hashes/metrics/reconstruction inputs remain available. See
+`docs/upgrades/encoder-layer-localization-20261102.json`.
 The same-13-input legacy comparison identifies bells, printer, gunfire, human
 voices and a passing siren that the rejected adapters miss. Its silence beep
 hallucination is retained; no reference-model words become verified transcripts.

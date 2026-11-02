@@ -660,5 +660,12 @@
     "complete_speech_evidence": "native-ollama-complete-speech-20261101.json",
     "orin_mechanism_evidence": "native-ollama-orin-mechanism-20261102.json",
     "Python310_setup_evidence": "native-audio-binding-python310-20261102.json"
+  },
+  "encoder_numerical_diagnosis": {
+    "status": "matched_two_device_178tensor_trace_complete; gradual transformer amplification, numerical gate stillfails; no production change",
+    "evidence": "encoder-layer-localization-20261102.json",
+    "feature_gate_passed": false,
+    "runtime_head_enabled": false,
+    "old_Orin_service_preserved": true
   }
 }
