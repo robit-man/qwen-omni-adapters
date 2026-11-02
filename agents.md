@@ -205,6 +205,24 @@ until the original gates pass. Current process identities are private in
 `runtime-data/active-convergence-handoff.json`; compact preparation evidence is
 `docs/upgrades/full-ffn-coverage2-preparation-20261102.json`.
 
+Qwen's matched full-depth NF4 trial also passed its zero-update gates and is
+running on GPU0. It adds zero-residual rank8/alpha8 FFNs in blocks0–55 while
+restoring the original8400 tail48 and independent AdamW state exactly. All192
+linears match the exact native GGUF dimensions;384 tensors/34,603,008 parameters
+total. Initial audio logits/loss and disabled text logits are exact. Four
+accumulated backwards on each of the same four maximum TRAIN inputs produce
+finite gradients in both groups, peak21,788MiB under24GiB Torch/25GiB lease.
+The trial uses the same next2,000 draws and500 updates as the completed tail-only
+NF4 N500 control; no control retraining, target/projection/LR/loss change or new
+data cache. Two250/500 recovery pairs are budgeted at1.1GiB total. Its pinned
+observer waits for actual exit/normal release, independently audits all384
+weights/moments/order/RNG/seen sets, then evaluates N500/F250/F500 on the same58
+raw clips. N500 must reproduce the prior58 outputs exactly. The runtime still
+rejects384; no native compatibility, quality improvement or release claim.
+Preserve both healthy trainers and their pinned helpers. See
+`docs/upgrades/qwen-full-ffn-preparation-20261102.json` and the private handoff
+for actual process identities and finite observation state.
+
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.
 Use physical GPU0 (`GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0`) and GPU2
