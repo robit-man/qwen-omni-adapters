@@ -8,6 +8,9 @@ binding. Updated supervisors load it disabled and enable it only for acoustic
 perception; vision, final language, thinking and tools explicitly disable it.
 Older runtimes reject this required binding. See the
 [packaging and real request isolation checks](upgrades/conditional-audio-component-20261101.md).
+Binding defaults to the v1 last-eight-block layout. Use `bind-audio-adapter
+--scope full-ffn` explicitly for v2 all-block research weights; see the
+[layout, size and qualification boundaries](upgrades/full-ffn-component-v2-20261102.md).
 
 New repaired audio projectors can require `robit.qwen3a.trained-prefill.v2`.
 Build all pinned native patches before selecting them. Startup verifies their

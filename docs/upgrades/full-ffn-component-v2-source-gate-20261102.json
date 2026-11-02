@@ -1,0 +1,35 @@
+{
+  "schema": "robit.omni.full-FFN-component-v2-source-gate.v1",
+  "complete": true,
+  "acceptance": "Explicitly validate/bind full32/64-block FFN layouts while preserving default48-tensor ABI and exact weights.",
+  "before": {
+    "new_cases_failed": 8,
+    "tests_passed": 22
+  },
+  "after_focused": {
+    "tests_passed": 30
+  },
+  "after_full": {
+    "tests_passed": 6415,
+    "warnings": 2,
+    "seconds": 281.73
+  },
+  "log_SHA256": {
+    "full-FFN-binding-before-tests.log": "44681afc74d01c9d9a304f81d82d8310c5e52650c0207684f625894a3c03ac43",
+    "full-FFN-binding-after-focused-tests.log": "a2a3c4b68aa70416fb312e4aaae8e14c352c367fc692b27c4622eb9644d825cf",
+    "full-FFN-binding-after-validation.log": "6673baf33c2210246289b31e1b445858b4ac67ec73b312609538594f7f529dc4"
+  },
+  "real_Ornith192_CPU_export": {
+    "checkpoint_SHA256": "892a69420bf0070b7d808589e0a80f82ec69f45785a2eb69c63b4b98891d1c79",
+    "all192_tensor_values_exact": true,
+    "bound_GGUF_SHA256": "sha256:594a7c24c4f00113cb3c6284fb447fe9eeb6df703ad2c5c0a60af5107a58370c",
+    "new_GGUF_bytes": 100690592,
+    "base_projector_TTS_not_copied": true,
+    "evidence_SHA256": "957fd80801f589333bfbda3caa3dda1260bca19beb84a69927ff1453b277f608"
+  },
+  "real_Qwen384_export_or_native_execution_qualified": false,
+  "native192_execution_qualified": false,
+  "audio_parity_qualified": false,
+  "release_qualified": false,
+  "publication": false
+}

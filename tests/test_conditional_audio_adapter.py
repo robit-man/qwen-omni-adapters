@@ -55,9 +55,10 @@ def _write(path, arch, metadata, tensors):
 
 
 @pytest.fixture
-def bundle(tmp_path):
+def bundle(tmp_path, request):
+    blocks = getattr(request, 'param', 8)
     model = _write(tmp_path / 'base.gguf', 'qwen35', {
-        'qwen35.block_count': 8, 'qwen35.embedding_length': 8,
+        'qwen35.block_count': blocks, 'qwen35.embedding_length': 8,
         'qwen35.feed_forward_length': 16,
     }, {'token_embd.weight': np.ones((16, 8), dtype=np.float32)})
     projector = _write(tmp_path / 'projector.gguf', 'clip', {
@@ -69,7 +70,7 @@ def bundle(tmp_path):
     sidecar = tmp_path / 'sidecar.gguf'
     pack_indexed_tts_sidecar(tts_gguf=tts, tts_projector_gguf=codec, out_gguf=sidecar)
     tensors = {}
-    for layer in range(8):
+    for layer in range(blocks - 8, blocks):
         for module, inputs, outputs in [('down', 16, 8), ('gate', 8, 16), ('up', 8, 16)]:
             stem = f'blk.{layer}.ffn_{module}.weight.'
             tensors[stem + 'lora_a'] = np.full((8, inputs), .01, dtype=np.float32)
@@ -92,6 +93,147 @@ def bundle(tmp_path):
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps({'schemaVersion': 2, 'layers': layers}))
     return root, path, sidecar, bound, source, report
+
+
+def _full_ffn_export(bundle, tmp_path, *, missing=False):
+    root, path, _, _, _, _ = bundle
+    layers = json.loads(path.read_text())['layers']
+    base, projector = [root / 'blobs' / layer['digest'].replace(':', '-', 1)
+                       for layer in layers]
+    blocks = int(gguf.GGUFReader(str(base)).fields['qwen35.block_count'].contents())
+    tensors = {}
+    for layer in range(blocks):
+        for module, inputs, outputs in [('down', 16, 8), ('gate', 8, 16), ('up', 8, 16)]:
+            stem = f'blk.{layer}.ffn_{module}.weight.'
+            tensors[stem + 'lora_a'] = np.full((8, inputs), (layer + 1) / 1000,
+                                             dtype=np.float32)
+            tensors[stem + 'lora_b'] = np.full((outputs, 8), -(layer + 1) / 1000,
+                                             dtype=np.float32)
+    if missing:
+        tensors.pop('blk.0.ffn_up.weight.lora_b')
+    source = _write(tmp_path / 'full-source.gguf', 'qwen35', {
+        'general.type': 'adapter', 'adapter.type': 'lora', 'adapter.lora.alpha': 8.0,
+    }, tensors)
+    return base, projector, source, blocks
+
+
+@pytest.mark.parametrize('bundle', [32, 64], indirect=True)
+def test_full_ffn_binding_preserves_all_layers_and_survives_descriptor_roundtrip(bundle, tmp_path):
+    root, path, sidecar, _, _, _ = bundle
+    base, projector, source, blocks = _full_ffn_export(bundle, tmp_path)
+    output = tmp_path / 'full-bound.gguf'
+    report = pack_audio_adapter(source=source, base_model=base, projector=projector,
+                                output=output, scope='full-ffn')
+    assert report['abi'] == 'robit.omni.conditional-audio-lora.v2'
+    assert report['tensors'] == blocks * 6
+    assert report['all_tensor_values_unchanged'] and not report['release_qualified']
+    original, bound = gguf.GGUFReader(str(source)), gguf.GGUFReader(str(output))
+    assert bound.fields['robit.audio_adapter.scope'].contents() == 'full-ffn'
+    assert all(a.name == b.name and np.array_equal(a.data, b.data)
+               for a, b in zip(original.tensors, bound.tensors, strict=True))
+    attach_ollama_sidecar(model='robit/test:v3', bundle_gguf=sidecar,
+                          models_dir=root, audio_adapter_gguf=output)
+    manifest = json.loads(path.read_text())
+    manifest['layers'] = [{k: v for k, v in layer.items() if k != 'annotations'}
+                          for layer in manifest['layers']]
+    path.write_text(json.dumps(manifest))
+    resolved = resolve_ollama_sidecar(model='robit/test:v3', models_dir=root)
+    assert resolved['audio_adapter']['binding']['abi'] == report['abi']
+    assert resolved['audio_adapter']['binding']['tensors'] == blocks * 6
+    prepared = prepare_ollama_sidecar(model='robit/test:v3', models_dir=root,
+                                     output_dir=tmp_path / 'views', prefer_direct=True)
+    assert prepared['audio_adapter']['path'] == resolved['audio_adapter']['path']
+    assert set(prepared['views']) == {'tts_model', 'tts_projector'}
+
+
+@pytest.mark.parametrize('bundle', [32], indirect=True)
+def test_full_ffn_is_not_implicitly_enabled_by_tensor_count(bundle, tmp_path):
+    base, projector, source, _ = _full_ffn_export(bundle, tmp_path)
+    output = tmp_path / 'never.gguf'
+    with pytest.raises(ValueError, match='last8'):
+        pack_audio_adapter(source=source, base_model=base, projector=projector, output=output)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize('bundle', [32], indirect=True)
+def test_full_ffn_rejects_an_incomplete_early_block(bundle, tmp_path):
+    base, projector, source, _ = _full_ffn_export(bundle, tmp_path, missing=True)
+    output = tmp_path / 'never.gguf'
+    with pytest.raises(ValueError, match='full.*FFN'):
+        pack_audio_adapter(source=source, base_model=base, projector=projector,
+                           output=output, scope='full-ffn')
+    assert not output.exists() and not list(tmp_path.glob('never.gguf.*.partial'))
+
+
+@pytest.mark.parametrize('bundle', [32], indirect=True)
+@pytest.mark.parametrize('abi,scope', [
+    ('robit.omni.conditional-audio-lora.v2', None),
+    ('robit.omni.conditional-audio-lora.v1', 'full-ffn'),
+    ('robit.omni.conditional-audio-lora.v2', 'last8-ffn'),
+])
+def test_component_abi_and_scope_cannot_disagree(bundle, tmp_path, abi, scope):
+    from qwen_omni_adapters.audio_adapter import inspect_audio_adapter
+    base, projector, source, _ = _full_ffn_export(bundle, tmp_path)
+    output = tmp_path / 'full-bound.gguf'
+    report = pack_audio_adapter(source=source, base_model=base, projector=projector,
+                                output=output, scope='full-ffn')
+    reader = gguf.GGUFReader(str(output))
+    metadata = {key: field.contents() for key, field in reader.fields.items()
+                if not key.startswith('GGUF.') and key != 'general.architecture'}
+    metadata['robit.audio_adapter.abi'] = abi
+    if scope is None:
+        metadata.pop('robit.audio_adapter.scope')
+    else:
+        metadata['robit.audio_adapter.scope'] = scope
+    damaged = _write(tmp_path / 'damaged.gguf', 'qwen35', metadata,
+                     {t.name: t.data.copy() for t in reader.tensors})
+    with pytest.raises(ValueError, match='ABI|scope'):
+        inspect_audio_adapter(damaged, base_model=base,
+                              base_digest=report['base_digest'],
+                              projector_digest=report['projector_digest'])
+
+
+@pytest.mark.parametrize('bundle', [32], indirect=True)
+def test_full_ffn_descriptor_bound_covers_qwen_size_and_keeps_v1_limit(bundle, tmp_path):
+    from qwen_omni_adapters.audio_adapter import inspect_audio_adapter
+    root, path, sidecar, legacy, _, legacy_report = bundle
+    base, projector, source, _ = _full_ffn_export(bundle, tmp_path)
+    output = tmp_path / 'full-bound.gguf'
+    pack_audio_adapter(source=source, base_model=base, projector=projector,
+                       output=output, scope='full-ffn')
+    # Sparse padding exercises real descriptor/file size admission without
+    # retaining a second set of large neural tensors in the unit-test cache.
+    with output.open('r+b') as stream:
+        stream.truncate(132 * 1024**2 + 65536)
+    attach_ollama_sidecar(model='robit/test:v3', bundle_gguf=sidecar,
+                          models_dir=root, audio_adapter_gguf=output)
+    resolved = resolve_ollama_sidecar(model='robit/test:v3', models_dir=root)
+    assert resolved['audio_adapter']['binding']['size'] > 64 * 1024**2
+    with legacy.open('r+b') as stream:
+        stream.truncate(64 * 1024**2 + 1)
+    with pytest.raises(ValueError, match='size|limit'):
+        inspect_audio_adapter(legacy, base_model=base,
+                              base_digest=legacy_report['base_digest'],
+                              projector_digest=legacy_report['projector_digest'])
+    with output.open('r+b') as stream:
+        stream.truncate(256 * 1024**2 + 1)
+    with pytest.raises(ValueError, match='size|limit'):
+        inspect_audio_adapter(output, base_model=base,
+                              base_digest=legacy_report['base_digest'],
+                              projector_digest=legacy_report['projector_digest'])
+
+
+@pytest.mark.parametrize('bundle', [32], indirect=True)
+def test_cli_can_explicitly_bind_full_ffn(bundle, tmp_path, capsys):
+    from qwen_omni_adapters.cli import main
+    base, projector, source, _ = _full_ffn_export(bundle, tmp_path)
+    output = tmp_path / 'cli-full.gguf'
+    assert main(['bind-audio-adapter', str(source), '--base-model', str(base),
+                 '--projector', str(projector), '--out', str(output),
+                 '--scope', 'full-ffn']) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result['tensors'] == 192
+    assert result['abi'] == 'robit.omni.conditional-audio-lora.v2'
 
 
 def test_binding_survives_stock_descriptor_roundtrip_and_reuses_tts(bundle, tmp_path):

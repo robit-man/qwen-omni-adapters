@@ -11,6 +11,10 @@ does not load our custom Qwen3-TTS sidecar or enforce the trained audio framing.
 The existing adapter and its request contract remain available. Edge v2 weights
 are not published: environmental/temporal and natural-speech parity remain failed.
 
+The explicit [full-FFN component ABI v2](../../docs/upgrades/full-ffn-component-v2-20261102.md)
+prepares 192/384-tensor adapters for isolated native qualification. Its format
+tests do not extend the native mechanism claims below to those new weights.
+
 ## Verified mechanism
 
 Each scoped A100 test used one private Ornith or Qwen tag with the existing indexed TTS

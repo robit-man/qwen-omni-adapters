@@ -215,6 +215,8 @@ def build_parser() -> argparse.ArgumentParser:
     bind_audio.add_argument("--base-model", type=Path, required=True)
     bind_audio.add_argument("--projector", type=Path, required=True)
     bind_audio.add_argument("--out", type=Path, required=True)
+    bind_audio.add_argument("--scope", choices=("last8-ffn", "full-ffn"), default="last8-ffn",
+                            help="Explicit FFN layout; full-ffn writes component ABI v2")
 
     resolve = sub.add_parser("resolve", help="Resolve and validate a tag's Omni sidecar")
     resolve.add_argument("model")
@@ -320,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
             from qwen_omni_adapters.audio_adapter import pack_audio_adapter
 
             result = pack_audio_adapter(source=args.source, base_model=args.base_model,
-                                        projector=args.projector, output=args.out)
+                                        projector=args.projector, output=args.out, scope=args.scope)
         elif args.command == "resolve":
             result = resolve_ollama_sidecar(model=args.model, models_dir=args.models_dir)
         elif args.command == "prepare":

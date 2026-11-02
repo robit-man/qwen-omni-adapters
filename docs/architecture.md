@@ -60,6 +60,9 @@ TTS sidecar and remains inside the same logical tag. Only the acoustic perceptio
 pass enables it; native vision and the final reasoning/tool pass explicitly
 disable it. This preserves the primary checkpoint outside audio perception.
 See [the component contract and measured mechanism checks](upgrades/conditional-audio-component-20261101.md).
+The explicit [v2 full-FFN binding](upgrades/full-ffn-component-v2-20261102.md)
+also validates all-block research adapters; its native generation and quality
+qualification are separate from component-format acceptance.
 
 For mixed audio/visual inputs, trained bridges run native vision and the
 speech-trained audio prefill as two bounded perception requests through that

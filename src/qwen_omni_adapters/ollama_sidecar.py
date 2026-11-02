@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from qwen_omni_adapters.audio_adapter import (
+    AUDIO_ADAPTER_MAX_BYTES,
     AUDIO_ADAPTER_MEDIA_TYPE,
     inspect_audio_adapter,
 )
@@ -229,7 +230,7 @@ def _resolve_audio_adapter(manifest: dict[str, Any], root: Path,
     digest, size = layer.get("digest"), layer.get("size")
     if (not isinstance(digest, str) or len(digest) != 71 or not digest.startswith("sha256:")
             or any(c not in "0123456789abcdef" for c in digest[7:])
-            or type(size) is not int or not 0 < size <= 64 * 1024**2):
+            or type(size) is not int or not 0 < size <= AUDIO_ADAPTER_MAX_BYTES):
         raise OllamaSidecarError("invalid conditional audio adapter descriptor")
     blob = root / "blobs" / digest.replace(":", "-", 1)
     try:
