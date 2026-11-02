@@ -1,0 +1,44 @@
+{
+  "schema": "robit.omni.full-FFN-TRAIN-fit-review.v1",
+  "complete": true,
+  "results_SHA256": "a984ddcb56d237a3f3917c135bd1aa59a7b9f903f17dd58feb34475c6843a324",
+  "fixed48_previous_TRAIN_recordings_per_arm": true,
+  "unchanged_targets_partial_masks_and_raw_source_hashes": true,
+  "heldout_audio_used": false,
+  "labels_or_references_in_free_generation": false,
+  "new_optimizer_updates": 0,
+  "new_audio_feature_cache_or_weights_written": false,
+  "arms": {
+    "D3500": {
+      "rows": 48,
+      "mean_CE": 0.2173073278972879,
+      "mean_event_CE": 1.0117580261721741,
+      "mean_remaining_CE": 0.17858973744538767,
+      "seen_tail": 35,
+      "seen_prefix": 27,
+      "exact_adapter_SHA256": "164b84a7136800c00478b87c9bbdcb9d70f8b528ab77905cfc3b88219efc2c05"
+    },
+    "D5500": {
+      "rows": 48,
+      "mean_CE": 0.2064477165901432,
+      "mean_event_CE": 1.263100168784149,
+      "mean_remaining_CE": 0.15508620939363027,
+      "seen_tail": 37,
+      "seen_prefix": 30,
+      "exact_adapter_SHA256": "77e702e4ee7421b5b2fa48bf4ef0ccdea46e61f40ba7fc6ab24fb865660150fa"
+    }
+  },
+  "peak_reserved_MiB": 21566.0,
+  "actual_worker_exited": true,
+  "lease_normally_released": true,
+  "findings": [
+    "Mean event-name CE rises1.011758\u21921.263100 while mean overall CE falls0.217307\u21920.206448 and remaining-token CE falls0.178590\u21920.155086.",
+    "Both checkpoints misidentify TRAIN sounds; D5500 omits human voice in motorcycle/buzz clips and calls footsteps shatter. Full seen-ID membership is reported per row, not inferred from class presence.",
+    "D5500 gains sliding door/train and some DSP overlap language; several previously seen mixed TRAIN scenes remain wrong. Unknown overlapping speech is not a verbatim ground truth transcript.",
+    "All16 event first-token argmaxes match when the gold future is removed, per arm; minimum teacher-prefix cosine exceeds0.999. This does not establish free-generation quality.",
+    "TRAIN CE and hand-reviewed examples motivate a paired LR-only comparison, not publication or an unmeasured production routing shortcut."
+  ],
+  "next_hypothesis": "From the exact D3500 parent, replay the same8000draws/2000updates as completed constant1e-4 coverage3 control with LR2e-5 in both existing AdamW groups. No other training variable changes; compare source cases and fixed TRAIN-fit diagnostic.",
+  "release_qualified": false,
+  "publication": false
+}

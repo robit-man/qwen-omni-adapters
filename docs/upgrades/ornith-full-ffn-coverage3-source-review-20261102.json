@@ -1,0 +1,280 @@
+{
+  "schema": "robit.omni.ornith-full-FFN-coverage3-source-review.v1",
+  "result": "UNQUALIFIED; partial gains and speech plateau do not establish environmental or temporal parity",
+  "training_updates": 2000,
+  "source_rows": 174,
+  "source_SHA256": "1cb2f2b7ee0f003d75cd036d14dabb79883ce85e10cbeb09ecffbd022214fbb5",
+  "control_all58_contents_reproduce_prior_D3500_exactly": true,
+  "same58_raw_audio_per_state": true,
+  "frozen_BF16_primary_encoder_rich850_projection": true,
+  "natural_errors_per594words": {
+    "D3500": 28,
+    "D4500": 26,
+    "D5500": 26
+  },
+  "legacy_natural_errors": 9,
+  "examples": [
+    {
+      "id": "probe-speech",
+      "assessment": "New states corrupt garden to garcon.",
+      "outputs": {
+        "D3500": {
+          "transcript": "The blue bicycle is parked beside the garden gate.",
+          "audio_observation": "One synthetic speaker with no notable background sound."
+        },
+        "D4500": {
+          "transcript": "The blue bicycle is parked beside the garcon gate.",
+          "audio_observation": "One speaker with no notable background sound."
+        },
+        "D5500": {
+          "transcript": "The blue bicycle is parked beside the garcon gate.",
+          "audio_observation": "One speaker with no notable background sound."
+        }
+      }
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "assessment": "Alarm remains wrong: frog/idling/insect.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Frog."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Idling."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Insect."
+        }
+      }
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "assessment": "D5500 recovers church bell.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gong."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell; Percussion."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-156200",
+      "assessment": "Human voices remain dog/subway/dog.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Dog."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Subway, metro, underground."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Dog."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-180765",
+      "assessment": "Clapping recovered.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Explosion."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Clapping."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Clapping."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-182894",
+      "assessment": "Printer remains dog/skateboard/road vehicle.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Dog."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Skateboard."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Motor vehicle (road)."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-00",
+      "assessment": "D5500 recovers bark then church bell.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "First: Bark. After a pause: Drum."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "First: Dog. After a pause: Church bell."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "First: Bark. After a pause: Church bell."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-01",
+      "assessment": "D5500 recovers church bell then bark.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "First: Organ. After a pause: Bark."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "First: Organ. After a pause: Bark."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "First: Church bell. After a pause: Bark."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-03",
+      "assessment": "Reversed gunfire/clapping omits clapping.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gunshot, gunfire."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gunshot, gunfire."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Boom."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-08",
+      "assessment": "Two speakers remain bird/cricket.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "First: Cat. After a pause: Cricket."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "First: Chicken, rooster. After a pause: Printer."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "First: Bird. After a pause: Cricket."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-10",
+      "assessment": "D5500 recovers chord after noise.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "First: Steady broadband hissing noise; no intelligible speech. After a pause: A sustained electronic tone; no intelligible speech."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "First: Steady broadband hissing noise; no intelligible speech. After a pause: A sustained electronic tone; no intelligible speech."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "First: A steady low hum mixed with hissing noise; no intelligible speech. After a pause: Several sustained electronic tones sound together; no intelligible speech."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-13",
+      "assessment": "Speech in noise still corrupts transcript and acoustic evidence.",
+      "outputs": {
+        "D3500": {
+          "transcript": "But blue ice cube is far. He's inside the cargo gate.",
+          "audio_observation": "Audible sound events: Speech synthesizer."
+        },
+        "D4500": {
+          "transcript": "THAT BLUE WICKET IS PART OF THE ARGONNE STATE",
+          "audio_observation": "Audible sound events: Whispering."
+        },
+        "D5500": {
+          "transcript": "But blue bicycle is parked outside the garage gate.",
+          "audio_observation": "Audible sound events: Conversation; Male speech, man speaking; Traffic noise, roadway noise."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-14",
+      "assessment": "Voices plus siren wrongly become meow.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Cat. A cat meows and purrs."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "First: Cat. After a pause: Vehicle."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Meow."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-15",
+      "assessment": "Bell retained but overlapping dog omitted.",
+      "outputs": {
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gong."
+        },
+        "D4500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        },
+        "D5500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        }
+      }
+    }
+  ],
+  "independent_CPU_audit_passed_both192_F32_snapshots": true,
+  "training_peak_reserved_MiB": 26188.0,
+  "source_peak_reserved_MiB": 19032.0,
+  "actual_training_and_source_workers_exited": true,
+  "leases_normally_released": true,
+  "next_bounded_hypothesis": "Check unchanged-target TRAIN fit and label-free generation against preserved D3500 and D5500 before selecting another training change.",
+  "GGUF_exported": false,
+  "native192_qualified": false,
+  "release_qualified": false,
+  "publication": false
+}

@@ -226,22 +226,24 @@ printer, mixtures/order and speech-in-noise remain wrong. Both saved states are
 explicitly excluded from release. See
 `docs/upgrades/ornith-full-ffn-coverage2-source-review-20261102.json`.
 
-One unchanged coverage3 continuation from D3500 is running on GPU0: exactly
-2,000 updates/8,000 saved-order draws, saving tail20,196/21,196,
-prefix4,500/5,500 and cursors32,136/36,136. The parent tail19,196/prefix3,500 and
-cursor28,136 restores all192 weights and both moment groups exactly. Early FFNs
-had seen12,565/64,362 unique TRAIN clips and3,500/31,654 speech clips; partial
-coverage supports this bounded hypothesis, not a convergence claim. Four
-maximum-input zero-update backward checks pass at21,220MiB. Torch cap28,672MiB,
-lease29,696MiB; two recovery pairs budget0.7GiB. Preserve the healthy trainer and
-pinned observer/helpers. After actual exit/normal release, the observer audits
-all192 recovery tensors/groups, evaluates D3500/D4500/D5500 on the same58 clips
-each, requires all58 parent outputs to reproduce exactly and verifies the
-source worker's actual exit/normal lease release. No labels, sampler, precision,
-projection, LR, loss or architecture changes. No GGUF/native192 export or public
-weights. Current process identities are private in
-`runtime-data/active-convergence-handoff.json`; preparation evidence is
-`docs/upgrades/full-ffn-coverage3-preparation-20261102.json`.
+Ornith coverage3 completed all2,000 updates and174 source rows. D3500
+reproduces all58 previous responses exactly. D3500/D4500/D5500 natural errors
+are28/26/26 per594 words versuslegacy9. Independent CPU audit passes both192
+F32 snapshots and optimizer/RNG/order; both workers exited and leases released.
+Peak training reserve26,188MiB stays under28,672 cap. D5500 recovers bells and
+both dog/bell orders, but human voices, printer, alarm, reverse gun/clap,
+speech-in-noise and overlaps still fail. Both states remain excluded from
+release. No192 GGUF/native activation or public weights. Next bounded diagnostic
+checks unchanged-target TRAIN fit before choosing another training change.
+See `docs/upgrades/ornith-full-ffn-coverage3-source-review-20261102.json`.
+The fixed48 TRAIN-only diagnostic then completes96 source comparisons, with
+no updates or new caches. Mean event-name CE rises1.011758→1.263100 while
+overall/remaining CE fall; both states still miss previously seen sounds.
+All16 event-prefix argmaxes per arm match after removing future target tokens.
+The worker exits and lease releases normally. A paired LR-only hypothesis is
+prepared: exactD3500 parent/same8000draws as coverage3, both AdamW groups2e-5
+instead of1e-4; all other training variables fixed. No job or gain is implied
+by preparation. See `docs/upgrades/full-ffn-TRAIN-fit-review-20261102.json`.
 
 Qwen's matched full-depth NF4 trial completed500 updates and all174 source
 cases. The tail-only N500 control reproduces all58 outputs exactly. Natural
