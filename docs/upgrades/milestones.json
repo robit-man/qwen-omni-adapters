@@ -666,6 +666,12 @@
     "evidence": "encoder-layer-localization-20261102.json",
     "feature_gate_passed": false,
     "runtime_head_enabled": false,
-    "old_Orin_service_preserved": true
+    "old_Orin_service_preserved": true,
+    "frontend_replay": {
+      "status": "completed; self-controls exact on both devices, identicalCNNinput leaves1.88%/7.02% finalRMSE; CNN-only correction insufficient; original gate stillfailed",
+      "evidence": "encoder-frontend-replay-20261102.json",
+      "production_changes": false,
+      "injected_features_do_not_satisfy_native_parity": true
+    }
   }
 }

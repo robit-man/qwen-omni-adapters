@@ -851,6 +851,14 @@ GPU2 and Orin workers exited, the lease released normally, and662 disposable
 feature files were reclaimed with exact-file receipts. Selected frontend/layer0/
 final arrays and all hashes/metrics/reconstruction inputs remain available. See
 `docs/upgrades/encoder-layer-localization-20261102.json`.
+A separate post-CNN replay now rejects frontend agreement as a sufficient fix:
+self-replay is byte-exact on both devices, but Orin given identical A100 CNN
+outputs still has1.88%/7.02% final error. Replay inputs are diagnostic only and
+must never enter production or count as native raw-audio parity. No faulty
+operator is isolated and no new precision patch is justified by this result.
+All replay workers exited, the lease released and48 generated feature files
+were reclaimed; healthy training/weights and the old Orin service are preserved.
+See `docs/upgrades/encoder-frontend-replay-20261102.json`.
 The same-13-input legacy comparison identifies bells, printer, gunfire, human
 voices and a passing siren that the rejected adapters miss. Its silence beep
 hallucination is retained; no reference-model words become verified transcripts.

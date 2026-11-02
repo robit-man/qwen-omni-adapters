@@ -1,0 +1,145 @@
+{
+  "schema": "robit.omni.encoder-frontend-replay-review.v1",
+  "UTC": "2026-11-02T04:15:45.790287+00:00",
+  "result": "CNN-only correction rejected as insufficient: shared post-CNN input does not close the unchanged numerical parity gap.",
+  "bounded_hypothesis": "Replaying identical post-CNN tensors can separate propagated frontend rounding from intrinsic downstream device differences. Test exact self-replay controls on both devices before interpreting Orin replay of A100 CNN tensors.",
+  "fixed_two_clips": [
+    "base-nonspeech-0015-silence",
+    "librispeech-1988-24833-0003"
+  ],
+  "only_diagnostic_change": "Post-CNN diagnostic tensor replay; no weight/model/precision/attention change",
+  "settings_unchanged": "Same existing F32 GGML_OP_MUL_MAT diagnostic and NVIDIA_TF32_OVERRIDE=0; default FlashAttention unchanged",
+  "A100_self_control": {
+    "complete": true,
+    "checks": [
+      {
+        "audio": "base-nonspeech-0015-silence.wav",
+        "self_replay_final_exact": true,
+        "replayed_CNN_input_readback_exact": true
+      },
+      {
+        "audio": "librispeech-1988-24833-0003.wav",
+        "self_replay_final_exact": true,
+        "replayed_CNN_input_readback_exact": true
+      }
+    ]
+  },
+  "Orin_self_control_exact": true,
+  "all_replayed_device_tensors_read_back_exact": true,
+  "input_reference_digests": {
+    "A100": [
+      {
+        "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/encoder-layer-trace-20261102-1/a100-layers0-stages/after_conv_out-0.f32",
+        "SHA256": "97d3c604e33618e9abd3dd6861e40fc2e8afe9d4ee1669d59439c6ce7be22a36",
+        "bytes": 199680
+      },
+      {
+        "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/encoder-layer-trace-20261102-1/a100-layers0-stages/after_conv_out-1.f32",
+        "SHA256": "e4c87ee77fd1e0f92342e74e462ba5db53084ad58cb82e4a544ce418378673a3",
+        "bytes": 399360
+      }
+    ],
+    "Orin": [
+      {
+        "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/encoder-layer-trace-20261102-1/orin-stages/after_conv_out-0.f32",
+        "SHA256": "313d3db1c872e61c5c392cb488773934008fbc4269c9a289d41610b58acb7829",
+        "bytes": 199680
+      },
+      {
+        "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/encoder-layer-trace-20261102-1/orin-stages/after_conv_out-1.f32",
+        "SHA256": "51680fec38b4a824bb1a38fd27ee06b76d993068139f237c636a74da1df75aaa",
+        "bytes": 399360
+      }
+    ]
+  },
+  "paired_results": [
+    {
+      "id": "base-nonspeech-0015-silence",
+      "original_post_CNN_input_relative_RMSE": 2.2859760616886365e-05,
+      "original_final": {
+        "cosine": 0.9998464946929061,
+        "relative_RMSE": 0.017523138379830126,
+        "max_abs_delta": 0.011172682046890259,
+        "exact": false
+      },
+      "same_A100_CNN_input_final": {
+        "cosine": 0.9998237806016592,
+        "relative_RMSE": 0.018775018967316603,
+        "max_abs_delta": 0.01417529582977295,
+        "exact": false
+      },
+      "same_A100_CNN_input_after_transformer": {
+        "cosine": 0.999881722071511,
+        "relative_RMSE": 0.01537993198561359,
+        "max_abs_delta": 0.10504838824272156,
+        "exact": false
+      },
+      "self_control_exact": true,
+      "cross_output_SHA256": "cc3ab312717056b461130c9d7fa2a28f5d5878370d26035e1dad2cb031829fee"
+    },
+    {
+      "id": "librispeech-1988-24833-0003",
+      "original_post_CNN_input_relative_RMSE": 9.486241603987488e-06,
+      "original_final": {
+        "cosine": 0.9998452308026303,
+        "relative_RMSE": 0.0176057275158419,
+        "max_abs_delta": 0.010566070675849915,
+        "exact": false
+      },
+      "same_A100_CNN_input_final": {
+        "cosine": 0.9975667162412374,
+        "relative_RMSE": 0.07015926938867918,
+        "max_abs_delta": 0.09729364141821861,
+        "exact": false
+      },
+      "same_A100_CNN_input_after_transformer": {
+        "cosine": 0.9949377954707632,
+        "relative_RMSE": 0.10082056796376748,
+        "max_abs_delta": 3.6289175152778625,
+        "exact": false
+      },
+      "self_control_exact": true,
+      "cross_output_SHA256": "9b96e36731190b5ffede1b35130f088a83abba0e91153db7f6bb64a8e9017f94"
+    }
+  ],
+  "interpretation": "With the same post-CNN tensors, final silence error remains1.88% and speech error grows7.02%, versus original1.75%/1.76%. Frontend agreement alone is insufficient. This does not isolate a faulty downstream operator or justify another precision permutation.",
+  "unaltered_gate": {
+    "minimum_cosine": 0.999,
+    "maximum_relative_RMSE": 0.01,
+    "passed": false
+  },
+  "injected_inputs_never_count_as_native_raw_audio_parity": true,
+  "paired_private_report_SHA256": "e97a9ef040a7a900be209b7d0442c4bb8ad598da2ec8781c56387323b4d6c186",
+  "probe_source_SHA256": "38dc06632348ef98852425b63c61f61fade256198bf195694256aa94431c9818",
+  "probe_helper_SHA256": "1446487889183b64a9bc7d0fe721f2a93801add7b1f54be10ef656b881a67683",
+  "A100_GPU2_scoped_encoder_only_lease_MiB": 4096,
+  "all_diagnostic_workers_exited_and_A100_lease_normally_released": true,
+  "actual_Orin_encoder_PIDs": [
+    1705801,
+    1705859
+  ],
+  "Orin_GPU_residency_proven": true,
+  "old_Orin_service_same_MainPID": 1618595,
+  "old_Orin_service_not_paused_or_restarted": true,
+  "minimum_Orin_available_RAM_bytes": 9740300288,
+  "primary_language_weights_loaded": false,
+  "optimizer_updates": 0,
+  "healthy_training_jobs_unchanged": true,
+  "production_changes": false,
+  "CTC_head_enabled": false,
+  "new_weight_exports": false,
+  "release_qualified": false,
+  "public_weights_uploaded": false,
+  "cleanup": {
+    "local_removed_derived_files": 20,
+    "local_removed_allocated_bytes": 8187904,
+    "Orin_removed_derived_files": 28,
+    "Orin_removed_allocated_bytes": 13451264,
+    "local_plan_SHA256": "b73b3bf55d58efff556282dc5cdcdcfe40d049cd4a3423b5985f4818ab5048c5",
+    "Orin_plan_SHA256": "77bed6df871fa55d190a53199ff5208e59a2be411b40251a9c32efc7dfad00ac",
+    "local_apply_receipt_SHA256": "ed9bf61a302b88e00b4f815821d70c20bb5199289594425556bf175c34dd7a24",
+    "Orin_apply_receipt_SHA256": "703f8e9091091d90be6fd2913153b185d1a8ce8ba48f03d7ed1be5cc8c86d9d7",
+    "retained_reference_inputs_code_binaries_hashes_and_compact_reports": true,
+    "model_weights_training_data_and_learned_checkpoints_untouched": true
+  }
+}
