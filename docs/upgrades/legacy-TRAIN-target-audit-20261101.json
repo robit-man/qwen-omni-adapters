@@ -1,0 +1,139 @@
+{
+  "schema": "robit.omni.legacy-TRAIN-target-audit-review.v1",
+  "UTC": "2026-11-02T00:17:23.683597+00:00",
+  "complete": true,
+  "TRAIN_rows": 48,
+  "strata": {
+    "FSD_class_uniform": 16,
+    "Libri_train": 8,
+    "event-overlap": 4,
+    "event-sequence": 4,
+    "signal-overlap": 4,
+    "signal-sequence": 4,
+    "speech-background": 4,
+    "voice-overlap": 4
+  },
+  "protected_actual_audio_hashes": 824,
+  "selected_audio_disjoint_validation_test": true,
+  "model_SHA256": "d9e2876556e7873e02c0359f832432ee2d67ab7dd0cee3efe0f77fd7a1f4dd85",
+  "projector_SHA256": "1104376db833f1e89c84834144ac3863340c2cd1ddaeddb39cb0247fb5c20c8d",
+  "inference_profile": "Unchanged16K/F16KV legacy temporal baseline, max512output, no enable_thinking override; fixed describe request, no labels/titles/transcripts in generation.",
+  "input_normalization": "Lossless PCM16 mono16K FLAC-to-WAV-in-RAM-v1; existing WAV bytes unchanged",
+  "all48_CPU_contract_envelopes_valid": true,
+  "full_primary_GPU_layers": [
+    "49",
+    "49"
+  ],
+  "resumed_verified_rows": 16,
+  "resumed_source_worker_PID": 3977625,
+  "new_reference_rows": 32,
+  "new_reference_worker_PID": 4089207,
+  "actual_workers_exited_and_lease_normally_released": true,
+  "Qwen_training_preserved": true,
+  "manual_review": {
+    "scope": "Read-only comparison of16class-uniform FSD,8Libri TRAIN and4ofeach6typed virtual strata. Reference output is not ground truth.",
+    "finding": "Reference captions add detail in some cases but conflict with human labels or deterministic signal construction in others; audit does not justify automatic relabeling.",
+    "examples": [
+      {
+        "id": "fsd50k-270586",
+        "stratum": "FSD_class_uniform",
+        "original_audio_observation": "Audible sound events: Bark.",
+        "teacher_audio_observation": "Three dog barks",
+        "original_transcript": "",
+        "teacher_transcript": null,
+        "known_TRAIN_transcript_WER": null
+      },
+      {
+        "id": "fsd50k-330265",
+        "stratum": "FSD_class_uniform",
+        "original_audio_observation": "Audible sound events: Mechanical fan.",
+        "teacher_audio_observation": "Constant rushing water, possibly from a large fountain or waterfall, with intermittent splashing sounds.",
+        "original_transcript": "",
+        "teacher_transcript": null,
+        "known_TRAIN_transcript_WER": null
+      },
+      {
+        "id": "scene-v1-event-sequence-0359",
+        "stratum": "event-sequence",
+        "original_audio_observation": "First: Harmonica. After a pause: Zipper (clothing).",
+        "teacher_audio_observation": "A harmonica plays a melody, followed by the sound of crinkling plastic and a zipper being opened.",
+        "original_transcript": "",
+        "teacher_transcript": null,
+        "known_TRAIN_transcript_WER": null
+      },
+      {
+        "id": "scene-v1-signal-sequence-0807",
+        "stratum": "signal-sequence",
+        "original_audio_observation": "First: A steady low hum mixed with hissing noise; no intelligible speech. After a pause: Steady broadband hissing noise; no intelligible speech.",
+        "teacher_audio_observation": "A loud, sustained, high-pitched electronic tone, similar to a dial tone or a test signal, is present throughout the audio clip.",
+        "original_transcript": "",
+        "teacher_transcript": null,
+        "known_TRAIN_transcript_WER": null
+      },
+      {
+        "id": "scene-v1-voice-overlap-1761",
+        "stratum": "voice-overlap",
+        "original_audio_observation": "Two different human voices overlap.",
+        "teacher_audio_observation": "Two male voices speaking in succession, one with a deeper, more resonant tone, the other with a higher pitch and a distinct regional accent. The recording has a slight echo, suggesting a room with some reverberation.",
+        "original_transcript": "",
+        "teacher_transcript": "And how great a development could they attain to thereafter? And if there ain't no better way, come over here and go in pardners with me.",
+        "known_TRAIN_transcript_WER": null
+      },
+      {
+        "id": "scene-v1-speech-background-1977",
+        "stratum": "speech-background",
+        "original_audio_observation": "One speaker over steady broadband hissing noise.",
+        "teacher_audio_observation": "Speech with background noise",
+        "original_transcript": "THERE IS A LOT OF OLE THEVES WIL MAKE AL THEY KIN OF U",
+        "teacher_transcript": "There's a lot of old thieves that make all they can of you.",
+        "known_TRAIN_transcript_WER": 0.5714285714285714
+      }
+    ],
+    "decision": "Keep existing targets, unknown-speech masks and protected splits unchanged. Do not promote these outputs to training targets.",
+    "limits": "48TRAIN cases are a diagnostic sample, not a release metric or proof that either annotator is universally correct."
+  },
+  "prefix_exposure_audit": {
+    "prefix_unique_seen": 5676,
+    "prefix_dataset_coverage_percent": 8.81886827631211,
+    "dataset_counts": {
+      "speech": 31654,
+      "control": 3534,
+      "FSD": 29174
+    },
+    "prefix_seen_counts": {
+      "speech": 1500,
+      "control": 1500,
+      "FSD": 2676
+    },
+    "saved_order_length": 126616,
+    "current_cursor": 20136,
+    "next8000_draws_available": true
+  },
+  "next_neural_hypothesis": "The new early FFNs saw5676/64362 unique clips and only1500/31654 speech clips; D1500 speech improves39to36 but remains abovelegacy9. Further unchanged saved-order exposure is a bounded hypothesis to test, not a guaranteed fix or convergence claim.",
+  "failed_attempts_retained": [
+    {
+      "work": "legacy-train-target-audit-1",
+      "rows": 0,
+      "cause": "Defaultlogverbosity3 omits GGML info/offload logs. EnableTRACE4, retain fullGPU requirement; worker/lease exited normally."
+    },
+    {
+      "work": "legacy-train-target-audit-2",
+      "rows": 16,
+      "cause": "Libri TRAIN files are FLAC; WAV MIME contract rejected them before inference. Lossless inRAM PCM16WAV conversion with sample equality and CPU validation fixes I/O; resume verified16 without replay."
+    }
+  ],
+  "proof_SHA256": {
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/legacy-train-target-audit-3/outputs.json": "8114db06bf02e502a893480c0b26cb3f3882d921da4890841d5035137207d97c",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audit_legacy_train_targets.py": "368da23772b7a6fe95091439382e925f7ad1c62d12f260725882cf1977cb1813",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/legacy-train-target-audit-preparation.json": "fc574fee2684f829bb0bd513e67bd89b8c11d83b8d3441763d6e8f623d664580",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/ornith-prefix-training-coverage-20261101.json": "00dfd7844c5ae938e669e60e5d7310592521c69fba86b8308c450ef8b6a88798"
+  },
+  "new_raw_audio_files": 0,
+  "new_feature_cache_files": 0,
+  "new_training_targets": 0,
+  "new_optimizer_updates": 0,
+  "new_neural_downloads": 0,
+  "runtime_changes": false,
+  "public_weight_uploads": 0,
+  "release_qualified": false
+}

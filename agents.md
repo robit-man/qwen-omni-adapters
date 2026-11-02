@@ -177,6 +177,17 @@ publication claim. See
 `docs/upgrades/full-ffn-continuation-source-review-20261101.json` and the original
 `docs/upgrades/full-ffn-continuation-preflight-20261101.json`.
 
+A48clip TRAIN-only reference audit is complete:16FSD,8Libri and24virtual,
+all disjoint from824 actual protected audio hashes. Existing frozen full-Omni
+weights only;49/49 primary layers on GPU0, workers exited and leases released.
+Teacher captions sometimes add detail but also conflict with human annotations
+or deterministic signal construction. Do not automatically relabel targets;
+all speech masks/splits remain unchanged. No new audio/features/weights. The
+early FFNs have seen5,676/64,362 unique clips and just1,500/31,654 speech clips
+(4.7%); another unchanged exposure trial is a hypothesis, not proof of success.
+See `docs/upgrades/legacy-TRAIN-target-audit-20261101.json`. Preserve the healthy
+Qwen NF4 trainer and its pinned observer/evaluator.
+
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.
 Use physical GPU0 (`GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0`) and GPU2
