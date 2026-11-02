@@ -1,0 +1,158 @@
+{
+  "schema": "robit.omni.ornith-coverage-continuation-start.v1",
+  "UTC": "2026-11-02T00:48:36.791885+00:00",
+  "failing_acceptance_criterion": "Environmental/temporal audio parity and natural speech parity; prior D1500 has 36 natural errors/594 versus legacy 9, misidentifies printer/voices and omits mixed events.",
+  "bounded_hypothesis": "Earlier FFNs saw only 1500/31654 speech clips; continue the exact saved order for 2000 updates without changing targets, architecture, LR, loss, sampling or projection.",
+  "parent": {
+    "source_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-full-ffn-continuation-1/checkpoint-017196",
+    "source_adapter_SHA256": "065deae175d482c35699207c02f79e0b7a5f88610e1dc113a5839830f711421c",
+    "source_recovery_SHA256": "1b6c907ea0d2f04b99b2730c2ce21369dbfe9354b6416b427a7ba9bfdd1090f6",
+    "source_step": 17196,
+    "source_prefix_step": 1500,
+    "source_cursor": 20136
+  },
+  "plan": {
+    "new_updates": 2000,
+    "next_draws": 8000,
+    "checkpoints_tail": [
+      18196,
+      19196
+    ],
+    "checkpoints_prefix": [
+      2500,
+      3500
+    ],
+    "final_cursor": 28136,
+    "future_order_SHA256": "e579065bfb0120919877e05340bce437a689bafb8dfb3db990ff94488538c4aa",
+    "new_checkpoint_pairs": 2,
+    "forecast_new_weight_and_recovery_GiB": 0.7
+  },
+  "preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "all192_source_weights_exact": true,
+    "all_optimizer_moments_restored_exact": true,
+    "checks": [
+      {
+        "FFN_gradient_squared_norm": 29.183381309732795,
+        "new_prefix_gradient_squared_norm": 15.885639658896253,
+        "arm": "D",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.1191309466958046,
+        "peak_reserved_MiB": 21048.0,
+        "peak_allocated_MiB": 20465.62890625
+      },
+      {
+        "FFN_gradient_squared_norm": 0.3667810260230908,
+        "new_prefix_gradient_squared_norm": 0.11567383178407908,
+        "arm": "D",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.05534971505403519,
+        "peak_reserved_MiB": 21220.0,
+        "peak_allocated_MiB": 20579.439453125
+      },
+      {
+        "FFN_gradient_squared_norm": 9.431324435397983,
+        "new_prefix_gradient_squared_norm": 4.805609481350984,
+        "arm": "D",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.12649017572402954,
+        "peak_reserved_MiB": 20190.0,
+        "peak_allocated_MiB": 19746.0341796875
+      },
+      {
+        "FFN_gradient_squared_norm": 10.176204434712417,
+        "new_prefix_gradient_squared_norm": 4.3114960449165665,
+        "arm": "D",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.1545845866203308,
+        "peak_reserved_MiB": 19992.0,
+        "peak_allocated_MiB": 19586.65625
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21220.0,
+    "source_script_sha256": "df812717b9c0c68b05cd8d2fb5c4c7e17fd5b3246b19e41b263c426b014c13a9",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "one_language_trunk": true,
+    "new_audio_features_or_weights_bytes": 0,
+    "source_weights_unchanged": true,
+    "GPU_residency_verified": true,
+    "lease_MiB": 29696,
+    "Torch_cap_MiB": 28672,
+    "release_qualified": false
+  },
+  "warm_start": {
+    "all192_source_weights_exact": true,
+    "source_order_cursor_and_RNG_exact": true,
+    "source_step": 17196,
+    "source_prefix_step": 1500,
+    "first_next_batch_loss": 0.039424411952495575,
+    "disabled_logits_max_abs_delta": 0
+  },
+  "training": {
+    "PID": 831399,
+    "start_ticks": "68937948",
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-full-ffn-coverage2-1",
+    "source": "runtime-data/train_ornith_full_ffn_coverage2.py",
+    "source_SHA256": "df812717b9c0c68b05cd8d2fb5c4c7e17fd5b3246b19e41b263c426b014c13a9",
+    "owner": "qwen-omni-upgrade/ornith-coverage2-training",
+    "GPU_UUID": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "lease_MiB": 29696,
+    "Torch_cap_MiB": 28672,
+    "observed_progress": {
+      "arm": "D",
+      "updates": 100,
+      "loss": 0.05089446878992021,
+      "gradient_norm": 0.6789684295654297,
+      "elapsed_s": 346.2525456720032,
+      "peak_reserved_MiB": 28504.0
+    }
+  },
+  "observer": {
+    "PID": 874510,
+    "start_ticks": "68951801",
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-full-ffn-coverage2-observer-1",
+    "pinned_sources": {
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/evaluate_ornith_coverage2_source.py": "55917b09db4304de30446df415232639e461114c6ae36172a3579823c9cadf7b",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/conditional_attention_modules.py": "53c3d8db0ab42440e9a96359db044fdb5d185de5614afa397a65111ca9e4767c",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/train_ornith_full_ffn_coverage2.py": "df812717b9c0c68b05cd8d2fb5c4c7e17fd5b3246b19e41b263c426b014c13a9",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audit_ornith_coverage2.py": "c38481ce4b60da465c7364efd01f490232cc31193b5863d8f7d83cba5d6cf8cd"
+    },
+    "state": {
+      "state": "waiting_for_fixed_trial_and_actual_worker_exit",
+      "publication": false,
+      "release_qualified": false,
+      "observed_worker_identity": {
+        "PID": 831399,
+        "start_ticks": "68937948"
+      }
+    },
+    "plan": "Wait for both scheduled checkpoints, actual training exit and normal lease release; independent CPU audit then fixed 174-source D1500/D2500/D3500 evaluation under a separate scoped lease."
+  },
+  "resources": {
+    "storage_admitted": true,
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release",
+    "free_bytes": 94775808000,
+    "reserve_bytes": 53687091200,
+    "expected_write_bytes": 10737418,
+    "ram_available_bytes": 341710155776,
+    "ram_required_bytes": 36507222016,
+    "owned_allocated_bytes": 121150914560,
+    "owned_limit_bytes": 128849018880
+  },
+  "limits": {
+    "training_complete": false,
+    "source_quality_evaluated": false,
+    "native192_supported": false,
+    "assigned_target_qualified": false,
+    "release_qualified": false,
+    "public_weights_uploaded": false,
+    "new_audio_or_feature_cache": false,
+    "GPU1_used": false,
+    "peers_or_services_changed": false
+  }
+}

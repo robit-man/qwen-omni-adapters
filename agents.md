@@ -187,8 +187,23 @@ or deterministic signal construction. Do not automatically relabel targets;
 all speech masks/splits remain unchanged. No new audio/features/weights. The
 early FFNs have seen5,676/64,362 unique clips and just1,500/31,654 speech clips
 (4.7%); another unchanged exposure trial is a hypothesis, not proof of success.
-See `docs/upgrades/legacy-TRAIN-target-audit-20261101.json`. Preserve the healthy
-Qwen NF4 trainer and its pinned observer/evaluator.
+See `docs/upgrades/legacy-TRAIN-target-audit-20261101.json`.
+
+The next unchanged Ornith continuation passed its zero-update resource and
+exact-resume gates and is running on GPU0. Parent tail17,196/prefix1,500 and
+cursor20,136 continue for exactly2,000 updates/8,000 saved-order draws, saving
+tail18,196/19,196 and prefix2,500/3,500. All192 weights and both moment groups
+restore exactly; disabled text logits are unchanged. The four maximum-input
+preflight peaks21,220MiB and makes zero updates. Training has a28,672MiB Torch
+cap and29,696MiB broker lease. Preserve the healthy trainer and its pinned
+observer/helpers; do not launch a duplicate. The observer waits for actual
+worker exit and normal lease release, runs the independent CPU recovery audit,
+then evaluates the same58 raw clips for D1500/D2500/D3500. No labels, sampler,
+projection, LR, loss or architecture changes. These are unqualified research
+checkpoints, with no192-tensor native activation or publication authorization
+until the original gates pass. Current process identities are private in
+`runtime-data/active-convergence-handoff.json`; compact preparation evidence is
+`docs/upgrades/full-ffn-coverage2-preparation-20261102.json`.
 
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.
