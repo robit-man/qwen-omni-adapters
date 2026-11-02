@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Full-depth D500 not release-qualified:39/594vscontrol40andlegacy9; dog->bells order recovered, mandatory identities/mixtures still fail. Exact1000update continuation now running with fixed+500/+1000saves, all192weights/bothAdamWgroups restored; source174queued.",
+      "status": "Parity remains failed. Ornith coverage2 source174 is complete: D1500/D2500/D3500 natural errors36/32/28 per594 versuslegacy9, with environmental/temporal failures. Exact next2000-update D3500 continuation and Qwen F500 exact2000-update continuation are live under pinned observers; no192/384 GGUF export or public weights.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -351,7 +351,14 @@
         "joint-projection-ffn-source-review-20261101.json",
         "full-depth-ffn-preflight-20261101.json",
         "full-depth-ffn-source-review-20261101.json",
-        "full-ffn-continuation-preflight-20261101.json"
+        "full-ffn-continuation-preflight-20261101.json",
+        "full-ffn-continuation-source-review-20261101.json",
+        "legacy-TRAIN-target-audit-20261101.json",
+        "full-ffn-coverage2-preparation-20261102.json",
+        "qwen-full-ffn-source-review-20261102.json",
+        "qwen-full-ffn-coverage1-preparation-20261102.json",
+        "ornith-full-ffn-coverage2-source-review-20261102.json",
+        "full-ffn-coverage3-preparation-20261102.json"
       ]
     },
     {
@@ -388,14 +395,15 @@
     {
       "id": "E6",
       "objective": "Native Ollama ASR/TTS with exact bundled weights and full arbitrary-reference cloning, preserving adapter parity",
-      "status": "Native graph/numeric/cache gates pass. Qwen/A100 native4 complete and streamed modes pass, all10languages PCMexact to C++, both voices, cancel/recovery~0.20s and concurrent isolation. Orin/full perceptual/profile/final model native matrix pending.",
+      "status": "Pinned patched-native0.40.13 mechanism gates pass for both A100 backbone tags and actual Ornith/Orin. Native complete/streamed PCM/WAV, numeric controls, cache, saved/inline full-reference, cancellation and isolation have bounded gate receipts. Final conditional192/384 weights, full perceptual/profile/language/resource matrix and stock-unmodified compatibility remain unqualified.",
       "evidence": [
         "native-ollama-audio-20261101.json",
         "native-ollama-ornith-mechanism-20261101.json",
         "native-ollama-qwen-mechanism-20261101.json",
         "native-ollama-sampling-parity-20261101.json",
         "native-ollama-conditioning-cache-20261101.json",
-        "native-ollama-complete-speech-20261101.json"
+        "native-ollama-complete-speech-20261101.json",
+        "native-ollama-orin-mechanism-20261102.json"
       ]
     },
     {
@@ -425,7 +433,7 @@
     "forecast_budget_and_retention_required_before_new_jobs": true
   },
   "current_audio_repair": {
-    "status": "Unchanged full-depth FFN continuation1000additional updates running from D500 after exact restoration and fourzero-updateCUDAchecks. Parity still failed; no native192 export.",
+    "status": "Parity remains failed. Ornith coverage2 source174 is complete: D1500/D2500/D3500 natural errors36/32/28 per594 versuslegacy9, with environmental/temporal failures. Exact next2000-update D3500 continuation and Qwen F500 exact2000-update continuation are live under pinned observers; no192/384 GGUF export or public weights.",
     "evidence": [
       "class-uniform-6400-review-20261101.json",
       "paired-training-fit-review-20261101.json",
@@ -444,7 +452,14 @@
       "joint-projection-ffn-source-review-20261101.json",
       "full-depth-ffn-preflight-20261101.json",
       "full-depth-ffn-source-review-20261101.json",
-      "full-ffn-continuation-preflight-20261101.json"
+      "full-ffn-continuation-preflight-20261101.json",
+      "full-ffn-continuation-source-review-20261101.json",
+      "legacy-TRAIN-target-audit-20261101.json",
+      "full-ffn-coverage2-preparation-20261102.json",
+      "qwen-full-ffn-source-review-20261102.json",
+      "qwen-full-ffn-coverage1-preparation-20261102.json",
+      "ornith-full-ffn-coverage2-source-review-20261102.json",
+      "full-ffn-coverage3-preparation-20261102.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
@@ -499,12 +514,12 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Exact full-depth FFN continuation PID2198194, fixed1000updates, saves16696/17196, original frozen projection and trunk; Torch28672/lease29696MiB. Observer2222516 queues source174 after actual exit and normal release.",
-      "GPU2": "No current own work; other owner reservation currently prevents a24GiB full-trunk lease. GPU0 admitted instead.",
+      "GPU0": "Actual Ornith coverage3 and Qwen coverage1 exact2000-update continuations, respectively192/384F32 audio tensors and both AdamW groups, frozen primary/encoder/family projection. Ornith Torch28672/lease29696MiB; Qwen Torch24576/lease25600MiB. Live PIDs/start ticks are in private runtime-data/active-convergence-handoff.json; revalidate actual identities.",
+      "GPU2": "No current task-owned work: preserve other owner; its57344MiB reservation leaves insufficient admitted capacity for either full-trunk training job. GPU0 admits both.",
       "GPU1": "excluded from our work"
     },
-    "latest_completed_trials": "D50039vsA40speech errors/594, newdog->bells order correct, still belowlegacy9andmandatorysemantics. Native Qwen completed PCM/WAV, all10languages exactC++controls, cancel/recovery0.20s and concurrent isolation all pass.",
-    "current_hypothesis": "D500 early adapters have seen1959unique TRAIN clips; test unchanged additional4000saved-order draws, preserving all192weights/bothAdamWgroups/LR/data/loss/sampler/projection.",
+    "latest_completed_trials": "Ornith coverage2: independent192 recovery audit and174 source complete; parent58exact, natural36/32/28 vslegacy9, environmental/mixed-order parity fails. Qwen full-depth NF4: independent384 recovery audit and174 source complete; tail-only58control exact, natural34/28/29 vslegacy9, environmental/mixed-order parity fails. All completed workers exited and leases normally released. Both families remain unqualified.",
+    "current_hypothesis": "Further unchanged saved-order exposure of the existing full-depth branches, with two predeclared checkpoints each. Orni D3500 next8000draws savesD4500/D5500; QwenF500 next8000draws savesF1500/F2500. No target/architecture/projection/sampler/precision/LR/loss change; zero-update resource/recovery gates passed and healthy trainers must not be edited or restarted.",
     "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
     "evidence": [
       "completed-audio-checkpoints-20261101.json",
@@ -528,7 +543,14 @@
       "joint-projection-ffn-source-review-20261101.json",
       "full-depth-ffn-preflight-20261101.json",
       "full-depth-ffn-source-review-20261101.json",
-      "full-ffn-continuation-preflight-20261101.json"
+      "full-ffn-continuation-preflight-20261101.json",
+      "full-ffn-continuation-source-review-20261101.json",
+      "legacy-TRAIN-target-audit-20261101.json",
+      "full-ffn-coverage2-preparation-20261102.json",
+      "qwen-full-ffn-source-review-20261102.json",
+      "qwen-full-ffn-coverage1-preparation-20261102.json",
+      "ornith-full-ffn-coverage2-source-review-20261102.json",
+      "full-ffn-coverage3-preparation-20261102.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
@@ -608,7 +630,8 @@
         "ornith15696-scene-review-20261101.json",
         "qwen8900-control-recovery-20261101.json"
       ]
-    }
+    },
+    "completion_verified": false
   },
   "training_release_notices": {
     "status": "verified_pinned_17450_record_packet_and_private_stock_create_push_pull_show",

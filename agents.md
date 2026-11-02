@@ -216,21 +216,32 @@ early FFNs have seen5,676/64,362 unique clips and just1,500/31,654 speech clips
 (4.7%); another unchanged exposure trial is a hypothesis, not proof of success.
 See `docs/upgrades/legacy-TRAIN-target-audit-20261101.json`.
 
-The next unchanged Ornith continuation passed its zero-update resource and
-exact-resume gates and completed on GPU0. Parent tail17,196/prefix1,500 and
-cursor20,136 continue for exactly2,000 updates/8,000 saved-order draws, saving
-tail18,196/19,196 and prefix2,500/3,500. All192 weights and both moment groups
-restore exactly; disabled text logits are unchanged. The four maximum-input
-preflight peaks21,220MiB and makes zero updates. Training has a28,672MiB Torch
-cap and29,696MiB broker lease. The actual trainer exited and its lease released
-normally; the independent CPU recovery audit passes. Preserve the pinned
-observer/source worker, now evaluating the same58 raw clips for
-D1500/D2500/D3500. No labels, sampler,
-projection, LR, loss or architecture changes. These are unqualified research
-checkpoints, with no192-tensor native activation or publication authorization
-until the original gates pass. Current process identities are private in
-`runtime-data/active-convergence-handoff.json`; compact preparation evidence is
-`docs/upgrades/full-ffn-coverage2-preparation-20261102.json`.
+The unchanged Ornith coverage2 continuation completed its2,000 updates and
+174 source cases. D1500 reproduces all58 prior outputs exactly; natural speech
+errors/594 improve36→32→28 for D1500/D2500/D3500, versus legacy9. All192 F32
+weights, both AdamW groups, order/RNG and seen sets pass independent CPU audits.
+Actual training/source workers exited and leases released normally. D3500
+recovers dog and clapping-then-gunfire, but bells/clapping regress and voices,
+printer, mixtures/order and speech-in-noise remain wrong. Both saved states are
+explicitly excluded from release. See
+`docs/upgrades/ornith-full-ffn-coverage2-source-review-20261102.json`.
+
+One unchanged coverage3 continuation from D3500 is running on GPU0: exactly
+2,000 updates/8,000 saved-order draws, saving tail20,196/21,196,
+prefix4,500/5,500 and cursors32,136/36,136. The parent tail19,196/prefix3,500 and
+cursor28,136 restores all192 weights and both moment groups exactly. Early FFNs
+had seen12,565/64,362 unique TRAIN clips and3,500/31,654 speech clips; partial
+coverage supports this bounded hypothesis, not a convergence claim. Four
+maximum-input zero-update backward checks pass at21,220MiB. Torch cap28,672MiB,
+lease29,696MiB; two recovery pairs budget0.7GiB. Preserve the healthy trainer and
+pinned observer/helpers. After actual exit/normal release, the observer audits
+all192 recovery tensors/groups, evaluates D3500/D4500/D5500 on the same58 clips
+each, requires all58 parent outputs to reproduce exactly and verifies the
+source worker's actual exit/normal lease release. No labels, sampler, precision,
+projection, LR, loss or architecture changes. No GGUF/native192 export or public
+weights. Current process identities are private in
+`runtime-data/active-convergence-handoff.json`; preparation evidence is
+`docs/upgrades/full-ffn-coverage3-preparation-20261102.json`.
 
 Qwen's matched full-depth NF4 trial completed500 updates and all174 source
 cases. The tail-only N500 control reproduces all58 outputs exactly. Natural
