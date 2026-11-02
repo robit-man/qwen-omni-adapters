@@ -1,0 +1,338 @@
+{
+  "schema": "robit.omni.qwen-full-FFN-source-review.v1",
+  "result": "UNQUALIFIED; partial improvements retained for further unchanged-exposure training",
+  "training_updates": 500,
+  "source_rows": 174,
+  "source_SHA256": "e21ad1920d3b8b8cb18f0d9fbf44b695bb0cd135092b384d2de593089c02acfc",
+  "same58raw_audio_per_state": true,
+  "control_all58_texts_reproduce_prior_NF4_N500_exactly": true,
+  "frozen_NF4_primary_encoder_and_rich750_projection": true,
+  "natural_errors_per594words": {
+    "N500": 34,
+    "F250": 28,
+    "F500": 29
+  },
+  "legacy_natural_errors": 9,
+  "improvements": "F250improves dog/printer; F500improves bells/gunfire, restores DSP/silence controls and correctly orders noise/pause/chord. Full-depth speech28/29 improves tail-only34; mixed speechblue usesPARKEDratherthanPASTED.",
+  "remaining": "Both fail required environmental identity, overlapping/ordered sources and speech-in-noise. Natural28/29 remains abovelegacy9. No source/native/release parity claim.",
+  "examples": [
+    {
+      "id": "probe-esc50-dog",
+      "assessment": "N500Meow; F250Bark correct; F500Cat regression",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Meow."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Bark."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Cat."
+        }
+      }
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "assessment": "F500recovers church bells; control/F250guitar wrong",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Guitar."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Acoustic guitar; Strum."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell; Percussion."
+        }
+      }
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "assessment": "F500Sawing wrong; priorPrinter wrong",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Printer."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Printer."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Sawing."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-156200",
+      "assessment": "Human group voices still classifiedasbirds",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Crow."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Chicken, rooster."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Chicken, rooster."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-180765",
+      "assessment": "Clapping still mislabeledgunfire",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gunshot, gunfire."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Thump, thud."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gunshot, gunfire."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-182894",
+      "assessment": "F250Printercorrect; F500regresses tobirds/buzz",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Bird; Buzz; Human voice; Chirp, tweet."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Printer."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Bird; Buzz; Chirp, tweet."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-166192",
+      "assessment": "F500gunfire correct",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Explosion."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Boom."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gunshot, gunfire."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-203720",
+      "assessment": "Siren misclassified ascarhorn",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Organ."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Vehicle horn, car horn, honking; Traffic noise, roadway noise."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-00",
+      "assessment": "Dogthenbells lacks both identities/order",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Cat."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Cat; Squeak."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-05",
+      "assessment": "Printerthensiren reports onlysiren",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Organ."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell; Percussion."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Motor vehicle (road); Siren."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-10",
+      "assessment": "F500recovers noise/pause/steadychord sequence",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "First: Steady filtered noise with a low rumbling quality; no intelligible speech."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Insect."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "First: A steady low hum mixed with hissing noise; no intelligible speech. After a pause: Several sustained electronic tones sound together; no intelligible speech."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-13",
+      "assessment": "Speechinnoise remains inaccurate",
+      "outputs": {
+        "N500": {
+          "transcript": "PERBLOW BISECTAL PARTHISIDE THE GARDEN SHED",
+          "audio_observation": "Two different sustained broadband noise events: Steady filtered noise; no intelligible speech."
+        },
+        "F250": {
+          "transcript": "After a blue haze signal is parted, beside the garden gate.",
+          "audio_observation": "A steady fan-like sound with no intelligible speech."
+        },
+        "F500": {
+          "transcript": "After a blue haze signal is parted, beside the garden gate.",
+          "audio_observation": "Audible sound events: Sliding door; Squeak; Slam; Car passing by."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-14",
+      "assessment": "Siren recognized butvoices stillCrow",
+      "outputs": {
+        "N500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Crow; Human group actions."
+        },
+        "F250": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Chicken, rooster."
+        },
+        "F500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Crow; Siren."
+        }
+      }
+    }
+  ],
+  "CPU_recovery_audit": {
+    "complete": true,
+    "CPU_only": true,
+    "CUDA_started": false,
+    "parent_and_control_unchanged": true,
+    "checkpoints": [
+      {
+        "updates": 250,
+        "all384_F32_weights_shapes_and_moments_valid": true,
+        "both_step_counters_and_parameter_orders_exact": true,
+        "source_order_RNG_and_seen_sets_exact": true,
+        "unique_seen_IDs": 18969,
+        "prefix_unique_seen_IDs": 992,
+        "adapter_SHA256": "8dc96ba37b778ae37e2e8c786edec81382505091048b76173f3e8131addce791",
+        "recovery_SHA256": "c2d26d509298052976cb04ebff6e632111466d98eee78f15b892026f34597995"
+      },
+      {
+        "updates": 500,
+        "all384_F32_weights_shapes_and_moments_valid": true,
+        "both_step_counters_and_parameter_orders_exact": true,
+        "source_order_RNG_and_seen_sets_exact": true,
+        "unique_seen_IDs": 19665,
+        "prefix_unique_seen_IDs": 1967,
+        "adapter_SHA256": "2e3fe13530af92040be6e9f1a9db7d71718a1ae2a0f906b62a0589b358e24bc9",
+        "recovery_SHA256": "8226c4272f08cc30d1e81c924fd1d1af793394951f15c256935ca04616c30b1a"
+      }
+    ],
+    "release_qualified": false
+  },
+  "training_resource_limits": {
+    "schema": "robit.omni.qwen-full-FFN-policy.v1",
+    "failure": "Matched tail-only NF4 N500 has34 natural errors/594 versus legacy9 and misidentifies environmental/temporal audio.",
+    "hypothesis": "Conditioning earlier FFNs can improve the preserved frozen audio representation; test exactly500updates against the already measured tail-only NF4 N500 control on the same2000TRAINdraws.",
+    "only_training_change": "Add rank8/alpha8 zero-residual FFN adapters in blocks0..55. Keep original8400 tail48/AdamW, frozen NF4 primary, rich750 bridge, encoder, order, targets/masks, LR/loss and accumulation unchanged.",
+    "scope_proof_SHA256": "d36051b121139f39514956e7b9c72ccbff5896ed79611584a47cb9bb3bb5ebd8",
+    "source_adapter_SHA256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+    "source_recovery_SHA256": "582977d5383c6fd05603636d54a2f3dcc2d316861fd1b1e87d993f16d3de96e3",
+    "control_adapter_SHA256": "f333f352e06bfba33bee0177c4cecafd62f4272d5e533cd5e50d1501dfe1d05e",
+    "control_retrained": false,
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "future_order_SHA256": "6e48645f54d0d1e799b49f06f757257b4ca14097d5e777e5a1fe84c5e1c0b9a1",
+    "source_step": 8400,
+    "source_cursor": 4000,
+    "new_updates": 500,
+    "final_cursor": 6000,
+    "LR": 0.0001,
+    "weight_decay": 0.01,
+    "event_loss_factor": 4.0,
+    "accumulation": 4,
+    "clip_grad_norm": 1.0,
+    "new_prefix_parameters": 30277632,
+    "total_parameters": 34603008,
+    "total_tensors": 384,
+    "Torch_cap_MiB": 24576,
+    "lease_MiB": 25600,
+    "expected_write_GiB": 1.1,
+    "source_script_SHA256": "6171c76ea1f8cf8167a4cd0054a30055131ea0fedaa507b047f886724e59f983",
+    "one_primary_language_trunk": true,
+    "no_CPU_offload": true,
+    "no_new_neural_downloads": true,
+    "no_raw_audio_or_feature_cache": true,
+    "native384_supported": false,
+    "release_qualified": false,
+    "publication": false,
+    "resource_preflight_SHA256": "02b6bdb4d1c9770db73510b81712e9d23e0167b00efc87553730799108e29d35"
+  },
+  "training_peak_MiB": 24350.0,
+  "training_elapsed_s": 6204.566276245983,
+  "source_peak_MiB": 18976.0,
+  "source_elapsed_s": 799.5021633959841,
+  "both_actual_workers_exited_and_leases_normally_released": true,
+  "continuation_choice": {
+    "checkpoint": "F500",
+    "reason": "Keep restored DSP/silence and added bells/gunfire/orderedDSP while testing more saved-order exposure. F250has one fewer natural error; keep both checkpoints and original quality gates.",
+    "new_prefix_seen_unique": 1967,
+    "train_corpus": 64362,
+    "new_prefix_coverage_percent": 3.0561511450856096,
+    "bounded_next_hypothesis": "More unchanged exposure; no target, sampler, architecture, representation, LR, loss or projection change.",
+    "new_updates_proposed": 2000
+  },
+  "native384_supported": false,
+  "GGUF_exported": false,
+  "full_release_qualified": false,
+  "public_weights_uploaded": false
+}

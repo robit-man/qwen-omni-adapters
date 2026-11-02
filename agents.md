@@ -217,38 +217,47 @@ early FFNs have seen5,676/64,362 unique clips and just1,500/31,654 speech clips
 See `docs/upgrades/legacy-TRAIN-target-audit-20261101.json`.
 
 The next unchanged Ornith continuation passed its zero-update resource and
-exact-resume gates and is running on GPU0. Parent tail17,196/prefix1,500 and
+exact-resume gates and completed on GPU0. Parent tail17,196/prefix1,500 and
 cursor20,136 continue for exactly2,000 updates/8,000 saved-order draws, saving
 tail18,196/19,196 and prefix2,500/3,500. All192 weights and both moment groups
 restore exactly; disabled text logits are unchanged. The four maximum-input
 preflight peaks21,220MiB and makes zero updates. Training has a28,672MiB Torch
-cap and29,696MiB broker lease. Preserve the healthy trainer and its pinned
-observer/helpers; do not launch a duplicate. The observer waits for actual
-worker exit and normal lease release, runs the independent CPU recovery audit,
-then evaluates the same58 raw clips for D1500/D2500/D3500. No labels, sampler,
+cap and29,696MiB broker lease. The actual trainer exited and its lease released
+normally; the independent CPU recovery audit passes. Preserve the pinned
+observer/source worker, now evaluating the same58 raw clips for
+D1500/D2500/D3500. No labels, sampler,
 projection, LR, loss or architecture changes. These are unqualified research
 checkpoints, with no192-tensor native activation or publication authorization
 until the original gates pass. Current process identities are private in
 `runtime-data/active-convergence-handoff.json`; compact preparation evidence is
 `docs/upgrades/full-ffn-coverage2-preparation-20261102.json`.
 
-Qwen's matched full-depth NF4 trial also passed its zero-update gates and is
-running on GPU0. It adds zero-residual rank8/alpha8 FFNs in blocks0–55 while
-restoring the original8400 tail48 and independent AdamW state exactly. All192
-linears match the exact native GGUF dimensions;384 tensors/34,603,008 parameters
-total. Initial audio logits/loss and disabled text logits are exact. Four
-accumulated backwards on each of the same four maximum TRAIN inputs produce
-finite gradients in both groups, peak21,788MiB under24GiB Torch/25GiB lease.
-The trial uses the same next2,000 draws and500 updates as the completed tail-only
-NF4 N500 control; no control retraining, target/projection/LR/loss change or new
-data cache. Two250/500 recovery pairs are budgeted at1.1GiB total. Its pinned
-observer waits for actual exit/normal release, independently audits all384
-weights/moments/order/RNG/seen sets, then evaluates N500/F250/F500 on the same58
-raw clips. N500 must reproduce the prior58 outputs exactly. The runtime still
-rejects384; no native compatibility, quality improvement or release claim.
-Preserve both healthy trainers and their pinned helpers. See
-`docs/upgrades/qwen-full-ffn-preparation-20261102.json` and the private handoff
-for actual process identities and finite observation state.
+Qwen's matched full-depth NF4 trial completed500 updates and all174 source
+cases. The tail-only N500 control reproduces all58 outputs exactly. Natural
+errors/594 words improve34→28/29 for F250/F500, versus legacy9. F250 recovers dog
+and printer but regresses DSP; F500 recovers DSP/silence and gains bells,
+gunfire and ordered noise/pause/chord, while dog/printer regress. Both still
+fail voices, clapping, siren, mixed sources/order and speech-in-noise. They are
+UNQUALIFIED. All384 F32 weights, both AdamW groups and order/RNG/seen sets pass
+independent CPU audits; actual training/source workers exited and leases
+released normally. No GGUF/native384 export. See
+`docs/upgrades/qwen-full-ffn-source-review-20261102.json`.
+
+An unchanged2,000-update continuation from F500 is now running on GPU0. Exact
+tail8,900/prefix500/cursor6,000 weights and both moment groups restore; next
+8,000 saved-order draws reach tail9,900/10,900, prefix1,500/2,500 and
+cursors10,000/14,000. The new early FFNs had seen just1,967/64,362 unique clips
+and995/31,654 speech clips; final forecast9,359 unique and4,896 speech is still
+partial exposure, not convergence. No data/labels/masks/sampler/LR/loss/
+precision/projection/architecture changes. Four maximum-input zero-update
+backward checks pass at21,788MiB; all384 weights/moments stay exact and disabled
+text logits match. Torch cap24GiB/lease25GiB, two recovery pairs budget1.1GiB.
+The pinned observer waits for actual exit/normal release, audits all384 recovery
+tensors/groups, then evaluates the same174 F500/F1500/F2500 cases. F500 must
+reproduce its prior58 outputs exactly. Preserve the healthy trainer, observer
+and helpers; the runtime still rejects384. See
+`docs/upgrades/qwen-full-ffn-coverage1-preparation-20261102.json` and the private
+handoff for actual process identities.
 
 The user explicitly requires training until audio parity/convergence and then
 publishing the validated weights. Keep that full goal active across turns.
