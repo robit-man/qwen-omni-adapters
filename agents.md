@@ -242,8 +242,15 @@ overall/remaining CE fall; both states still miss previously seen sounds.
 All16 event-prefix argmaxes per arm match after removing future target tokens.
 The worker exits and lease releases normally. A paired LR-only hypothesis is
 prepared: exactD3500 parent/same8000draws as coverage3, both AdamW groups2e-5
-instead of1e-4; all other training variables fixed. No job or gain is implied
-by preparation. See `docs/upgrades/full-ffn-TRAIN-fit-review-20261102.json`.
+instead of1e-4; all other training variables fixed. The exact2,000-update
+comparison is now running onGPU0 after a zero-update21,220MiB resource gate.
+First next-batch loss0.9161680340766907 matches the old control exactly.
+Torch cap28,672MiB/lease29,696MiB; two recovery pairs0.7GiB. Preserve its
+healthy trainer and12-file pinned observer. After actual exits/normal releases,
+independent192 recovery audit, source174 and TRAIN144 compare fixed checkpoints;
+parent58/48 free generations must reproduce exactly. No quality gain is implied.
+See `docs/upgrades/full-ffn-LR-comparison-preparation-20261102.json` and
+`docs/upgrades/full-ffn-TRAIN-fit-review-20261102.json`.
 
 Qwen's matched full-depth NF4 trial completed500 updates and all174 source
 cases. The tail-only N500 control reproduces all58 outputs exactly. Natural

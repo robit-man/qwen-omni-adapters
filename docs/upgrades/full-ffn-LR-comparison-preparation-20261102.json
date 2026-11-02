@@ -1,0 +1,68 @@
+{
+  "schema": "robit.omni.full-FFN-LR-comparison-preparation.v1",
+  "status": "Exact bounded2000-update comparison started; no quality gain established",
+  "source_checkpoint_step": 19196,
+  "source_prefix_step": 3500,
+  "source_cursor": 28136,
+  "source_adapter_SHA256": "164b84a7136800c00478b87c9bbdcb9d70f8b528ab77905cfc3b88219efc2c05",
+  "source_recovery_SHA256": "e5e4f3084d9178743bd2b97ff247beb4be2919803ba4523ed7393f15881c15a9",
+  "only_changed_training_parameter": {
+    "AdamW_LR": {
+      "control": 0.0001,
+      "candidate": 2e-05
+    }
+  },
+  "same8000draws_as_completed_constant_LR_control": true,
+  "future_order_SHA256": "3180567a28d5da0a6168138fb18c2505f03956e2380771c5ca991e6529350153",
+  "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+  "source_script_SHA256": "de6a073110991cf5a57da965e8acce97c56bdb7c6223dfd081082970caed5509",
+  "resource_preflight_SHA256": "1054bc0427784f7693fe5c0607575df6219a8c5e75adff2f1033f344df5f9a7a",
+  "zero_update_preflight_all192_weights_and_both_moment_groups_exact": true,
+  "four_worst_TRAIN_cases_four_accumulated_backwards_each": true,
+  "both_gradient_groups_finite_nonzero": true,
+  "preflight_peak_reserved_MiB": 21220.0,
+  "preflight_actual_worker4107130_exited": true,
+  "first_next_batch_loss_exact_to_control": 0.9161680340766907,
+  "disabled_text_logits_max_abs_delta": 0,
+  "Torch_cap_MiB": 28672,
+  "lease_MiB": 29696,
+  "expected_write_GiB": 0.7,
+  "checkpoints": [
+    {
+      "new_updates": 1000,
+      "global_step": 20196,
+      "prefix_step": 4500,
+      "cursor": 32136,
+      "cumulative_tail_unique_IDs": 32049,
+      "cumulative_prefix_unique_IDs": 14851,
+      "prefix_stratum_unique_counts": {
+        "speech": 4500,
+        "control": 3534,
+        "FSD": 6817
+      }
+    },
+    {
+      "new_updates": 2000,
+      "global_step": 21196,
+      "prefix_step": 5500,
+      "cursor": 36136,
+      "cumulative_tail_unique_IDs": 33322,
+      "cumulative_prefix_unique_IDs": 16944,
+      "prefix_stratum_unique_counts": {
+        "speech": 5500,
+        "control": 3534,
+        "FSD": 7910
+      }
+    }
+  ],
+  "primary_encoder_rich850_projection_TTS_frozen": true,
+  "future_source_cases": 174,
+  "future_TRAIN_fit_cases": 144,
+  "parent_source58_and_TRAIN48_exact_control_required": true,
+  "observer_pinned_files": 12,
+  "observer_requires_actual_workers_exit_and_normal_release": true,
+  "no_audio_feature_cache_or_GGUF_export": true,
+  "native192_qualified": false,
+  "release_qualified": false,
+  "publication": false
+}

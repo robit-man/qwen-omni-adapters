@@ -306,7 +306,7 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Parity remains failed. Ornith coverage3 training2000/source174 and independent192 audit complete: natural28/26/26 vslegacy9; environmental/temporal failures remain. D5500 gains bells/both dog-bell orders. Actual workers exited/leases released. Next diagnostic is unchanged-target TRAIN fit; Qwen F500 continuation remains live and first1000-update save produced. No192/384 GGUF export or publication.",
+      "status": "Parity remains failed. Ornith coverage3/source174 and TRAIN96 completed: natural28/26/26 vslegacy9, mean eventCE1.011758\u21921.263100, environmental/temporal failures. Matched LR-only2e-5 trial now running fromD3500, allother variables fixed; Qwen coverage1 continues unchanged. No native192/384 or export/publication.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
@@ -360,7 +360,8 @@
         "ornith-full-ffn-coverage2-source-review-20261102.json",
         "full-ffn-coverage3-preparation-20261102.json",
         "ornith-full-ffn-coverage3-source-review-20261102.json",
-        "full-ffn-TRAIN-fit-review-20261102.json"
+        "full-ffn-TRAIN-fit-review-20261102.json",
+        "full-ffn-LR-comparison-preparation-20261102.json"
       ]
     },
     {
@@ -463,7 +464,8 @@
       "ornith-full-ffn-coverage2-source-review-20261102.json",
       "full-ffn-coverage3-preparation-20261102.json",
       "ornith-full-ffn-coverage3-source-review-20261102.json",
-      "full-ffn-TRAIN-fit-review-20261102.json"
+      "full-ffn-TRAIN-fit-review-20261102.json",
+      "full-ffn-LR-comparison-preparation-20261102.json"
     ],
     "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
     "latest_native_checkpoint": {
@@ -518,7 +520,7 @@
   "active_convergence_goal": {
     "status": "active",
     "GPU_assignment": {
-      "GPU0": "Qwen coverage1 training live:384F32 audio tensors/two AdamW groups; first1000-update save independently CPU-audited, final2000 pending. Ornith coverage3 training/source finished and leases released. Any next TRAIN diagnostic requires a fresh scoped lease; actual identities in private handoff.",
+      "GPU0": "Healthy Ornith matched LR-only2000-update comparison and unchanged Qwen coverage1 continuation. Orni192F32/Torch28672/lease29696; Qwen384F32/Torch24576/lease25600MiB. Pinned observers, exact source identities in private handoff. Other owners preserved.",
       "GPU2": "No current task-owned work: preserve other owner; its57344MiB reservation leaves insufficient admitted capacity for either full-trunk training job. GPU0 admits both.",
       "GPU1": "excluded from our work"
     },
@@ -556,7 +558,8 @@
       "ornith-full-ffn-coverage2-source-review-20261102.json",
       "full-ffn-coverage3-preparation-20261102.json",
       "ornith-full-ffn-coverage3-source-review-20261102.json",
-      "full-ffn-TRAIN-fit-review-20261102.json"
+      "full-ffn-TRAIN-fit-review-20261102.json",
+      "full-ffn-LR-comparison-preparation-20261102.json"
     ],
     "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
     "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
