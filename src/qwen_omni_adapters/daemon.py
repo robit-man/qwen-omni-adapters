@@ -627,6 +627,14 @@ class OmniDaemon:
             self.config.language_model,
         )
 
+    def _audio_adapter_args(self) -> list[str]:
+        adapter = self._resolved_sidecar().get("audio_adapter")
+        if adapter is None:
+            return []
+        if not self.config.enable_comprehension:
+            raise DaemonError("required audio adapter needs the shared comprehension trunk")
+        return ["--lora", adapter["path"], "--lora-init-without-apply"]
+
     def _speculative_args(self) -> list[str]:
         configured = os.environ.get("OMNI_SPECULATIVE_TYPE")
         if configured is None:
@@ -959,6 +967,7 @@ class OmniDaemon:
         python = sys.executable
         common = os.environ.copy()
         bridge_profile = self._resolved_sidecar().get("profile") == "trained-audio-bridge"
+        audio_adapter_args = self._audio_adapter_args()
         common["PYTHONUNBUFFERED"] = "1"
         decision_ready = self._start_decision_plane(common)
         common["OMNI_DECISION_PLANE_ENABLED"] = "1" if decision_ready else "0"
@@ -1046,6 +1055,7 @@ class OmniDaemon:
                 "--cache-type-v",
                 self.config.comprehension_cache_type_v,
                 *self._speculative_args(),
+                *audio_adapter_args,
             ]
             command = server_command
             if is_tegra():
@@ -1116,6 +1126,7 @@ class OmniDaemon:
             "OMNI_COMPREHENSION_CONTEXT_FILE": (str(self.context_file) if is_tegra() else ""),
             "OMNI_COMPREHENSION_DISABLE_THINKING": "1" if bridge_profile else "0",
             "OMNI_COMPREHENSION_REPEAT_PENALTY": "1.1" if bridge_profile else "1.0",
+            "OMNI_CONDITIONAL_AUDIO_ADAPTER": "1" if audio_adapter_args else "0",
             "OMNI_LANGUAGE_API": language_api,
             "OMNI_LANGUAGE_URL": language_url,
             "OMNI_LANGUAGE_MODEL": language_model,

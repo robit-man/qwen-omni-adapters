@@ -1,0 +1,539 @@
+{
+  "schema": "robit.omni.conditional-audio-component-upgrade.v1",
+  "release_qualified": false,
+  "source_validation": {
+    "tests_passed": 6380,
+    "full_script_passed": true,
+    "log_sha256": "41c940fe507c54971395a2a6a793a2abf6e7a0419d477112bb0766cad7dc3c72"
+  },
+  "native": {
+    "schema": "robit.omni.conditional-audio-component-live.v1",
+    "release_qualified": false,
+    "weights_quality": "Previously rejected6400; mechanism evidence only. No promotion, public tag or original service changed.",
+    "audio_adapter": {
+      "abi": "robit.omni.conditional-audio-lora.v1",
+      "digest": "sha256:a89d87d1cdf6b681514d270aa342f238017cbf57dfb4460b74e6d2fb47534701",
+      "size": 12587008,
+      "base_digest": "sha256:852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "projector_digest": "sha256:3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2",
+      "execution_scope": "audio-perception",
+      "tensors": 48
+    },
+    "materialized_bytes": 0,
+    "same_TTS_sidecar": true,
+    "checks": [
+      {
+        "case": "before_audio_off_controls",
+        "passed": true,
+        "text": {
+          "content": "56",
+          "role": "assistant"
+        },
+        "visual": {
+          "content": "<visual_observation>The image is entirely filled with a single solid color: bright red. There are no gradients, textures, objects, shapes, or variations visible. The entire frame is uniformly and completely covered by the same flat red hue from edge to edge.</visual_observation>",
+          "role": "assistant"
+        },
+        "tool": {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"value\":73}",
+                "name": "mark_integer"
+              },
+              "id": "YMiJYo1eZw2qwpDW3PHlo9ccDLWOrGno",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "case": "audio_on_TRAIN_fit_fixture",
+        "passed": true,
+        "message": {
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bell.</audio_observation>",
+          "role": "assistant"
+        },
+        "audio_sha256": "e8cf906f950038e9217c1331269d126ba93f08ac960c477400a9d41dea8cc01c"
+      },
+      {
+        "case": "off_on_off_text_vision_exact_and_tool_semantics",
+        "passed": true
+      },
+      {
+        "case": "mixed_split_visual_off_audio_on",
+        "passed": true,
+        "message": {
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bell.</audio_observation><visual_observation>A solid, uniform red field fills the entire frame with no visible objects, text, shapes, gradients, or variations in color. The image is a flat, featureless expanse of pure red.</visual_observation>",
+          "role": "assistant"
+        }
+      },
+      {
+        "case": "thinking_separate_adapter_off",
+        "passed": true,
+        "message": {
+          "content": "56",
+          "role": "assistant",
+          "thinking": "The user asks for 7 multiplied by 8, answer with only the number."
+        }
+      },
+      {
+        "case": "concurrent_audio_on_text_off_same_PID",
+        "passed": true
+      }
+    ],
+    "backend_requests": [
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "image_url",
+          "text",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 1.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "input_audio",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "image_url",
+          "text",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "image_url",
+          "text",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 1.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "input_audio",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 1.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "input_audio",
+          "text"
+        ],
+        "stream": false
+      }
+    ],
+    "complete": true,
+    "mechanism_gate_passed": true,
+    "worker_pid": 2946918,
+    "primary_gpu_resident": true,
+    "all_backend_scales_explicit": true,
+    "CUDA_workers_started": 1,
+    "public_registry_changed": false,
+    "worker_stopped": true
+  },
+  "stock_registry": {
+    "schema": "robit.omni.conditional-audio-registry-transport.v1",
+    "public_registry_changed": false,
+    "release_qualified": false,
+    "inference_started": false,
+    "CPU_only_transport": true,
+    "complete": true,
+    "transport_gate_passed": true,
+    "stock_version": {
+      "version": "0.40.11"
+    },
+    "new_layers_uploaded_and_pulled": {
+      "sha256:06250da05ec6cec537b4f53427dc136ef559586360bc0a293b0abc43d6997d31": {
+        "sha256": "06250da05ec6cec537b4f53427dc136ef559586360bc0a293b0abc43d6997d31",
+        "bytes": 772,
+        "downloaded_bytes": 1544
+      },
+      "sha256:a89d87d1cdf6b681514d270aa342f238017cbf57dfb4460b74e6d2fb47534701": {
+        "sha256": "a89d87d1cdf6b681514d270aa342f238017cbf57dfb4460b74e6d2fb47534701",
+        "bytes": 12587008,
+        "downloaded_bytes": 25174016
+      }
+    },
+    "pushed_manifest_sha256": "6facc65d2338e96b69570dfbff0c47acf76c523d4920ec572ad7f679b90da9f5",
+    "sidecar_unchanged": true,
+    "materialized_bytes": 0,
+    "old_v2_source_commit": "65e86bc",
+    "old_v2_resolver_rejected": true,
+    "temporary_loopback_alias_removed": true,
+    "CPU_server_stopped": true
+  },
+  "evidence_sha256": {
+    "conditional-audio-component-mechanism-2": "ea5f367ab90e1a24f5f31a5e9e5e8f351cd3781e81e3035b3516dad20d4164cd",
+    "conditional-audio-registry-transport-2": "9ed78f7adaf8a5a2e02d16f35b0d61334a446deb6d919ed7f5833f5d02466987",
+    "qwen-conditional-audio-component-mechanism-1": "18c85873eea1226d7fb220b1ef6e64d4acf225ef1eb084d3d707462ed54f20e1"
+  },
+  "prior_harness_attempts": {
+    "native1": "Wrong OpenAI versus Ollama tool-argument comparison; worker stopped. Corrected harness with unchanged source/inference requests passed.",
+    "transport1": "Registry fixture omitted required Location; alias removed and CPU server stopped. Corrected fixture with unchanged production source passed."
+  },
+  "public_registry_changed": false,
+  "training_trial_policy_unchanged": true,
+  "qwen_native": {
+    "schema": "robit.omni.conditional-audio-component-live.v1",
+    "release_qualified": false,
+    "weights_quality": "Previously rejected Qwen3200; mechanism evidence only. No promotion, public tag or original service changed.",
+    "audio_adapter": {
+      "abi": "robit.omni.conditional-audio-lora.v1",
+      "digest": "sha256:6bb0b1d239492b662dc356dde4f6af6c76149038b83cbf4252b0576c84ca72dc",
+      "size": 17305600,
+      "base_digest": "sha256:91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+      "projector_digest": "sha256:2d9609efef6af1112bc03bf34646cf271deaae9317f17891ec6342380778c3e1",
+      "execution_scope": "audio-perception",
+      "tensors": 48
+    },
+    "materialized_bytes": 0,
+    "same_TTS_sidecar": true,
+    "checks": [
+      {
+        "case": "before_audio_off_controls",
+        "passed": true,
+        "text": {
+          "content": "56",
+          "role": "assistant"
+        },
+        "visual": {
+          "content": "<visual_observation>The image is a solid, uniform field of red.</visual_observation>",
+          "role": "assistant"
+        },
+        "tool": {
+          "content": "",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"value\":73}",
+                "name": "mark_integer"
+              },
+              "id": "OvEVVdLqMUtQUbRkpduQoy0YNAcfUAwS",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "case": "audio_on_TRAIN_fit_fixture",
+        "passed": true,
+        "message": {
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bell; Doorbell.</audio_observation>",
+          "role": "assistant"
+        },
+        "audio_sha256": "e8cf906f950038e9217c1331269d126ba93f08ac960c477400a9d41dea8cc01c"
+      },
+      {
+        "case": "off_on_off_text_vision_exact_and_tool_semantics",
+        "passed": true
+      },
+      {
+        "case": "mixed_split_visual_off_audio_on",
+        "passed": true,
+        "message": {
+          "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bell; Doorbell.</audio_observation><visual_observation>A solid, uniform red field fills the entire frame. The color is consistent across all edges and corners with no visible gradients, textures, objects, or text.</visual_observation>",
+          "role": "assistant"
+        }
+      },
+      {
+        "case": "thinking_separate_adapter_off",
+        "passed": true,
+        "message": {
+          "content": "56",
+          "role": "assistant",
+          "thinking": "The user wants the product of 7 and 8, only the number."
+        }
+      },
+      {
+        "case": "concurrent_audio_on_text_off_same_PID",
+        "passed": true
+      }
+    ],
+    "backend_requests": [
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "image_url",
+          "text",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 1.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "input_audio",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "image_url",
+          "text",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "image_url",
+          "text",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 1.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "input_audio",
+          "text"
+        ],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 0.0
+          }
+        ],
+        "cache_prompt": null,
+        "media_types": [],
+        "stream": false
+      },
+      {
+        "lora": [
+          {
+            "id": 0,
+            "scale": 1.0
+          }
+        ],
+        "cache_prompt": false,
+        "media_types": [
+          "input_audio",
+          "text"
+        ],
+        "stream": false
+      }
+    ],
+    "complete": true,
+    "mechanism_gate_passed": true,
+    "worker_pid": 3035660,
+    "primary_gpu_resident": true,
+    "all_backend_scales_explicit": true,
+    "CUDA_workers_started": 1,
+    "public_registry_changed": false,
+    "worker_stopped": true
+  },
+  "native_execution_window": {
+    "worker_context_tokens": 16384,
+    "parallel_slots": 2,
+    "context_per_slot": 8192,
+    "assigned_target_release_qualification": false
+  }
+}

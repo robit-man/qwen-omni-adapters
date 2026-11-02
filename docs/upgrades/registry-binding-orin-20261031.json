@@ -1,0 +1,28 @@
+{
+  "schema": "robit.omni.portable-binding-orin.v1",
+  "source_revision": "59cedcd",
+  "device": "Tegra234 Orin",
+  "installed_manifest_from_actual_stock_push": true,
+  "manifest_sha256": "c9caa86a0cf94aee9007e1049e729c12998de426277781ff7617870750aaee15",
+  "model": "robit/ornith-1.5-omni:edge-v2-rich1-best850-16k-portable-pulled-20261031",
+  "binding_annotation_present": false,
+  "binding_layer": {
+    "mediaType": "application/vnd.robit.ollama.omni.binding.v2+json",
+    "digest": "sha256:7376fdf35a69b24f8966efa8f9127f6324e24fbdba0769bef4e488a3ed1062e4",
+    "size": 379
+  },
+  "resolution_passed": true,
+  "direct_component_materialized_bytes": 0,
+  "native_prefill_guard": {
+    "prefill_abi": "robit.qwen3a.trained-prefill.v2",
+    "prompt_sha256": "9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758",
+    "native_prefill_version": 2,
+    "native_boundary_policy": "none"
+  },
+  "deployment_doctor_passed": true,
+  "model_default_context": 16384,
+  "original_service_unchanged_and_healthy": true,
+  "new_CUDA_worker_started": false,
+  "neural_weights_changed": false,
+  "release_qualified": false
+}

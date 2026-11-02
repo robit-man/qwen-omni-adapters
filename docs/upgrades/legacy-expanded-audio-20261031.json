@@ -1,0 +1,174 @@
+{
+  "schema": "robit.omni.expanded-legacy-auditory-comparison.v1",
+  "utc": "2026-10-31T15:34:36.459877+00:00",
+  "benchmark_only": true,
+  "runtime_integration": false,
+  "release_qualified": false,
+  "native_patches": 16,
+  "context_tokens": 16384,
+  "kv": "f16",
+  "model_sha256": "d9e2876556e7873e02c0359f832432ee2d67ab7dd0cee3efe0f77fd7a1f4dd85",
+  "projector_sha256": "1104376db833f1e89c84834144ac3863340c2cd1ddaeddb39cb0247fb5c20c8d",
+  "source_report_sha256": "6d7a401ef762b9ffca928c48a700620e1a448f3e2b4ae6c500ec6f00ef36fd26",
+  "source_script_sha256": "60f367402940021fdcf1460bae7de7b7b5cbc82bb56916643a96f012519b1135",
+  "manifest_sha256": "598bd863b4b67997324bed0a68647fd0ec17f3d928dacd02148c892146bfb91d",
+  "primary_GPU_residency_verified": true,
+  "same13_inputs_as_candidate_checks": true,
+  "labels_or_titles_in_request": false,
+  "request_profile": "existing legacy defaults; no enable_thinking override",
+  "frozen_model_weights": true,
+  "current_candidates_still_rejected": true,
+  "observations": {
+    "legacy_identifies": [
+      "speech sentence",
+      "electronic alarm",
+      "static noise",
+      "sustained electronic tone",
+      "clock alarm or ringing",
+      "dog bark",
+      "church bells",
+      "human voices",
+      "clap",
+      "printer",
+      "automatic gunfire",
+      "passing vehicle siren"
+    ],
+    "legacy_failure": {
+      "silence": "Electronic beep hallucinated"
+    },
+    "human_voice_transcript": "unverified reference-model output; not scored word accuracy, never training truth"
+  },
+  "invalid_first_attempt": {
+    "cause": "Private comparator inherited trained-bridge comprehension_disable_thinking=true. That is incompatible with legacy multimodal requests and produced empty responses.",
+    "action": "Retained failed attempt, stopped its worker; separate rerun uses existing legacy defaults. No production code change.",
+    "quality_evidence": false
+  },
+  "rows": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "labels": [
+        "speech"
+      ],
+      "audio_observation": "Speech with a synthesized, robotic voice",
+      "transcript": "The blue bicycle is parked beside the garden gate."
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "labels": [
+        "silence"
+      ],
+      "audio_observation": "Electronic beep",
+      "transcript": null
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "labels": [
+        "alarm"
+      ],
+      "audio_observation": "Electronic beeping sound",
+      "transcript": null
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "labels": [
+        "noise"
+      ],
+      "audio_observation": "Static noise",
+      "transcript": null
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "labels": [
+        "music"
+      ],
+      "audio_observation": "A single, sustained, low-pitched electronic tone is present throughout the audio clip.",
+      "transcript": null
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "labels": [
+        "esc50-clock_alarm"
+      ],
+      "audio_observation": "A high-pitched, rapid, and continuous buzzing sound, similar to a telephone ringing or an alarm, dominates the audio.",
+      "transcript": null
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "labels": [
+        "esc50-dog"
+      ],
+      "audio_observation": "A dog barks once.",
+      "transcript": null
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "labels": [
+        "esc50-church_bells"
+      ],
+      "audio_observation": "Church bells ringing",
+      "transcript": null
+    },
+    {
+      "id": "fsd50k-156200",
+      "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+      "labels": [
+        "Human group actions"
+      ],
+      "audio_observation": "Children speaking and playing, followed by a buzzer sound.",
+      "transcript": "Yeah, yeah, yeah."
+    },
+    {
+      "id": "fsd50k-180765",
+      "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+      "labels": [
+        "Clapping"
+      ],
+      "audio_observation": "A loud, sharp clap is followed by a brief rustling sound.",
+      "transcript": null
+    },
+    {
+      "id": "fsd50k-182894",
+      "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+      "labels": [
+        "Printer"
+      ],
+      "audio_observation": "Printer printing",
+      "transcript": null
+    },
+    {
+      "id": "fsd50k-166192",
+      "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+      "labels": [
+        "Gunshot, gunfire"
+      ],
+      "audio_observation": "A loud, rapid burst of automatic gunfire is heard.",
+      "transcript": null
+    },
+    {
+      "id": "fsd50k-203720",
+      "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+      "labels": [
+        "Motor vehicle (road)",
+        "Siren"
+      ],
+      "audio_observation": "A vehicle siren approaches, passes by, and fades into the distance.",
+      "transcript": null
+    }
+  ],
+  "limits": [
+    "Small repeated diagnostic set; no broad acoustic or task-accuracy claim.",
+    "Silence false-positive retained; no relaxation of candidate gates.",
+    "Concurrent training affects timing; no isolated latency or memory-reduction claim.",
+    "No teacher transcripts promoted to human-verified labels.",
+    "Legacy model remains benchmark reference only, never an extra release reasoning trunk.",
+    "No held-out400 FSD test recordings used."
+  ]
+}

@@ -1,0 +1,784 @@
+{
+  "schema": "robit.omni.qwen7400-assessment.v1",
+  "UTC": "2026-11-01T13:48:27.890226+00:00",
+  "status": "REJECTED",
+  "checkpoint": {
+    "step": 7400,
+    "elapsed_s": 6636.949828558019,
+    "unique_training_records": 15465,
+    "adapter_sha256": "2d4927c9276fd4a4dc43c9c3d9bd87ebe8688ac1e706ecfbc89113eff66c55a6",
+    "disabled_logits_max_abs_delta": 0.0,
+    "base_encoder_bridge_unchanged": true,
+    "peak_reserved_mib": 60902.0,
+    "resource_minima": {
+      "minimum_RAM_available_GiB": 315.51991271972656,
+      "minimum_srv_free_GiB": 71.74090194702148,
+      "minimum_checkout_free_GiB": 206.73128509521484
+    },
+    "release_qualified": false
+  },
+  "conversion": {
+    "complete": true,
+    "family": "qwen",
+    "tensors": 48,
+    "all_exported_values_exact": true,
+    "adapter_sha256": "656a3a53f848683deb069cf2d6ea08887db711701ff9e3820b094fc59e835660",
+    "release_qualified": false
+  },
+  "reports": {
+    "qwen-audio-lora-full-diversity-step7400-native-probes/outputs.json": "138ac09d0886f0643ade922945f38889363c426472c3412f8844f93864e4b532",
+    "qwen7400-HF-source-validation-1/outputs.json": "e521445165501274845f11da93caf59603285d15a30b2d16a84504f4579b232c",
+    "qwen7400-full-replay-validation-1/speech-metrics.json": "0b39f5f3af8d4dcd929f65a45ab2d38fdba2057cb6b1b91ccb7680a31eed2614",
+    "qwen7400-full-replay-validation-1/outputs.json": "ef6d5b02dc22dd400dee0127028a2479b852ab9069c965f1e6791c610af4e6a7",
+    "qwen-full-diversity-pass-1/report.json": "946fa9e47e886c4ae8c76af7e74fa2cd08f56d18a5b407f28a5b7fa52cb8ba5c"
+  },
+  "native13": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "labels": [
+        "speech"
+      ],
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with no notable background sound.</audio_observation>",
+      "audio_observation": "One speaker with no notable background sound.",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 1.3697375109186396
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "labels": [
+        "silence"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>No intelligible speech; no non-speech sound evidence.</audio_observation>",
+      "audio_observation": "No intelligible speech; no non-speech sound evidence.",
+      "transcript": null,
+      "elapsed_s": 1.3519325570669025
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "labels": [
+        "alarm"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>An intermittent electronic alarm.</audio_observation>",
+      "audio_observation": "An intermittent electronic alarm.",
+      "transcript": null,
+      "elapsed_s": 1.1562617999734357
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "labels": [
+        "noise"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Faint steady room tone; no intelligible speech.</audio_observation>",
+      "audio_observation": "Faint steady room tone; no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 1.3034181830007583
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "labels": [
+        "music"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Telephone.</audio_observation>",
+      "audio_observation": "Audible sound events: Telephone.",
+      "transcript": null,
+      "elapsed_s": 1.2194628140423447
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "labels": [
+        "esc50-clock_alarm"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Insect.</audio_observation>",
+      "audio_observation": "Audible sound events: Insect.",
+      "transcript": null,
+      "elapsed_s": 1.291507627000101
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "labels": [
+        "esc50-dog"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Cat.</audio_observation>",
+      "audio_observation": "Audible sound events: Cat.",
+      "transcript": null,
+      "elapsed_s": 1.249464552034624
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "labels": [
+        "esc50-church_bells"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Piano.</audio_observation>",
+      "audio_observation": "Audible sound events: Piano.",
+      "transcript": null,
+      "elapsed_s": 1.2529868799028918
+    },
+    {
+      "id": "fsd50k-156200",
+      "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+      "labels": [
+        "Human group actions"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Cat.</audio_observation>",
+      "audio_observation": "Audible sound events: Cat.",
+      "transcript": null,
+      "elapsed_s": 1.2107754679163918
+    },
+    {
+      "id": "fsd50k-180765",
+      "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+      "labels": [
+        "Clapping"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clapping.</audio_observation>",
+      "audio_observation": "Audible sound events: Clapping.",
+      "transcript": null,
+      "elapsed_s": 1.2420754950726405
+    },
+    {
+      "id": "fsd50k-182894",
+      "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+      "labels": [
+        "Printer"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Cupboard open or close.</audio_observation>",
+      "audio_observation": "Audible sound events: Cupboard open or close.",
+      "transcript": null,
+      "elapsed_s": 1.368294797022827
+    },
+    {
+      "id": "fsd50k-166192",
+      "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+      "labels": [
+        "Gunshot, gunfire"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation>",
+      "audio_observation": "Audible sound events: Explosion.",
+      "transcript": null,
+      "elapsed_s": 1.2167387598892674
+    },
+    {
+      "id": "fsd50k-203720",
+      "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+      "labels": [
+        "Motor vehicle (road)",
+        "Siren"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road).</audio_observation>",
+      "audio_observation": "Audible sound events: Motor vehicle (road).",
+      "transcript": null,
+      "elapsed_s": 1.3903835728997365
+    }
+  ],
+  "full160": {
+    "schema": "robit.omni.full-replay-validation-metrics.v1",
+    "groups": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 217,
+        "wer": 0.06504796163069544
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 25,
+        "wer": 0.01644736842105263
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 37,
+        "wer": 0.06228956228956229
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 155,
+        "wer": 0.12684124386252046
+      }
+    },
+    "nonspeech_controls": [
+      {
+        "id": "base-nonspeech-0000-silence",
+        "hallucinated_transcript": false
+      },
+      {
+        "id": "base-nonspeech-0028-alarm",
+        "hallucinated_transcript": false
+      },
+      {
+        "id": "base-nonspeech-0045-silence",
+        "hallucinated_transcript": false
+      },
+      {
+        "id": "base-nonspeech-0048-alarm",
+        "hallucinated_transcript": false
+      },
+      {
+        "id": "base-nonspeech-0054-clicks",
+        "hallucinated_transcript": false
+      },
+      {
+        "id": "base-nonspeech-0074-clicks",
+        "hallucinated_transcript": false
+      }
+    ],
+    "release_qualified": false
+  },
+  "speech_comparison": {
+    "words": 3336,
+    "6400_errors": 215,
+    "7400_errors": 217,
+    "natural_words": 594,
+    "6400_natural_errors": 36,
+    "7400_natural_errors": 37,
+    "legacy_natural_errors": 9
+  },
+  "source_comparison": {
+    "inputs": 42,
+    "natural": {
+      "clips": 29,
+      "words": 594,
+      "source_errors": 41,
+      "native_errors": 37,
+      "legacy_errors": 9
+    },
+    "acoustic_cases": [
+      {
+        "id": "probe-speech",
+        "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+        "transcript": "THE BLUE BICYCLE IS PARKED BESIDE THE GARDEN GATE",
+        "audio_observation": null,
+        "native_transcript": "The blue bicycle is parked beside the garden gate.",
+        "native_audio_observation": "One speaker with no notable background sound."
+      },
+      {
+        "id": "probe-silence",
+        "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+        "transcript": null,
+        "audio_observation": "Silence; no intelligible speech or distinct sound event.",
+        "native_transcript": null,
+        "native_audio_observation": "No intelligible speech; no non-speech sound evidence."
+      },
+      {
+        "id": "probe-alarm",
+        "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+        "transcript": null,
+        "audio_observation": "An intermittent electronic alarm; no intelligible speech.",
+        "native_transcript": null,
+        "native_audio_observation": "An intermittent electronic alarm."
+      },
+      {
+        "id": "probe-noise",
+        "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+        "transcript": null,
+        "audio_observation": "Fowl.",
+        "native_transcript": null,
+        "native_audio_observation": "Faint steady room tone; no intelligible speech."
+      },
+      {
+        "id": "probe-music",
+        "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Telephone.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Telephone."
+      },
+      {
+        "id": "probe-esc50-clock_alarm",
+        "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Bell; Alarm. A loud, repetitive, high-pitched electronic beeping sound, similar to an alarm or alert, plays continuously.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Insect."
+      },
+      {
+        "id": "probe-esc50-dog",
+        "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Cat.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Cat."
+      },
+      {
+        "id": "probe-esc50-church_bells",
+        "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Piano.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Piano."
+      },
+      {
+        "id": "fsd50k-156200",
+        "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Chicken, rooster.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Cat."
+      },
+      {
+        "id": "fsd50k-180765",
+        "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Slam; Car.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Clapping."
+      },
+      {
+        "id": "fsd50k-182894",
+        "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Cupboard open or close.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Cupboard open or close."
+      },
+      {
+        "id": "fsd50k-166192",
+        "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Explosion.",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Explosion."
+      },
+      {
+        "id": "fsd50k-203720",
+        "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+        "transcript": null,
+        "audio_observation": "Audible sound events: Motor vehicle (road).",
+        "native_transcript": null,
+        "native_audio_observation": "Audible sound events: Motor vehicle (road)."
+      }
+    ],
+    "all_weights_frozen": true,
+    "same_input_audio_prompt_and_adapter": true,
+    "prompt_sha256": "9f73862652e0226ec3f9690f0a783d1c21dc1113285b4dc18d0edd51f2766758",
+    "peak_reserved_MiB": 53030.0,
+    "limits": "Source versus deployment also differs in primary quantization and backend/encoder precision. A gap alone does not identify which cause is responsible. HF inputs_embeds repetition penalty excludes prompt tokens and uses generated history; backend repetition-window behavior may differ. These comparisons cannot attribute all gaps to quantization."
+  },
+  "conclusion": "Source shares multiple wrong unseen identities; deployment precision alone is not the cause. Same16 seen-TRAIN eventCE improves1.48to.53 and free generation recovers barking/siren/printer/group examples, while clapping and some details still fail. Pursue one data-only virtual-scene continuation with unchanged architecture/loss/prompt before unfreezing or redesigning the projector. Both native/source parity and natural speech remain open.",
+  "all_primary_encoder_bridge_TTS_weights_preserved": true,
+  "validation_not_test": true,
+  "publication": false,
+  "release_qualified": false,
+  "seen_TRAIN_fit": {
+    "report_sha256": "a215de0bbe566ced02475d27cdc75fe457c677a8810ffa92c560b4cd9c1f2158",
+    "exact_same16_original_TRAIN_ids": true,
+    "3200_event_CE": 1.4799350411631167,
+    "7400_event_CE": 0.5303264927351847,
+    "7400_remaining_token_CE": 0.12798042212671135,
+    "first_event_argmax_changes_with_future_tokens": 0,
+    "minimum_teacher_prefix_logit_cosine": 0.9989499449729919,
+    "rows": [
+      {
+        "id": "fsd50k-377642",
+        "labels": [
+          "Bell"
+        ],
+        "acoustic_target_labels": [
+          "Bell"
+        ],
+        "audio_sha256": "e8cf906f950038e9217c1331269d126ba93f08ac960c477400a9d41dea8cc01c",
+        "audio_tokens": 103,
+        "scored_tokens": 31,
+        "event_name_tokens": 1,
+        "overall_CE": 0.30148229002952576,
+        "event_name_CE": 0.4890672564506531,
+        "remaining_token_CE": 0.2952294945716858,
+        "event_name_fraction_of_CE_sum": 0.05232932046055794,
+        "teacher_forced_first_event_piece": " Bell",
+        "expected_first_event_piece": " Bell",
+        "prefix_first_event_piece": " Bell",
+        "teacher_prefix_logit_cosine": 0.9989499449729919,
+        "teacher_prefix_logit_max_abs_delta": 1.1875,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bell; Doorbell. A high-pitched, metallic bell rings repeatedly in a steady rhythm.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-155309",
+        "labels": [
+          "Bark"
+        ],
+        "acoustic_target_labels": [
+          "Bark"
+        ],
+        "audio_sha256": "484d3b2730541eca7d7f2529c9e0b58657cae3690e42e6bfcc9dbe25cad069d7",
+        "audio_tokens": 16,
+        "scored_tokens": 17,
+        "event_name_tokens": 1,
+        "overall_CE": 0.05091948062181473,
+        "event_name_CE": 0.7020171880722046,
+        "remaining_token_CE": 0.010225871577858925,
+        "event_name_fraction_of_CE_sum": 0.8109887838363647,
+        "teacher_forced_first_event_piece": " Bark",
+        "expected_first_event_piece": " Bark",
+        "prefix_first_event_piece": " Bark",
+        "teacher_prefix_logit_cosine": 1.0,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-324275",
+        "labels": [
+          "Siren"
+        ],
+        "acoustic_target_labels": [
+          "Siren"
+        ],
+        "audio_sha256": "c7ff2b7d0ecd3ead803e2599590c8c56c043d74a1a05205a5d3dfa8b7439cf31",
+        "audio_tokens": 72,
+        "scored_tokens": 18,
+        "event_name_tokens": 2,
+        "overall_CE": 0.06630302965641022,
+        "event_name_CE": 0.33177459239959717,
+        "remaining_token_CE": 0.033119089901447296,
+        "event_name_fraction_of_CE_sum": 0.5559903383255005,
+        "teacher_forced_first_event_piece": " S",
+        "expected_first_event_piece": " S",
+        "prefix_first_event_piece": " S",
+        "teacher_prefix_logit_cosine": 0.9999998807907104,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Siren.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-259143",
+        "labels": [
+          "Clapping"
+        ],
+        "acoustic_target_labels": [
+          "Clapping"
+        ],
+        "audio_sha256": "44447fa58ed2433646c7d72e601cbd666e83c0985b34f335a7b27b5c99addb31",
+        "audio_tokens": 10,
+        "scored_tokens": 18,
+        "event_name_tokens": 2,
+        "overall_CE": 0.16671772301197052,
+        "event_name_CE": 1.2395286560058594,
+        "remaining_token_CE": 0.03261635825037956,
+        "event_name_fraction_of_CE_sum": 0.8260993361473083,
+        "teacher_forced_first_event_piece": " R",
+        "expected_first_event_piece": " Cl",
+        "prefix_first_event_piece": " R",
+        "teacher_prefix_logit_cosine": 0.9999999403953552,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Rattle (instrument).</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-345053",
+        "labels": [
+          "Printer"
+        ],
+        "acoustic_target_labels": [
+          "Printer"
+        ],
+        "audio_sha256": "514a95d01b85086c4a3b6efb4165e7e2f964c106bd3610d3fdfbbb2805e34145",
+        "audio_tokens": 70,
+        "scored_tokens": 37,
+        "event_name_tokens": 1,
+        "overall_CE": 0.11446843296289444,
+        "event_name_CE": 0.17979693412780762,
+        "remaining_token_CE": 0.11265376210212708,
+        "event_name_fraction_of_CE_sum": 0.04245167225599289,
+        "teacher_forced_first_event_piece": " Printer",
+        "expected_first_event_piece": " Printer",
+        "prefix_first_event_piece": " Printer",
+        "teacher_prefix_logit_cosine": 0.9999999403953552,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-239137",
+        "labels": [
+          "Gunshot, gunfire"
+        ],
+        "acoustic_target_labels": [
+          "Gunshot, gunfire"
+        ],
+        "audio_sha256": "ba4059bb43544b62f48025ef137319e37814e269609036020b4f593aa54320a6",
+        "audio_tokens": 90,
+        "scored_tokens": 20,
+        "event_name_tokens": 4,
+        "overall_CE": 0.08383932709693909,
+        "event_name_CE": 0.3527248501777649,
+        "remaining_token_CE": 0.01661793515086174,
+        "event_name_fraction_of_CE_sum": 0.8414305448532104,
+        "teacher_forced_first_event_piece": " Explosion",
+        "expected_first_event_piece": " Gun",
+        "prefix_first_event_piece": " Explosion",
+        "teacher_prefix_logit_cosine": 1.0,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-165898",
+        "labels": [
+          "Shout",
+          "Human group actions"
+        ],
+        "acoustic_target_labels": [
+          "Shout",
+          "Human group actions"
+        ],
+        "audio_sha256": "4a9c2a9873bd551dc773bb5c580957fb6f45505e5d433af4c23966d0238918af",
+        "audio_tokens": 32,
+        "scored_tokens": 22,
+        "event_name_tokens": 6,
+        "overall_CE": 0.06543876975774765,
+        "event_name_CE": 0.23293602466583252,
+        "remaining_token_CE": 0.0026272975374013186,
+        "event_name_fraction_of_CE_sum": 0.9708007574081421,
+        "teacher_forced_first_event_piece": " Sh",
+        "expected_first_event_piece": " Sh",
+        "prefix_first_event_piece": " Sh",
+        "teacher_prefix_logit_cosine": 0.9998301267623901,
+        "teacher_prefix_logit_max_abs_delta": 0.3984375,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Shout; Human group actions.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-416692",
+        "labels": [
+          "Child speech, kid speaking"
+        ],
+        "acoustic_target_labels": [
+          "Child speech, kid speaking"
+        ],
+        "audio_sha256": "c92076e6e209043fc72d187917a6ba615aae17f33ca6102ac0439a6f89dab344",
+        "audio_tokens": 10,
+        "scored_tokens": 21,
+        "event_name_tokens": 5,
+        "overall_CE": 0.03585769608616829,
+        "event_name_CE": 0.07557392120361328,
+        "remaining_token_CE": 0.023446377366781235,
+        "event_name_fraction_of_CE_sum": 0.501811146736145,
+        "teacher_forced_first_event_piece": " Child",
+        "expected_first_event_piece": " Child",
+        "prefix_first_event_piece": " Child",
+        "teacher_prefix_logit_cosine": 1.0000001192092896,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript>Yellows.</speech_transcript><audio_observation>Audible sound events: Child speech, kid speaking; Yellows.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-117562",
+        "labels": [
+          "Ringtone"
+        ],
+        "acoustic_target_labels": [
+          "Ringtone"
+        ],
+        "audio_sha256": "e78b0be6132bd0018fc0d4b9a34012484128ef3fa35b0d7834a249fde5bd10de",
+        "audio_tokens": 110,
+        "scored_tokens": 18,
+        "event_name_tokens": 2,
+        "overall_CE": 0.050936367362737656,
+        "event_name_CE": 0.017048140987753868,
+        "remaining_token_CE": 0.0551723949611187,
+        "event_name_fraction_of_CE_sum": 0.037188317626714706,
+        "teacher_forced_first_event_piece": " Ring",
+        "expected_first_event_piece": " Ring",
+        "prefix_first_event_piece": " Ring",
+        "teacher_prefix_logit_cosine": 0.9999999403953552,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Ringtone.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-325262",
+        "labels": [
+          "Finger snapping"
+        ],
+        "acoustic_target_labels": [
+          "Finger snapping"
+        ],
+        "audio_sha256": "401a8e0dc7786cc9df8ec0701b3e83e6eea37869df1dfd5a370ca7b3916717db",
+        "audio_tokens": 10,
+        "scored_tokens": 18,
+        "event_name_tokens": 2,
+        "overall_CE": 0.05562937259674072,
+        "event_name_CE": 0.44277870655059814,
+        "remaining_token_CE": 0.007235703058540821,
+        "event_name_fraction_of_CE_sum": 0.8843823075294495,
+        "teacher_forced_first_event_piece": " Tick",
+        "expected_first_event_piece": " Finger",
+        "prefix_first_event_piece": " Tick",
+        "teacher_prefix_logit_cosine": 1.0,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Tick-tock.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-164039",
+        "labels": [
+          "Stream"
+        ],
+        "acoustic_target_labels": [
+          "Stream"
+        ],
+        "audio_sha256": "5ada9353d07a2a23a7729b43d0015b1715d8b1158fb7f4d73d161a5528459cde",
+        "audio_tokens": 128,
+        "scored_tokens": 58,
+        "event_name_tokens": 1,
+        "overall_CE": 0.45923173427581787,
+        "event_name_CE": 1.303473949432373,
+        "remaining_token_CE": 0.4444204568862915,
+        "event_name_fraction_of_CE_sum": 0.04893757775425911,
+        "teacher_forced_first_event_piece": " Liquid",
+        "expected_first_event_piece": " Stream",
+        "prefix_first_event_piece": " Liquid",
+        "teacher_prefix_logit_cosine": 0.9996114373207092,
+        "teacher_prefix_logit_max_abs_delta": 0.6328125,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Liquid; Stream.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-369112",
+        "labels": [
+          "Thump, thud"
+        ],
+        "acoustic_target_labels": [
+          "Thump, thud"
+        ],
+        "audio_sha256": "101a719673aeea231928e4e89117ef67244a3198e1d9be2dfec33a8beba5c5d7",
+        "audio_tokens": 23,
+        "scored_tokens": 41,
+        "event_name_tokens": 5,
+        "overall_CE": 0.37155911326408386,
+        "event_name_CE": 0.22595158219337463,
+        "remaining_token_CE": 0.39178240299224854,
+        "event_name_fraction_of_CE_sum": 0.07416066527366638,
+        "teacher_forced_first_event_piece": " Thunder",
+        "expected_first_event_piece": " Th",
+        "prefix_first_event_piece": " Thunder",
+        "teacher_prefix_logit_cosine": 0.9996542930603027,
+        "teacher_prefix_logit_max_abs_delta": 0.515625,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Thump, thud, whoosh, swoosh, swish.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-67669",
+        "labels": [
+          "Male speech, man speaking"
+        ],
+        "acoustic_target_labels": [
+          "Male speech, man speaking"
+        ],
+        "audio_sha256": "759d959ff3ae1496d5574fc1263605b65bab3da243feed2bfe55d67a10923737",
+        "audio_tokens": 9,
+        "scored_tokens": 21,
+        "event_name_tokens": 5,
+        "overall_CE": 0.12271986901760101,
+        "event_name_CE": 0.08713960647583008,
+        "remaining_token_CE": 0.13383866846561432,
+        "event_name_fraction_of_CE_sum": 0.16906411945819855,
+        "teacher_forced_first_event_piece": " Male",
+        "expected_first_event_piece": " Male",
+        "prefix_first_event_piece": " Male",
+        "teacher_prefix_logit_cosine": 0.9996576309204102,
+        "teacher_prefix_logit_max_abs_delta": 0.515625,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript>CLERK TO ENGAGE</speech_transcript><audio_observation>Audible sound events: Male speech, man speaking; Yell.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-324464",
+        "labels": [
+          "Microwave oven"
+        ],
+        "acoustic_target_labels": [
+          "Microwave oven"
+        ],
+        "audio_sha256": "ea10f4b387965365b3b42f48e93dd8fe05989986ec7d3d5d26aa29216c75a08f",
+        "audio_tokens": 111,
+        "scored_tokens": 35,
+        "event_name_tokens": 2,
+        "overall_CE": 0.15503942966461182,
+        "event_name_CE": 0.13553458452224731,
+        "remaining_token_CE": 0.15622153878211975,
+        "event_name_fraction_of_CE_sum": 0.04995395988225937,
+        "teacher_forced_first_event_piece": " Microwave",
+        "expected_first_event_piece": " Microwave",
+        "prefix_first_event_piece": " Microwave",
+        "teacher_prefix_logit_cosine": 0.9999999403953552,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Microwave oven.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-392498",
+        "labels": [
+          "Clock"
+        ],
+        "acoustic_target_labels": [
+          "Clock"
+        ],
+        "audio_sha256": "6d13a09e739274efb8ba1abf834c2a28996e507f1079b4e024a6e99c68493f39",
+        "audio_tokens": 32,
+        "scored_tokens": 17,
+        "event_name_tokens": 1,
+        "overall_CE": 0.18267232179641724,
+        "event_name_CE": 2.6434683799743652,
+        "remaining_token_CE": 0.028872564435005188,
+        "event_name_fraction_of_CE_sum": 0.851240873336792,
+        "teacher_forced_first_event_piece": " Tick",
+        "expected_first_event_piece": " Clock",
+        "prefix_first_event_piece": " Tick",
+        "teacher_prefix_logit_cosine": 1.0,
+        "teacher_prefix_logit_max_abs_delta": 0.0,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Tick-tock.</audio_observation><|im_end|>"
+      },
+      {
+        "id": "fsd50k-324637",
+        "labels": [
+          "Fart"
+        ],
+        "acoustic_target_labels": [
+          "Fart"
+        ],
+        "audio_sha256": "528b1bdd044f1c7fb9e1723178614547141f876f6f22b0650b9a3b0dceea1770",
+        "audio_tokens": 21,
+        "scored_tokens": 35,
+        "event_name_tokens": 2,
+        "overall_CE": 0.2877670228481293,
+        "event_name_CE": 0.026409510523080826,
+        "remaining_token_CE": 0.3036068379878998,
+        "event_name_fraction_of_CE_sum": 0.0052442243322730064,
+        "teacher_forced_first_event_piece": " F",
+        "expected_first_event_piece": " F",
+        "prefix_first_event_piece": " F",
+        "teacher_prefix_logit_cosine": 0.9995277523994446,
+        "teacher_prefix_logit_max_abs_delta": 0.65625,
+        "first_event_argmax_same": true,
+        "free_generation_without_labels": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Fart.</audio_observation><|im_end|>"
+      }
+    ],
+    "optimizer_steps": 0,
+    "limits": "Seen fit is incomplete and does not establish generalization or prove capacity is sufficient.3200to7400 includes earlier sampling/training changes; this improvement is not an isolated attribution to the latest data expansion."
+  },
+  "next_neural_trial": {
+    "work": "qwen-scene-captions-pass-1",
+    "fixed_steps": [
+      7400,
+      8400
+    ],
+    "data_only": true,
+    "original_sampler_retained": true,
+    "preflight_running": false,
+    "runtime_promotion": false,
+    "preflight_passed": true,
+    "training_running": true
+  }
+}

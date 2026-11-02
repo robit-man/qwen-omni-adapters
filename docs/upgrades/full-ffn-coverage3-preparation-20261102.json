@@ -1,0 +1,133 @@
+{
+  "schema": "robit.omni.ornith-coverage-continuation-start.v1",
+  "UTC": "2026-11-02T03:38:32.223464+00:00",
+  "failing_acceptance_criterion": "D3500 has28natural errors/594 versuslegacy9 and still misidentifies environmental sources, mixes and order. No release parity.",
+  "bounded_hypothesis": "Full-depth early FFNs have seen12565/64362unique TRAIN clips and3500/31654speech clips; test fixed next8000saved-order draws, unchanged targets, architecture, LR/loss/sampler/precision and projection.",
+  "parent": {
+    "source_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-full-ffn-coverage2-1/checkpoint-019196",
+    "source_adapter_SHA256": "164b84a7136800c00478b87c9bbdcb9d70f8b528ab77905cfc3b88219efc2c05",
+    "source_recovery_SHA256": "e5e4f3084d9178743bd2b97ff247beb4be2919803ba4523ed7393f15881c15a9",
+    "source_step": 19196,
+    "source_prefix_step": 3500,
+    "source_cursor": 28136
+  },
+  "plan": {
+    "new_updates": 2000,
+    "next_draws": 8000,
+    "checkpoints_tail": [
+      20196,
+      21196
+    ],
+    "checkpoints_prefix": [
+      4500,
+      5500
+    ],
+    "final_cursor": 36136,
+    "future_order_SHA256": "3180567a28d5da0a6168138fb18c2505f03956e2380771c5ca991e6529350153",
+    "new_checkpoint_pairs": 2,
+    "forecast_new_weight_and_recovery_GiB": 0.7
+  },
+  "CPU_recovery_trainer_auditor_and_evaluator_preparation_passed": true,
+  "preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "all192_source_weights_exact": true,
+    "all_optimizer_moments_restored_exact": true,
+    "checks": [
+      {
+        "FFN_gradient_squared_norm": 12.866575527004898,
+        "new_prefix_gradient_squared_norm": 6.031421024352312,
+        "arm": "D",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.07928038388490677,
+        "peak_reserved_MiB": 21048.0,
+        "peak_allocated_MiB": 20465.62890625
+      },
+      {
+        "FFN_gradient_squared_norm": 0.339054356161796,
+        "new_prefix_gradient_squared_norm": 0.2743355507554952,
+        "arm": "D",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.05428599566221237,
+        "peak_reserved_MiB": 21220.0,
+        "peak_allocated_MiB": 20579.439453125
+      },
+      {
+        "FFN_gradient_squared_norm": 7.8289403868839145,
+        "new_prefix_gradient_squared_norm": 3.668128256336786,
+        "arm": "D",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.12303607910871506,
+        "peak_reserved_MiB": 20190.0,
+        "peak_allocated_MiB": 19746.0341796875
+      },
+      {
+        "FFN_gradient_squared_norm": 6.595890905242413,
+        "new_prefix_gradient_squared_norm": 3.2905662584817037,
+        "arm": "D",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.12662197649478912,
+        "peak_reserved_MiB": 19992.0,
+        "peak_allocated_MiB": 19586.65625
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21220.0,
+    "source_script_sha256": "1d2c0a1a3be34db16ec27b3c3ac09c6c7561bcf2eb72feb6a16c75751b8beea9",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "one_language_trunk": true,
+    "new_audio_features_or_weights_bytes": 0,
+    "source_weights_unchanged": true,
+    "GPU_residency_verified": true,
+    "lease_MiB": 29696,
+    "Torch_cap_MiB": 28672,
+    "release_qualified": false
+  },
+  "preflight_actual_worker_exited_and_lease_normally_released": true,
+  "training_source_SHA256": "1d2c0a1a3be34db16ec27b3c3ac09c6c7561bcf2eb72feb6a16c75751b8beea9",
+  "actual_training_PID": 201811,
+  "actual_training_start_ticks": "69988660",
+  "warm_start": {
+    "all192_source_weights_exact": true,
+    "source_order_cursor_and_RNG_exact": true,
+    "source_step": 19196,
+    "source_prefix_step": 3500,
+    "first_next_batch_loss": 0.9161680340766907,
+    "disabled_logits_max_abs_delta": 0
+  },
+  "actual_GPU0_residency": true,
+  "observer": {
+    "PID": 206902,
+    "source_and_proof_pins": {
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/evaluate_ornith_coverage3_source.py": "1a9fbb114f3bbde214190c4b272a1f3d39f907d430a89a3efdbb9d6a4164ea0b",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/conditional_attention_modules.py": "53c3d8db0ab42440e9a96359db044fdb5d185de5614afa397a65111ca9e4767c",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/train_ornith_full_ffn_coverage3.py": "1d2c0a1a3be34db16ec27b3c3ac09c6c7561bcf2eb72feb6a16c75751b8beea9",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audit_ornith_coverage3.py": "a0ba7df4f55ca4a77090439c239ccb5b055e806898681cfa6882ace5fda1efe3",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/full-ffn-coverage3-preparation.json": "67e611003c3b843dfaad65d9b922a7527cee26191526dd728a967b4ab4c73d00",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/ornith15696-full-ffn-trial-preparation.json": "2cad8dbde9138e01ec521b0f7c39f5c59b073d1fb68b3f5f18b002458fe1a975",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/virtual_scene_audio.py": "af31989e99a110588db7c05e963608d671eff4a81711b526009ce1df4f25b1fe",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/virtual_scene_corpus.py": "974691a0cb41f10b8dbe86bfc8ebc6d68cdaf3d363712c392c6ac6c014a36ab3",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/event_weighted_supervision.py": "4e9af58d7d39818b0446390024ea4da40bcde8e65633904c8104bdac9680b64b"
+    },
+    "waits_for_actual_training_exit_and_normal_release": true,
+    "runs_independent_CPU192_recovery_audit": true,
+    "then_source_evaluation": "D3500baseline,D4500,D5500; same58rawclips each; all58parentcontents must reproduce exactly",
+    "verifies_actual_source_exit_and_normal_release": true,
+    "automatic_export_or_publication": false
+  },
+  "admission_limits": {
+    "Torch_cap_MiB": 28672,
+    "lease_MiB": 29696,
+    "expected_write_GiB": 0.7,
+    "RAM_reserve_GiB": 32,
+    "srv_reserve_GiB": 50,
+    "checkout_reserve_GiB": 10
+  },
+  "no_neural_download_audio_feature_cache_or_GGUF_export": true,
+  "native192_qualified": false,
+  "release_qualified": false,
+  "public_weights_uploaded": false
+}

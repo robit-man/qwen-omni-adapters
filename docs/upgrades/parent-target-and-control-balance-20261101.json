@@ -1,0 +1,287 @@
+{
+  "schema": "robit.omni.parent-target-and-ASR-review.v1",
+  "UTC": "2026-11-01T10:30:56.318968+00:00",
+  "release_qualified": false,
+  "publication": false,
+  "parent_target_trial": {
+    "work": "ornith-annotated-parent-target-pass-1",
+    "checkpoint": 11162,
+    "parent": 10662,
+    "completed": true,
+    "decision": "REJECT",
+    "native_inputs": 13,
+    "manual_review": {
+      "speech": "PASS exact sentence",
+      "silence": "FAIL invents boiling",
+      "alarm": "FAIL alarm identified but adds telephone/ringtone",
+      "white_noise": "FAIL invents water/rain",
+      "pure_tones": "FAIL invents guitar/keyboard",
+      "clock_alarm": "PASS",
+      "dog": "FAIL nonspecific dog without bark",
+      "church_bells": "FAIL drum/bowed string",
+      "group_voices": "FAIL livestock",
+      "clapping": "FAIL hammer",
+      "printer": "FAIL zipper",
+      "gunfire": "FAIL generic explosion omits gunfire",
+      "siren": "PASS"
+    },
+    "notes": "No inference prompt/weight-family/quantization change. All learned/recovery weights retained. Coarse gate fails; full240 environmental and Orin deployment not run for this failed checkpoint."
+  },
+  "full_replay160": {
+    "ornith10662": {
+      "speech_clips": 154,
+      "nonspeech_clips": 6,
+      "groups": {
+        "all": {
+          "clips": 154,
+          "words": 3336,
+          "errors": 234,
+          "wer": 0.07014388489208633
+        },
+        "espeak-ng plus deterministic procedural ambience": {
+          "clips": 78,
+          "words": 1520,
+          "errors": 19,
+          "wer": 0.0125
+        },
+        "LibriSpeech dev-clean with deterministic local augmentation": {
+          "clips": 29,
+          "words": 594,
+          "errors": 36,
+          "wer": 0.06060606060606061
+        },
+        "Qwen3-TTS large-vocabulary recovery corpus": {
+          "clips": 47,
+          "words": 1222,
+          "errors": 179,
+          "wer": 0.14648117839607203
+        }
+      },
+      "false_transcripts": 0,
+      "metrics_sha256": "b1638e00876ce282744d5980477c39c759316dbacb6e6600650d51f69e44c57e",
+      "outputs_sha256": "a47eef519ca7ec474f58a139dab0873da4eb15fc72373e49017a4daf572203a4"
+    },
+    "parent_target11162": {
+      "speech_clips": 154,
+      "nonspeech_clips": 6,
+      "groups": {
+        "all": {
+          "clips": 154,
+          "words": 3336,
+          "errors": 269,
+          "wer": 0.08063549160671463
+        },
+        "espeak-ng plus deterministic procedural ambience": {
+          "clips": 78,
+          "words": 1520,
+          "errors": 52,
+          "wer": 0.034210526315789476
+        },
+        "LibriSpeech dev-clean with deterministic local augmentation": {
+          "clips": 29,
+          "words": 594,
+          "errors": 35,
+          "wer": 0.058922558922558925
+        },
+        "Qwen3-TTS large-vocabulary recovery corpus": {
+          "clips": 47,
+          "words": 1222,
+          "errors": 182,
+          "wer": 0.14893617021276595
+        }
+      },
+      "false_transcripts": 0,
+      "metrics_sha256": "f7d756386e8cc1db19f913f760430a53bcfd5bf1bffc202e44f78327e4aca6b9",
+      "outputs_sha256": "e457bd3b8c907bc5d81363e0f709beea18a2e29c58feb4a34b12f8010ecac647"
+    },
+    "legacy_reference": {
+      "all": {
+        "errors": 684,
+        "words": 3336,
+        "wer": 0.20503597122302158
+      },
+      "natural_LibriSpeech": {
+        "errors": 9,
+        "words": 594,
+        "wer": 0.015151515151515152
+      },
+      "note": "Same immutable160clip validation suite; low overall candidateWER does not erase natural-speech parity gap."
+    },
+    "immutable_manifest_sha256": "09f34f1dc34abf8a8054c954bcc45427b1c06befa43029588190a201b7c0cadc"
+  },
+  "new_trial": {
+    "work": "ornith-control-balanced-pass-1",
+    "parent": 10662,
+    "final": 11162,
+    "changes": "sampling only;2class-uniform events/1speech/1procedural-control per4sample optimizer update",
+    "data_or_target_change": false,
+    "optimizer_state_and48_parameters_restored_exact": true,
+    "base_encoder_projector_TTS_frozen": true,
+    "fixed_native13_gate_unchanged": true,
+    "status": "running_GPU2",
+    "publication": false,
+    "policy": {
+      "schema": "robit.omni.audio-lora-control-balanced-policy.v1",
+      "failure": "Original10662 invents sources for silence/white noise/tones; parent-first11162 regresses events and full ASR7.014to8.064percent. Controls originally get only462of17045 draws.",
+      "hypothesis": "Sampling-only500-update continuation: every accumulation group has2 class-uniform events,1 speech,1 procedural control. Preserve original leaf targets, exact17045 audio rows, architecture, frozen bridge, event loss4, optimizer and learning rate.",
+      "only_neural_experiment_change": "Sampling mix changes68.8/28.5/2.7percent to50/25/25percent; old sampling order intentionally replaced at the experiment boundary.",
+      "initialization": "Exact10662 adapter, AdamW and RNG state; discard old order by declared sampling-only hypothesis",
+      "base_source": "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-sources/ornith15-standard",
+      "frozen_bridge": "ornith-train-rich1/checkpoint-000850",
+      "train_rows": 17045,
+      "FSD_train": 11724,
+      "speech_replay": 4859,
+      "nonspeech_replay": 462,
+      "manifest_sha256": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+      "adapter": {
+        "rank": 8,
+        "alpha": 8,
+        "layers": [
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "modules": [
+          "gate_proj",
+          "up_proj",
+          "down_proj"
+        ],
+        "parameters": 3145728
+      },
+      "training": {
+        "steps": 500,
+        "serial_accumulation": 4,
+        "seed": 47,
+        "lr": 0.0001,
+        "optimizer": "AdamW",
+        "weight_decay": 0.01,
+        "clip_norm": 1.0,
+        "event_token_weight": 4.0,
+        "unknown_transcripts": "masked by unchanged audited partial collator",
+        "start_step": 10662,
+        "final_step": 11162,
+        "additional_steps": 500
+      },
+      "fixed_checkpoints": [
+        11162
+      ],
+      "native_gates": "Unchanged13 native fixtures; candidate must improve controls without speech/event regression before full160ASR/full240environment/legacy comparison and target qualification.",
+      "resource_limits": {
+        "expected_write_GiB": 0.15,
+        "srv_reserve_GiB": 50,
+        "checkout_reserve_GiB": 10,
+        "RAM_reserve_GiB": 32,
+        "Torch_cap_MiB": 21504,
+        "lease_MiB": 22528,
+        "no_projector_exports_or_feature_caches": true
+      },
+      "sampler_source_sha256": "1214f0f78d02af21db9a47badabba691fa542269a376dbbf1940a91545b4d135",
+      "sampler_check_sha256": "53fe17e4e5a4fad8d992e737c61800b313e1fc04f3ce8fbf7beddf5c36ba1859",
+      "primary_encoder_projector_TTS_weight_updates": false,
+      "target_change": false,
+      "data_change": false,
+      "attributed_data_activated": false,
+      "natural_speech_expansion_activated": false,
+      "validation_and_test": "Not optimized; unchanged diagnostic validation, protected test unconsumed",
+      "runtime_integration": false,
+      "publication": false,
+      "release_qualified": false
+    },
+    "sampler_checks": {
+      "schema": "robit.omni.stratified-acoustic-sampler-check.v1",
+      "passed": true,
+      "manifest_sha256": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+      "sampler_sha256": "1214f0f78d02af21db9a47badabba691fa542269a376dbbf1940a91545b4d135",
+      "train_only": true,
+      "deterministic_rng_restore": true,
+      "each_optimizer_group_exact": true,
+      "replay_without_replacement_before_pool_exhaustion": true
+    }
+  },
+  "natural_data": {
+    "schema": "robit.omni.natural-speech-data-only-expansion.v1",
+    "complete": true,
+    "training_activated": false,
+    "all_original_manifest_bytes_preserved": true,
+    "original_manifest_sha256": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+    "manifest_sha256": "68b2061c1297b65df713a55e62464b1b9090a11f380c334df07f5157cc2aff50",
+    "train_rows": 43584,
+    "additional_human_transcribed_TRAIN": 26539,
+    "new_audio_bytes": 0,
+    "new_download_bytes": 0,
+    "new_feature_cache_bytes": 0,
+    "manifest_bytes": 60012222,
+    "license": "CC BY 4.0",
+    "source_speakers_disjoint_protected": true,
+    "existing_source_audio_hashes_and_headers_verified": true,
+    "existing_targets_and_splits_unchanged": true,
+    "source_metadata_sha256": "661a800c2193861e909f98b5a8aa388bfbaf0b18292917cc6d699f4bb35dee4b",
+    "resource_note": "Reuses already-local6.6GB FLAC corpus; does not copy audio or activate a new trainer.",
+    "release_qualified": false
+  },
+  "resource_snapshot": {
+    "schema": "robit.omni.convergence-artifact-snapshot.v1",
+    "UTC": "2026-11-01T10:31:41.932375+00:00",
+    "owned_allocated_bytes": 116730494976,
+    "owned_limit_bytes": 128849018880,
+    "srv_free_bytes": 91036954624,
+    "checkout_free_bytes": 236659904512,
+    "experiments": [
+      {
+        "work": "ornith-annotated-parent-target-pass-1",
+        "files": 15,
+        "allocated_bytes": 50896896,
+        "classification": "learned/recovery weights and compact reports retained; no disposable cache"
+      },
+      {
+        "work": "ornith-audio-lora-parent-target-step11162-native-probes",
+        "files": 3,
+        "allocated_bytes": 24576,
+        "classification": "learned/recovery weights and compact reports retained; no disposable cache"
+      },
+      {
+        "work": "ornith10662-full-replay-validation-1",
+        "files": 5,
+        "allocated_bytes": 360448,
+        "classification": "learned/recovery weights and compact reports retained; no disposable cache"
+      },
+      {
+        "work": "ornith11162-full-replay-validation-1",
+        "files": 5,
+        "allocated_bytes": 364544,
+        "classification": "learned/recovery weights and compact reports retained; no disposable cache"
+      },
+      {
+        "work": "ornith-control-balanced-pass-1",
+        "files": 9,
+        "allocated_bytes": 430080,
+        "classification": "learned/recovery weights and compact reports retained; no disposable cache"
+      },
+      {
+        "work": "qwen-audio-lora-class-uniform-gpu0-resume-1",
+        "files": 7,
+        "allocated_bytes": 57344,
+        "classification": "learned/recovery weights and compact reports retained; no disposable cache"
+      },
+      {
+        "work": "natural-speech-diversity-data-20261101",
+        "files": 3,
+        "allocated_bytes": 60022784,
+        "classification": "small manifest referencing existing verified audio; no audio copies"
+      }
+    ],
+    "all_learned_and_recovery_states_retained": true,
+    "new_full_projector_exports_or_feature_caches": 0,
+    "cleanup_this_cycle_bytes": 0,
+    "host_memory_bytes": {
+      "MemFree": 10969079808,
+      "MemAvailable": 350442315776,
+      "Cached": 313816940544
+    }
+  }
+}

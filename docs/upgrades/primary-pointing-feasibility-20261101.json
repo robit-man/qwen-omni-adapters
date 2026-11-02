@@ -1,0 +1,986 @@
+{
+  "schema": "robit.omni.primary-pointing-feasibility.v1",
+  "utc": "2026-11-01T01:58:29.729519+00:00",
+  "family": "ornith",
+  "primary_model_sha256": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "purpose": "Assess a prerequisite for replacing separately downloaded9B Moondream pointing with existing primary vision.",
+  "source_pixel_geometry": {
+    "patch_size": 16,
+    "spatial_merge_size": 2,
+    "from": "existing Ornith preprocessor_config.json"
+  },
+  "trials": [
+    {
+      "variant": "original rendering",
+      "complete": true,
+      "passed": 6,
+      "cases": 12,
+      "all12_gate_passed": false,
+      "GPU_residency_verified": true,
+      "source_report_sha256": "bedbb241fa56fc5f101452c28c9d196d2898dda2e12d407d9cfbf4f9b21d5aca",
+      "rows": [
+        {
+          "id": 0,
+          "target": "Save draft",
+          "result": {
+            "points": [
+              {
+                "x": 206,
+                "y": 824
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.49575469992123544
+        },
+        {
+          "id": 1,
+          "target": "Cancel",
+          "result": {
+            "points": []
+          },
+          "expected_boxes": [
+            [
+              18,
+              91,
+              189,
+              130
+            ]
+          ],
+          "passed": false,
+          "elapsed_s": 0.40203348989598453
+        },
+        {
+          "id": 2,
+          "target": "Export PDF",
+          "result": {
+            "points": [
+              {
+                "x": 709,
+                "y": 824
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              208,
+              219,
+              379,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.5055967540247366
+        },
+        {
+          "id": 3,
+          "target": "Open report",
+          "result": {
+            "points": [
+              {
+                "x": 250,
+                "y": 824
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.49112684093415737
+        },
+        {
+          "id": 4,
+          "target": "Retry",
+          "result": {
+            "points": [
+              {
+                "x": 700,
+                "y": 301
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              208,
+              91,
+              379,
+              130
+            ]
+          ],
+          "passed": false,
+          "elapsed_s": 0.462293180054985
+        },
+        {
+          "id": 5,
+          "target": "Settings",
+          "result": {
+            "points": []
+          },
+          "expected_boxes": [
+            [
+              18,
+              91,
+              189,
+              130
+            ]
+          ],
+          "passed": false,
+          "elapsed_s": 0.3913990429136902
+        },
+        {
+          "id": 6,
+          "target": "the button that exports a PDF document",
+          "result": {
+            "points": [
+              {
+                "x": 250,
+                "y": 814
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.48942234995774925
+        },
+        {
+          "id": 7,
+          "target": "the control for trying again",
+          "result": {
+            "points": [
+              {
+                "x": 206,
+                "y": 500
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              155,
+              189,
+              194
+            ]
+          ],
+          "passed": false,
+          "elapsed_s": 0.4632591489935294
+        },
+        {
+          "id": 8,
+          "target": "Save draft",
+          "result": {
+            "points": [
+              {
+                "x": 222,
+                "y": 293
+              },
+              {
+                "x": 222,
+                "y": 700
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              91,
+              189,
+              130
+            ],
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": false,
+          "elapsed_s": 0.6511369820218533
+        },
+        {
+          "id": 9,
+          "target": "Publish",
+          "result": {
+            "points": []
+          },
+          "expected_boxes": [],
+          "passed": true,
+          "elapsed_s": 0.3223912710091099
+        },
+        {
+          "id": 10,
+          "target": "Sign in",
+          "result": {
+            "points": []
+          },
+          "expected_boxes": [],
+          "passed": true,
+          "elapsed_s": 0.3387674300465733
+        },
+        {
+          "id": 11,
+          "target": "the button for saving the draft",
+          "result": {
+            "points": []
+          },
+          "expected_boxes": [
+            [
+              208,
+              155,
+              379,
+              194
+            ]
+          ],
+          "passed": false,
+          "elapsed_s": 0.7694110049633309
+        }
+      ]
+    },
+    {
+      "variant": "DPR2 rendering",
+      "complete": true,
+      "passed": 10,
+      "cases": 12,
+      "all12_gate_passed": false,
+      "GPU_residency_verified": true,
+      "source_report_sha256": "fccf4e0c45bad60400650eaf4c945ec0e6d22c1f82530920e708761bce8d29a9",
+      "rows": [
+        {
+          "id": 0,
+          "target": "Save draft",
+          "result": {
+            "points": [
+              {
+                "x": 249,
+                "y": 816
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.6239011789439246,
+          "usage": {
+            "completion_tokens": 21,
+            "prompt_tokens": 562,
+            "total_tokens": 583,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 1,
+          "target": "Cancel",
+          "result": {
+            "points": [
+              {
+                "x": 230,
+                "y": 420
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              91,
+              189,
+              130
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.7330610469216481,
+          "usage": {
+            "completion_tokens": 25,
+            "prompt_tokens": 561,
+            "total_tokens": 586,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 2,
+          "target": "Export PDF",
+          "result": {
+            "points": [
+              {
+                "x": 729,
+                "y": 800
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              208,
+              219,
+              379,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.6525045849848539,
+          "usage": {
+            "completion_tokens": 21,
+            "prompt_tokens": 562,
+            "total_tokens": 583,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 3,
+          "target": "Open report",
+          "result": {
+            "points": [
+              {
+                "x": 170,
+                "y": 800
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.6674260620493442,
+          "usage": {
+            "completion_tokens": 21,
+            "prompt_tokens": 562,
+            "total_tokens": 583,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 4,
+          "target": "Retry",
+          "result": {
+            "points": [
+              {
+                "x": 700,
+                "y": 404
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              208,
+              91,
+              379,
+              130
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.661655138945207,
+          "usage": {
+            "completion_tokens": 21,
+            "prompt_tokens": 561,
+            "total_tokens": 582,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 5,
+          "target": "Settings",
+          "result": {
+            "points": [
+              {
+                "x": 250,
+                "y": 417
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              91,
+              189,
+              130
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.7232600530842319,
+          "usage": {
+            "completion_tokens": 25,
+            "prompt_tokens": 561,
+            "total_tokens": 586,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 6,
+          "target": "the button that exports a PDF document",
+          "result": {
+            "points": [
+              {
+                "x": 208,
+                "y": 814
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.8016249400097877,
+          "usage": {
+            "completion_tokens": 38,
+            "prompt_tokens": 567,
+            "total_tokens": 605,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 7,
+          "target": "the control for trying again",
+          "result": {
+            "points": [
+              {
+                "x": 249,
+                "y": 600
+              },
+              {
+                "x": 249,
+                "y": 740
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              155,
+              189,
+              194
+            ]
+          ],
+          "passed": false,
+          "elapsed_s": 0.789984651026316,
+          "usage": {
+            "completion_tokens": 37,
+            "prompt_tokens": 565,
+            "total_tokens": 602,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 8,
+          "target": "Save draft",
+          "result": {
+            "points": [
+              {
+                "x": 250,
+                "y": 400
+              },
+              {
+                "x": 250,
+                "y": 750
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              18,
+              91,
+              189,
+              130
+            ],
+            [
+              18,
+              219,
+              189,
+              258
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.90423801203724,
+          "usage": {
+            "completion_tokens": 43,
+            "prompt_tokens": 562,
+            "total_tokens": 605,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 9,
+          "target": "Publish",
+          "result": {
+            "points": []
+          },
+          "expected_boxes": [],
+          "passed": true,
+          "elapsed_s": 0.5245780549012125,
+          "usage": {
+            "completion_tokens": 6,
+            "prompt_tokens": 561,
+            "total_tokens": 567,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 10,
+          "target": "Sign in",
+          "result": {
+            "points": [
+              {
+                "x": 128,
+                "y": 206
+              }
+            ]
+          },
+          "expected_boxes": [],
+          "passed": false,
+          "elapsed_s": 0.654219435993582,
+          "usage": {
+            "completion_tokens": 21,
+            "prompt_tokens": 562,
+            "total_tokens": 583,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "id": 11,
+          "target": "the button for saving the draft",
+          "result": {
+            "points": [
+              {
+                "x": 748,
+                "y": 560
+              }
+            ]
+          },
+          "expected_boxes": [
+            [
+              208,
+              155,
+              379,
+              194
+            ]
+          ],
+          "passed": true,
+          "elapsed_s": 0.7341035680146888,
+          "usage": {
+            "completion_tokens": 31,
+            "prompt_tokens": 566,
+            "total_tokens": 597,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "conclusion": "REJECT direct primary pointing replacement. DPR2 improves12-case synthetic feasibility from6to10 passes but adds a false point for absent Sign in; preserve current helper and all computer-use capabilities. No further resolution or prompt variants launched.",
+  "desktop_actions_performed": 0,
+  "new_model_weights_or_downloads": 0,
+  "runtime_or_bootstrap_changes": false,
+  "release_qualified": false,
+  "model_publication": false,
+  "limits": [
+    "Small synthetic fixture probe only; no complete computer-use or Moondream parity claim.",
+    "Concurrent host jobs prevent isolated performance claims.",
+    "The external auxiliary-weight packaging/replacement gap remains open."
+  ],
+  "Qwen3.8_same_DPR2_cases": {
+    "complete": true,
+    "passed": 10,
+    "cases": 12,
+    "all12_gate_passed": false,
+    "source_report_sha256": "aa68de1215d68e54c458aa02e2939203b97dbe5ef79879590807c14f56e717a4",
+    "same_image_hashes": true,
+    "no_new_PNGs_or_weights": true,
+    "GPU_residency_verified": true,
+    "rows": [
+      {
+        "id": 0,
+        "target": "Save draft",
+        "result": {
+          "points": [
+            {
+              "x": 258,
+              "y": 789
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            18,
+            219,
+            189,
+            258
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 1.7923888999503106,
+        "usage": {
+          "completion_tokens": 38,
+          "prompt_tokens": 562,
+          "total_tokens": 600,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 1,
+        "target": "Cancel",
+        "result": {
+          "points": [
+            {
+              "x": 258,
+              "y": 369
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            18,
+            91,
+            189,
+            130
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 2.023563287919387,
+        "usage": {
+          "completion_tokens": 38,
+          "prompt_tokens": 561,
+          "total_tokens": 599,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 2,
+        "target": "Export PDF",
+        "result": {
+          "points": [
+            {
+              "x": 733,
+              "y": 790
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            208,
+            219,
+            379,
+            258
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 2.098117387969978,
+        "usage": {
+          "completion_tokens": 38,
+          "prompt_tokens": 562,
+          "total_tokens": 600,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 3,
+        "target": "Open report",
+        "result": {
+          "points": [
+            {
+              "x": 259,
+              "y": 790
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            18,
+            219,
+            189,
+            258
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 2.0633581129368395,
+        "usage": {
+          "completion_tokens": 38,
+          "prompt_tokens": 562,
+          "total_tokens": 600,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 4,
+        "target": "Retry",
+        "result": {
+          "points": [
+            {
+              "x": 733,
+              "y": 370
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            208,
+            91,
+            379,
+            130
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 2.0288089730311185,
+        "usage": {
+          "completion_tokens": 38,
+          "prompt_tokens": 561,
+          "total_tokens": 599,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 5,
+        "target": "Settings",
+        "result": {
+          "points": [
+            {
+              "x": 258,
+              "y": 370
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            18,
+            91,
+            189,
+            130
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 2.0449568449985236,
+        "usage": {
+          "completion_tokens": 38,
+          "prompt_tokens": 561,
+          "total_tokens": 599,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 6,
+        "target": "the button that exports a PDF document",
+        "result": {
+          "points": []
+        },
+        "expected_boxes": [
+          [
+            18,
+            219,
+            189,
+            258
+          ]
+        ],
+        "passed": false,
+        "elapsed_s": 1.4472103259759024,
+        "usage": {
+          "completion_tokens": 9,
+          "prompt_tokens": 567,
+          "total_tokens": 576,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 7,
+        "target": "the control for trying again",
+        "result": {
+          "points": []
+        },
+        "expected_boxes": [
+          [
+            18,
+            155,
+            189,
+            194
+          ]
+        ],
+        "passed": false,
+        "elapsed_s": 1.4400409830268472,
+        "usage": {
+          "completion_tokens": 9,
+          "prompt_tokens": 565,
+          "total_tokens": 574,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 8,
+        "target": "Save draft",
+        "result": {
+          "points": [
+            {
+              "x": 258,
+              "y": 370
+            },
+            {
+              "x": 258,
+              "y": 789
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            18,
+            91,
+            189,
+            130
+          ],
+          [
+            18,
+            219,
+            189,
+            258
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 2.5342328819679096,
+        "usage": {
+          "completion_tokens": 63,
+          "prompt_tokens": 562,
+          "total_tokens": 625,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 9,
+        "target": "Publish",
+        "result": {
+          "points": []
+        },
+        "expected_boxes": [],
+        "passed": true,
+        "elapsed_s": 1.435384013922885,
+        "usage": {
+          "completion_tokens": 10,
+          "prompt_tokens": 561,
+          "total_tokens": 571,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 10,
+        "target": "Sign in",
+        "result": {
+          "points": []
+        },
+        "expected_boxes": [],
+        "passed": true,
+        "elapsed_s": 1.3955671980511397,
+        "usage": {
+          "completion_tokens": 9,
+          "prompt_tokens": 562,
+          "total_tokens": 571,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      },
+      {
+        "id": 11,
+        "target": "the button for saving the draft",
+        "result": {
+          "points": [
+            {
+              "x": 733,
+              "y": 580
+            }
+          ]
+        },
+        "expected_boxes": [
+          [
+            208,
+            155,
+            379,
+            194
+          ]
+        ],
+        "passed": true,
+        "elapsed_s": 2.0591442070435733,
+        "usage": {
+          "completion_tokens": 38,
+          "prompt_tokens": 566,
+          "total_tokens": 604,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      }
+    ],
+    "decision": "Rejected for replacement: misses paraphrased Export PDF and Retry targets. Keep original computer-use path; do not change gate or prompt after result."
+  }
+}

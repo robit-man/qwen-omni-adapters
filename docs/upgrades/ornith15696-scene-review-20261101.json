@@ -1,0 +1,704 @@
+{
+  "schema": "robit.omni.ornith15696-complete-scene-cycle-review.v1",
+  "complete": true,
+  "family": "ornith",
+  "step": 15696,
+  "status": "rejected",
+  "release_qualified": false,
+  "public_model_publication": false,
+  "source_adapter_sha256": "524a237a3a27ad20d64777a66479897e78d80b6d5bc71cbc31672d8ec0fa7e4f",
+  "native_F32_GGUF_sha256": "29859e2b803a042ccbf27b9eaea65c40d8deeac5aed860b9b40881481655700e",
+  "base_sha256": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "projector_sha256": "3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2",
+  "conversion": {
+    "complete": true,
+    "family": "ornith",
+    "tensors": 48,
+    "all_exported_values_exact": true,
+    "adapter_sha256": "29859e2b803a042ccbf27b9eaea65c40d8deeac5aed860b9b40881481655700e",
+    "release_qualified": false
+  },
+  "primary_encoder_bridge_TTS_frozen": true,
+  "disabled_logits_max_abs_delta": 0,
+  "fixed_native13": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "labels": [
+        "speech"
+      ],
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with no notable background sound.</audio_observation>",
+      "audio_observation": "One speaker with no notable background sound.",
+      "transcript": "The blue bicycle is parked beside the garden gate.",
+      "elapsed_s": 0.712941715028137
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "labels": [
+        "silence"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation>",
+      "audio_observation": "Silence; no intelligible speech or distinct sound event.",
+      "transcript": null,
+      "elapsed_s": 0.601794486050494
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "labels": [
+        "alarm"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A simple melody of electronic tones; no intelligible speech.</audio_observation>",
+      "audio_observation": "A simple melody of electronic tones; no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 0.593386646010913
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "labels": [
+        "noise"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Steady broadband hissing noise; no intelligible speech.</audio_observation>",
+      "audio_observation": "Steady broadband hissing noise; no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 0.5992259199265391
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "labels": [
+        "music"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>A simple melody of electronic tones; no intelligible speech.</audio_observation>",
+      "audio_observation": "A simple melody of electronic tones; no intelligible speech.",
+      "transcript": null,
+      "elapsed_s": 0.5996174510801211
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "labels": [
+        "esc50-clock_alarm"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Alarm.</audio_observation>",
+      "audio_observation": "Audible sound events: Alarm.",
+      "transcript": null,
+      "elapsed_s": 0.5600537429563701
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "labels": [
+        "esc50-dog"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation>",
+      "audio_observation": "Audible sound events: Bark.",
+      "transcript": null,
+      "elapsed_s": 0.5345873649930581
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "labels": [
+        "esc50-church_bells"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation>",
+      "audio_observation": "Audible sound events: Church bell.",
+      "transcript": null,
+      "elapsed_s": 0.5479553129989654
+    },
+    {
+      "id": "fsd50k-156200",
+      "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+      "labels": [
+        "Human group actions"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Crow.</audio_observation>",
+      "audio_observation": "Audible sound events: Crow.",
+      "transcript": null,
+      "elapsed_s": 0.5638295060489327
+    },
+    {
+      "id": "fsd50k-180765",
+      "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+      "labels": [
+        "Clapping"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clapping.</audio_observation>",
+      "audio_observation": "Audible sound events: Clapping.",
+      "transcript": null,
+      "elapsed_s": 0.5585873599629849
+    },
+    {
+      "id": "fsd50k-182894",
+      "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+      "labels": [
+        "Printer"
+      ],
+      "content": "# Speech Transcript\nAudible sound events: Engine starting. Car. Accelerating, revving, vroom. Honking. Hiss.\n\n# Audio Observation\nEngine starting. Idling. Car. Accelerating. Revving. Engine noise, vroom. Honk. Hiss.",
+      "audio_observation": null,
+      "transcript": null,
+      "elapsed_s": 0.939120007911697
+    },
+    {
+      "id": "fsd50k-166192",
+      "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+      "labels": [
+        "Gunshot, gunfire"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation>",
+      "audio_observation": "Audible sound events: Explosion.",
+      "transcript": null,
+      "elapsed_s": 0.5231098540825769
+    },
+    {
+      "id": "fsd50k-203720",
+      "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+      "labels": [
+        "Motor vehicle (road)",
+        "Siren"
+      ],
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road); Siren.</audio_observation>",
+      "audio_observation": "Audible sound events: Motor vehicle (road); Siren.",
+      "transcript": null,
+      "elapsed_s": 0.6559706280240789
+    }
+  ],
+  "fixed_temporal16": [
+    {
+      "id": "temporal-overlap-validation-00",
+      "transcript": null,
+      "audio_observation": "First: Church bell. After a pause: Church bell.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Church bell. After a pause: Church bell.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-01",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Church bell.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-02",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Gunshot, gunfire.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-03",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Explosion.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-04",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Vehicle horn, car horn, honking.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Vehicle horn, car horn, honking.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-05",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Motorcycle.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motorcycle.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-06",
+      "transcript": "The blue bicycle is parked beside the garbon gate.",
+      "audio_observation": "Audible sound events: Speech synthesizer.",
+      "content": "<speech_transcript>The blue bicycle is parked beside the garbon gate.</speech_transcript><audio_observation>Audible sound events: Speech synthesizer.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-07",
+      "transcript": "The blue bicycle is parked behind the garden gate.",
+      "audio_observation": "Audible sound events: Intermittent electronic alarm-like beeps separated by pauses; no other distinct sound evidence.",
+      "content": "<speech_transcript>The blue bicycle is parked behind the garden gate.</speech_transcript><audio_observation>Audible sound events: Intermittent electronic alarm-like beeps separated by pauses; no other distinct sound evidence.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-08",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Bird vocalization, bird call, bird song.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird vocalization, bird call, bird song.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-09",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Bird vocalization, bird call, bird song.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird vocalization, bird call, bird song.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-10",
+      "transcript": null,
+      "audio_observation": "First: A steady low hum mixed with hissing noise; no intelligible speech. After a pause: Several sustained electronic tones sound together; no intelligible speech.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: A steady low hum mixed with hissing noise; no intelligible speech. After a pause: Several sustained electronic tones sound together; no intelligible speech.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-11",
+      "transcript": null,
+      "audio_observation": "First: A sustained electronic tone; no intelligible speech. After a pause: Steady broadband hissing noise; no intelligible speech.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: A sustained electronic tone; no intelligible speech. After a pause: Steady broadband hissing noise; no intelligible speech.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-12",
+      "transcript": "The blue bicycle is parked beside the gargon gate.",
+      "audio_observation": "Two different human voices overlap; one voice has an intermittent electronic alarm in the background.",
+      "content": "<speech_transcript>The blue bicycle is parked beside the gargon gate.</speech_transcript><audio_observation>Two different human voices overlap; one voice has an intermittent electronic alarm in the background.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-13",
+      "transcript": null,
+      "audio_observation": "At the same time: Steady filtered noise with a low rumbling quality; no intelligible speech; Brief repeated clattering sounds; no intelligible speech.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>At the same time: Steady filtered noise with a low rumbling quality; no intelligible speech; Brief repeated clattering sounds; no intelligible speech.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-14",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Gull, seagull.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gull, seagull.</audio_observation>"
+    },
+    {
+      "id": "temporal-overlap-validation-15",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Church bell.",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation>"
+    }
+  ],
+  "speech": {
+    "current": {
+      "all": {
+        "clips": 154,
+        "words": 3336,
+        "errors": 248,
+        "wer": 0.07434052757793765
+      },
+      "espeak-ng plus deterministic procedural ambience": {
+        "clips": 78,
+        "words": 1520,
+        "errors": 29,
+        "wer": 0.019078947368421053
+      },
+      "LibriSpeech dev-clean with deterministic local augmentation": {
+        "clips": 29,
+        "words": 594,
+        "errors": 40,
+        "wer": 0.06734006734006734
+      },
+      "Qwen3-TTS large-vocabulary recovery corpus": {
+        "clips": 47,
+        "words": 1222,
+        "errors": 179,
+        "wer": 0.14648117839607203
+      }
+    },
+    "previous13162_errors": 237,
+    "previous13162_natural_errors": 44,
+    "legacy_errors": 684,
+    "legacy_natural_errors": 9,
+    "all_six_nonspeech_transcripts_empty": true
+  },
+  "recovered_capabilities": [
+    "Raw digital-zero neural probe now reports silence; separate existing product DSP remains qualified.",
+    "Clapping is identified correctly; clock alarm, bark, church bell and siren remain correct.",
+    "DSP noise/tones direction is described in both orders. The reverse pair calls the multi-tone chord a singular tone, so detailed acoustic fidelity is not established."
+  ],
+  "remaining_failures": [
+    "Intermittent alarm and constant chord called simple melody.",
+    "Group voices called crow. Printer observation is malformed Markdown with incorrect car/engine events; retain raw output, do not patch parser to hide failure.",
+    "Gunfire called explosion.",
+    "Dog/bells, clapping/gunfire, printer/siren and voices/alarm pairs still lose identities/order or a source.",
+    "Speech-plus-alarm has erroneous transcripts and invented second voice; speech-plus-printer transcript missing.",
+    "Natural speech40/594errors remains worse than legacy9 despite improvement from44; aggregate248/3336worse than prior237."
+  ],
+  "actual_final_coverage": {
+    "step": 15696,
+    "position": 14136,
+    "unique_training_records": 25644,
+    "unique_virtual_scenes": 1810,
+    "scene_families": {
+      "scene-v1-signal-overlap": 256,
+      "scene-v1-event-sequence": 512,
+      "scene-v1-event-overlap": 256,
+      "scene-v1-voice-overlap": 256,
+      "scene-v1-signal-sequence": 512,
+      "scene-v1-speech-background": 18
+    }
+  },
+  "full_corpus_or_scene_pass": false,
+  "coverage_scope": "All1792acoustic virtual scenes exposed; only18/256speech-background scenes,238unseen. Source order/RNG/saved cursor14136 and25644cumulative IDs independently verified. No corpus pass/convergence claim.",
+  "recovery": {
+    "schema": "robit.omni.ornith-scene-recovery-audit.v1",
+    "complete": true,
+    "CPU_only": true,
+    "actual_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-scene-captions-pass-2/checkpoint-015696",
+    "coverage_reproduced_exact": {
+      "step": 15696,
+      "position": 14136,
+      "unique_training_records": 25644,
+      "unique_virtual_scenes": 1810,
+      "scene_families": {
+        "scene-v1-signal-overlap": 256,
+        "scene-v1-event-sequence": 512,
+        "scene-v1-event-overlap": 256,
+        "scene-v1-voice-overlap": 256,
+        "scene-v1-signal-sequence": 512,
+        "scene-v1-speech-background": 18
+      }
+    },
+    "all48_F32_parameters_finite_and_shapes_exact": true,
+    "parameters": 3145728,
+    "all48_AdamW_steps_and_moment_shapes_exact": true,
+    "all_moments_finite_and_variance_nonnegative": true,
+    "source_saved_order_and_Python_RNG_unchanged": true,
+    "Torch_RNG_unchanged": true,
+    "CUDA_RNG_unchanged": true,
+    "checkpoint_reported_frozen_components_and_disabled_logit_delta_verified": true,
+    "scope": "Read-only file/metadata/optimizer/replay audit. Does not independently prove live semantic parity or all source weight values.",
+    "resource_minima": {
+      "minimum_RAM_available_GiB": 313.5571594238281,
+      "minimum_srv_free_GiB": 70.83651351928711,
+      "minimum_checkout_free_GiB": 195.79819107055664
+    },
+    "peak_Torch_reserved_MiB": 21254.0,
+    "evidence_sha256": {
+      "adapter_model.safetensors": "524a237a3a27ad20d64777a66479897e78d80b6d5bc71cbc31672d8ec0fa7e4f",
+      "adapter_config.json": "3819c12c97860b66dab5e3b49bb4abf24104911d48328d3e94932665d5c78e2c",
+      "recovery-state.pt": "cb80a4da395ff65ad57138f046f0b6e60a7620ccbd027adc4ae0fab1d7e3354d",
+      "checkpoint.json": "2e9e23bad393768ac14468cd80659191c902a795e8342567064d555734d7a77f"
+    },
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "source_recovery_sha256": "919e9b936eb78b692d0968dcc87f67e4900d2065bb6740cb1a7fe3b1965f64d9",
+    "source_script_sha256": "62553c50514d51f67638b4b9ef943bdec31d952ab5cefaaf71f67cffeb28e37e",
+    "optimizer_steps": 0,
+    "CUDA_started": false,
+    "new_weights_audio_or_feature_cache_bytes": 0,
+    "release_qualified": false
+  },
+  "lease_release_recovery": {
+    "schema": "robit.omni.exited-owner-lease-reclamation.v1",
+    "UTC": "2026-11-01T17:26:51.724999+00:00",
+    "owner": "qwen-omni-upgrade/ornith-scene-cycle-training",
+    "registered_CUDA_PIDs": [
+      1593132
+    ],
+    "GPU": "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a",
+    "training_complete": true,
+    "final_checkpoint": 15696,
+    "all_registered_owner_PIDs_exited": true,
+    "independent_CUDA_residency_false": true,
+    "normal_release_exit_code": 1,
+    "documented_already_gone_owner_force_used": true,
+    "own_reservation_released": true,
+    "all_peer_tokens_scopes_budgets_registered_contexts_preserved": true,
+    "new_admission_not_bypassed": true,
+    "credentials_or_lease_tokens_in_receipt": false
+  },
+  "qualification_orchestration": "Initial native admission and first full-suite observer failed before additional CUDA execution because the exited training reservation remained. Original failed records preserved. Exact known exited PID/registered scope and independent no-CUDA proof justified supported force; all peer reservations/context registrations preserved. Recovered native13/temporal16/full160 now complete, normally released.",
+  "new_bounded_hypothesis": {
+    "status": "Actual GPU2 paired control/projection training started after zero-update preflight; no new inference architecture.",
+    "question": "Does learning the existing final audio projection generalize better than continued tail-LoRA-only training on exactly the same examples?",
+    "A": "Exact15696LoRA+AdamW continuation; original rich850projection frozen.500updates ends16196.",
+    "B": "Exact15696LoRA frozen; original rich850linear projection learned with fresh AdamW/F32masters and exact BF16 forward/effective export.500updates.",
+    "one_primary_trunk_sequential_arms": true,
+    "same_source_initial_audio_logits_and_loss": true,
+    "same_ordered_microbatches_per_arm": 2000,
+    "source_cursor": 14136,
+    "final_cursor": 16136,
+    "new_IDs": 788,
+    "scene_draws": 247,
+    "speech_background_draws": 5,
+    "order_sha256": "2f2f66e4cc153a9ed68474616e1539082bf4d6b6f9db450bc516fd89563403a6",
+    "data_loss_LR_architecture_unchanged": true,
+    "preflight": {
+      "complete": true,
+      "optimizer_steps": 0,
+      "initial_audio_loss_bit_exact": true,
+      "initial_audio_logits_bit_exact": true,
+      "checks": [
+        {
+          "arm": "A",
+          "id": "fsd50k-323041",
+          "duration_s": 30.0,
+          "loss": 0.07800020277500153,
+          "peak_reserved_MiB": 20924.0,
+          "peak_allocated_MiB": 20341.64453125
+        },
+        {
+          "arm": "A",
+          "id": "libri100-7859-102521-0017",
+          "duration_s": 24.525,
+          "loss": 0.0906297117471695,
+          "peak_reserved_MiB": 21084.0,
+          "peak_allocated_MiB": 20455.455078125
+        },
+        {
+          "arm": "A",
+          "id": "scene-v1-event-sequence-0336",
+          "duration_s": 11.9729375,
+          "loss": 0.23225322365760803,
+          "peak_reserved_MiB": 20064.0,
+          "peak_allocated_MiB": 19622.0498046875
+        },
+        {
+          "arm": "A",
+          "id": "scene-v1-speech-background-1816",
+          "duration_s": 5.895,
+          "loss": 0.3050190210342407,
+          "peak_reserved_MiB": 19862.0,
+          "peak_allocated_MiB": 19462.671875
+        },
+        {
+          "arm": "B",
+          "id": "fsd50k-323041",
+          "duration_s": 30.0,
+          "loss": 0.07800020277500153,
+          "peak_reserved_MiB": 21004.0,
+          "peak_allocated_MiB": 20366.64404296875
+        },
+        {
+          "arm": "B",
+          "id": "libri100-7859-102521-0017",
+          "duration_s": 24.525,
+          "loss": 0.0906297117471695,
+          "peak_reserved_MiB": 21106.0,
+          "peak_allocated_MiB": 20480.28125
+        },
+        {
+          "arm": "B",
+          "id": "scene-v1-event-sequence-0336",
+          "duration_s": 11.9729375,
+          "loss": 0.23225322365760803,
+          "peak_reserved_MiB": 20076.0,
+          "peak_allocated_MiB": 19646.47802734375
+        },
+        {
+          "arm": "B",
+          "id": "scene-v1-speech-background-1816",
+          "duration_s": 5.895,
+          "loss": 0.3050190210342407,
+          "peak_reserved_MiB": 19866.0,
+          "peak_allocated_MiB": 19486.9072265625
+        }
+      ],
+      "maximum_peak_reserved_MiB": 21106.0,
+      "source_script_sha256": "6356da657e9e55552b804177ed64482eb99040de99c52120c3b67c793346ac01",
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "one_language_trunk": true,
+      "new_audio_features_or_weights_bytes": 0,
+      "source_weights_unchanged": true,
+      "GPU_residency_verified": true,
+      "lease_MiB": 23040,
+      "Torch_cap_MiB": 22016,
+      "release_qualified": false
+    },
+    "preflight_sha256": "36e1a9df666ce1a1da16c5d2cabf6aa8764c7f1c65a993322a5c16db4b3ecff0",
+    "configuration_failures_preserved": [
+      {
+        "complete": true,
+        "CPU_only": true,
+        "cached_extractor_type": "WhisperFeatureExtractor",
+        "cached_Ornith_tokenizer_type": "Qwen2Tokenizer",
+        "actual_bridge_shape": [
+          4096,
+          1280
+        ],
+        "actual_bridge_master_BF16_forward_exact": true,
+        "failed_attempt_1": "Wrong renamed feature-extractor path; failed before model loading/readiness/optimizer updates. Original records retained.",
+        "optimizer_steps": 0,
+        "CUDA_started": false,
+        "corrected_source_sha256": "c7d9127ccafe7798cf8f371d2e1d4a160aade5796e778a1da3114c87e0da9900"
+      },
+      {
+        "complete": true,
+        "CPU_metadata_only": true,
+        "model_class": "Qwen3_5ForCausalLM",
+        "actual_HF_text_layers_path": "model.layers",
+        "persisted_adapter_namespace": "base_model.model.model.language_model.layers",
+        "all48_saved_tensor_shapes_match_24_actual_meta_modules": true,
+        "checks": [
+          {
+            "layer": 24,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 24,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 24,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          },
+          {
+            "layer": 25,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 25,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 25,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          },
+          {
+            "layer": 26,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 26,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 26,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          },
+          {
+            "layer": 27,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 27,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 27,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          },
+          {
+            "layer": 28,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 28,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 28,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          },
+          {
+            "layer": 29,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 29,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 29,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          },
+          {
+            "layer": 30,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 30,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 30,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          },
+          {
+            "layer": 31,
+            "module": "gate_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 31,
+            "module": "up_proj",
+            "in_features": 4096,
+            "out_features": 12288
+          },
+          {
+            "layer": 31,
+            "module": "down_proj",
+            "in_features": 12288,
+            "out_features": 4096
+          }
+        ],
+        "no_primary_weights_loaded": true,
+        "optimizer_steps": 0,
+        "CUDA_started": false,
+        "failed_attempt_2": "Copied getter used conditional namespace on HF CausalLM. Failed before adapter initialization/optimizer/readiness; original records retained.",
+        "training_source_sha256": "6356da657e9e55552b804177ed64482eb99040de99c52120c3b67c793346ac01"
+      }
+    ],
+    "no_new_audio_features_or_full_projector_GGUF": true,
+    "forecast_write_GiB": 0.5,
+    "publication": false
+  },
+  "peak_Torch_reserved_MiB": 21254.0,
+  "training_elapsed_s": 9038.238155491068,
+  "resource_minima": {
+    "minimum_RAM_available_GiB": 313.5571594238281,
+    "minimum_srv_free_GiB": 70.83651351928711,
+    "minimum_checkout_free_GiB": 195.79819107055664
+  },
+  "evaluation_scope": {
+    "context_tokens": 16384,
+    "KV": "F16",
+    "cache_prompt": false,
+    "audio_LoRA_scale": 1,
+    "inference_prompt_changed": false,
+    "labels_or_titles_in_generation": false,
+    "full_environment240_not_run_until_basic_gates_recover": true,
+    "test400_unused": true,
+    "no_lexical_semantic_grader": true
+  },
+  "evidence_sha256": {
+    "ornith-audio-lora-scene-step15696-native-probes/outputs.json": "75182e6caf94898e72b86281872a4ce437a6aa88a7f5e3901368c57fe59a2412",
+    "ornith15696-temporal-validation-1/outputs.json": "4b69c355cbf64ccb3b2df92a37aad1ddace3454aadaf1d80eecf7e45620217d0",
+    "ornith15696-full-replay-validation-1/outputs.json": "8817d27729c9efbc59ca426b2e28b2a9f7ab532c44fb4f4a3748f42d17d004fe",
+    "ornith15696-full-replay-validation-1/speech-metrics.json": "29e337b06fa27b9b3e1092fbbe2ef1714fbdfda3e74c7cec081d6c649ed75637",
+    "ornith-scene-captions-pass-2/report.json": "f4d8c39c6debe6b168a44c8e37a738a541e918e81f2bbce6f44b1de863629516",
+    "ornith-scene-captions-pass-2/checkpoint-015696/checkpoint.json": "2e9e23bad393768ac14468cd80659191c902a795e8342567064d555734d7a77f",
+    "ornith-scene-captions-pass-2/checkpoint-015696/conversion-integrity.json": "a5cc449816e1851e04fcbd29723ab36c6cb191ca55879bbcb27af885d2a65525",
+    "ornith-scene-recovery-audits-1/step15696.json": "bfc8c9f9c368e1fe1c77ba60c2420d3ed3227cd06911bc177864ef0a40e56f35",
+    "ornith15696-full-suites-observer-2/state.json": "e5dfe1bc3dea09f541c41ee127233530bf5d54809a5e676d735389301230f156"
+  }
+}

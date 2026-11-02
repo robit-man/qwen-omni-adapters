@@ -104,6 +104,16 @@ evidence is still returned in the observation/final adapter metadata, but a
 sound-only capture cannot consume the language or TTS stages. Leave it false
 for explicit environmental-audio questions.
 
+For audio-only input, the adapter can prove digital silence when every sample
+in every complete 16 kHz mono PCM16 WAV is exactly zero. This requires a single
+unambiguous data stream and complete RIFF chunks; ambiguous containers retain
+ordinary comprehension. It then returns an
+empty transcript and a silence observation without invoking a neural worker.
+This uses no amplitude threshold: any nonzero sample, incomplete container or
+attached image/video retains ordinary comprehension. Voice references are not
+perceptual input. Explicit text questions still reach the language stage;
+`require_speech:true` retains its early completion before language and TTS.
+
 A live turn may intentionally return empty assistant content when the observed
 speech was not addressed to the client. A bounded closed-set semantic preflight
 resolves direct-address evidence before answer generation or tools and records
@@ -517,6 +527,30 @@ Requires text and no input media on the last user message. It bypasses language
 generation and sends that text directly to the TTS graph. The same text is
 returned in `message.content` and as the optional `transcript` associated with
 `message.audio`.
+
+## Optional native Ollama audio
+
+The pinned patched Ollama build additionally exposes native
+`/v1/audio/transcriptions` and `/v1/audio/speech`; see
+[`native/ollama/README.md`](../native/ollama/README.md). These are separate native
+routes, and their extensions do not change adapter-v1's request or NDJSON schema.
+
+For native speech, omitted `stream` or `stream:true` retains streamed PCM/WAV.
+The native-only top-level `stream:false` returns complete output: a 24 kHz mono
+PCM16 WAV has exact RIFF/data lengths, and both complete PCM and WAV include
+their exact HTTP content length. A complete request buffers at most 16 MiB of
+PCM payload. Generation failure returns an error rather than a partial file;
+disconnect cancellation stops the request's generator while retaining the
+primary model. Voice, language, sampling and full reference-audio/transcript
+conditioning have the same meaning in both response modes.
+
+For a configured native Omni model, `/api/show` lists its validated saved voice
+names, including the bundled `female` and `male` choices. Select a name using
+native speech's `voice` field. Request-local `omni.speaker_audio` overrides that
+reference for the request without adding a saved voice. Full-reference cloning
+also accepts `omni.reference_text`; voice discovery includes no reference paths,
+audio or transcript content. Native configuration installation remains a trusted
+local operation, separate from desktop profile import.
 
 ## Response
 

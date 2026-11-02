@@ -1,0 +1,326 @@
+{
+  "schema": "robit.omni.attention-comparison-source-review.v1",
+  "UTC": "2026-11-01T20:52:11.775676+00:00",
+  "complete_source_rows": 116,
+  "source_elapsed_s": 123.9823249700712,
+  "source_output_SHA256": "76e46e5ce331316541bef241eea9b59e46b3d20253e04a3bb7d148a4ea969d73",
+  "source_evaluator_SHA256": "428eb04f8f6a8b861a9c71cd304971529bcb915e8a6a1ddccb60a822a1f6cb31",
+  "training_report_SHA256": "3b2f232b69f51ad26153fe2fc0730ff2e6983e2b5fdbaa6c83bcd99352c5e975",
+  "checkpoint_CPU_integrity": {
+    "schema": "robit.omni.recovered-attention-final-checkpoint-audit.v1",
+    "CPU_only": true,
+    "A500_valid_control_preserved": true,
+    "A_FFN_AdamW_step": 16696,
+    "B_FFN_AdamW_step": 16696,
+    "B_new_attention_AdamW_step": 500,
+    "source_parent_step_unchanged": 16196,
+    "same_source_order_Python_RNG_and_final_cursor": true,
+    "same_27182_seen_train_IDs": true,
+    "A_tensors": 48,
+    "B_tensors": 64,
+    "all_weights_finite_and_hash_verified": true,
+    "disabled_text_logits_exact": true,
+    "primary_encoder_projection_TTS_frozen": true,
+    "new_training_updates": 0,
+    "CUDA_started": false,
+    "release_qualified": false,
+    "adapter_SHA256": {
+      "A": "46495ed48adbff0565bb7b35039c06adac75685a480f65158f1e47dec4115b52",
+      "B": "5e7790e9d4550ea80137ae4745399fafa15084d4c61a127f77398a77576026f9"
+    },
+    "recovery_SHA256": {
+      "A": "47da320219b4598395559ae85c9dee9944c03ec207571fff632ca2b5b5e98782",
+      "B": "065d2a2a42dba458c6c90b8680415f3e1249dfd1e669963fe971010df33986ab"
+    }
+  },
+  "parameter_influence_CPU_audit": {
+    "FFN_all48_bit_exact": false,
+    "FFN_max_abs_delta": 0.0032080919481813908,
+    "FFN_nonzero_delta_count": 48,
+    "attention": {
+      "base_model.model.model.language_model.layers.27.self_attn.q_proj.lora_A.weight": {
+        "norm": 1.6672627925872803,
+        "maxabs": 0.02267942577600479,
+        "delta_from_init": 0.010499360971152782
+      },
+      "base_model.model.model.language_model.layers.27.self_attn.q_proj.lora_B.weight": {
+        "norm": 0.5597265958786011,
+        "maxabs": 0.011895105242729187,
+        "delta_from_init": 0.011895105242729187
+      },
+      "base_model.model.model.language_model.layers.27.self_attn.k_proj.lora_A.weight": {
+        "norm": 1.6710251569747925,
+        "maxabs": 0.02391936257481575,
+        "delta_from_init": 0.009590085595846176
+      },
+      "base_model.model.model.language_model.layers.27.self_attn.k_proj.lora_B.weight": {
+        "norm": 0.18254059553146362,
+        "maxabs": 0.008047345094382763,
+        "delta_from_init": 0.008047345094382763
+      },
+      "base_model.model.model.language_model.layers.27.self_attn.v_proj.lora_A.weight": {
+        "norm": 1.6782886981964111,
+        "maxabs": 0.02584034949541092,
+        "delta_from_init": 0.012108070775866508
+      },
+      "base_model.model.model.language_model.layers.27.self_attn.v_proj.lora_B.weight": {
+        "norm": 0.19138103723526,
+        "maxabs": 0.008352444507181644,
+        "delta_from_init": 0.008352444507181644
+      },
+      "base_model.model.model.language_model.layers.27.self_attn.o_proj.lora_A.weight": {
+        "norm": 1.6770621538162231,
+        "maxabs": 0.02475040964782238,
+        "delta_from_init": 0.010271911509335041
+      },
+      "base_model.model.model.language_model.layers.27.self_attn.o_proj.lora_B.weight": {
+        "norm": 0.38586562871932983,
+        "maxabs": 0.011550621129572392,
+        "delta_from_init": 0.011550621129572392
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.q_proj.lora_A.weight": {
+        "norm": 1.6654908657073975,
+        "maxabs": 0.02312801405787468,
+        "delta_from_init": 0.011050237342715263
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.q_proj.lora_B.weight": {
+        "norm": 0.5774483680725098,
+        "maxabs": 0.010884083807468414,
+        "delta_from_init": 0.010884083807468414
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.k_proj.lora_A.weight": {
+        "norm": 1.6749147176742554,
+        "maxabs": 0.022904356941580772,
+        "delta_from_init": 0.009622955694794655
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.k_proj.lora_B.weight": {
+        "norm": 0.1658991277217865,
+        "maxabs": 0.008319626562297344,
+        "delta_from_init": 0.008319626562297344
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.v_proj.lora_A.weight": {
+        "norm": 1.6710907220840454,
+        "maxabs": 0.023795243352651596,
+        "delta_from_init": 0.011015238240361214
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.v_proj.lora_B.weight": {
+        "norm": 0.18623504042625427,
+        "maxabs": 0.008646007627248764,
+        "delta_from_init": 0.008646007627248764
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.o_proj.lora_A.weight": {
+        "norm": 1.669535517692566,
+        "maxabs": 0.023324105888605118,
+        "delta_from_init": 0.010848334059119225
+      },
+      "base_model.model.model.language_model.layers.31.self_attn.o_proj.lora_B.weight": {
+        "norm": 0.3429437279701233,
+        "maxabs": 0.008012772537767887,
+        "delta_from_init": 0.008012772537767887
+      }
+    }
+  },
+  "comparison": "Same original16196 FFN/AdamW source, same2000 TRAIN draws, loss, LR, frozen primary/encoder/projector/TTS, same58 raw validation WAVs per arm. B alone adds491520 q/k/v/o parameters on existing full-attention layers27/31. Valid A500 preserved; independent corrected B500, original invalid B4 excluded.",
+  "natural_speech": {
+    "A": {
+      "words": 594,
+      "errors": 39,
+      "legacy_errors": 9
+    },
+    "B": {
+      "words": 594,
+      "errors": 39,
+      "legacy_errors": 9
+    }
+  },
+  "same_full_response_count": 54,
+  "total_paired_clips": 58,
+  "all13_environmental_and16_temporal_outputs_identical": true,
+  "changed_speech_outputs": [
+    {
+      "id": "librispeech-3853-163249-0025",
+      "suite": "natural29",
+      "A": "<speech_transcript>The loyal friendship fell upon the three quiet women and they could not do too much for their country.</speech_transcript><audio_observation>One speaker with an intermittent electronic alarm in the background.</audio_observation><|im_end|>",
+      "B": "<speech_transcript>The loyal friendzy fell upon the three quiet women and they could not do too much for their country.</speech_transcript><audio_observation>One speaker with an intermittent electronic alarm in the background.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "librispeech-3853-163249-0052",
+      "suite": "natural29",
+      "A": "<speech_transcript>DAVID AND CHRISTY WENT SMILING AWAY TOGETHER AND IF THEY SHEED ANY TEARS OVER THE BREEZE HAPPINESS NO ONE SAW THEM BUT THE FLOWERS AND THEY LOYALLY KEPT THE SECRET FOLDED UP IN THEIR TENDER HEARTS</speech_transcript><audio_observation></audio_observation><|im_end|>",
+      "B": "<speech_transcript>DAVID AND CHRISTY WENT SMILING AWAY TOGETHER AND IF THEY SHED ANY TEARS OVER THE BREEZE HAPPINESS NO ONE SAW THEM BUT THE FLOWERS AND THEY LOYALLY KEPT THE SECRET FOLDED UP IN THEIR TENDER HEARTS</speech_transcript><audio_observation></audio_observation><|im_end|>"
+    },
+    {
+      "id": "librispeech-3853-163249-0009",
+      "suite": "natural29",
+      "A": "<speech_transcript>In that case you'll find me a proud impetuous ambitious fellow christy at howl but suit.</speech_transcript><audio_observation>One speaker with a steady fan-like background sound.</audio_observation><|im_end|>",
+      "B": "<speech_transcript>In that case you'll find me a proud impetuous ambitious fellow christy at howl bat suit.</speech_transcript><audio_observation>One speaker with a steady fan-like background sound.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "librispeech-3853-163249-0021",
+      "suite": "natural29",
+      "A": "<speech_transcript>I knew you would go i saw you getting ready and i made up my mind to follow.</speech_transcript><audio_observation>One speaker with an intermittent electronic alarm in the background.</audio_observation><|im_end|>",
+      "B": "<speech_transcript>I know you would go i saw you getting ready and i made up my mind to follow.</speech_transcript><audio_observation>One speaker with an intermittent electronic alarm in the background.</audio_observation><|im_end|>"
+    }
+  ],
+  "semantic_review": {
+    "method": "Manual inspection of raw structured outputs against unchanged fixture construction and legacy outputs; no lexical heuristic is substituted for semantic acceptance.",
+    "correct_mechanism_controls": [
+      "blue bicycle synthetic speech",
+      "silence",
+      "intermittent alarm",
+      "steady broadband noise",
+      "dog bark",
+      "church bell",
+      "printer",
+      "siren with road vehicle"
+    ],
+    "mandatory_failures": {
+      "steady_three_tone_chord": "Described as a simple melody.",
+      "clock_alarm": "Insect.",
+      "group_voices": "Bird; Fowl.",
+      "clapping": "Hammer.",
+      "gunfire": "Explosion.",
+      "dog_then_bells": "Church bell then church bell; first source lost.",
+      "bells_then_dog": "Single plucked string instrument; both source identities/order lost.",
+      "printer_then_voice": "Drawer open or close.",
+      "voice_then_printer": "Dog.",
+      "speech_with_alarm": "Garden becomes gargon.",
+      "speech_with_noise": "THOUGHT BLUE WISKEYL IS HALF A GALLON, rather than the source sentence.",
+      "voices_with_siren": "Gull, seagull.",
+      "bells_with_dog": "Plucked string instrument."
+    },
+    "legacy_comparison_limit": "Legacy is not perfect on every temporal fixture. These candidates still fail cases with correct legacy order and speech; do not treat a legacy error as a candidate pass."
+  },
+  "diagnostic_outputs": [
+    {
+      "id": "probe-speech",
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One synthetic speaker with no notable background sound.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "probe-silence",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "probe-alarm",
+      "content": "<speech_transcript></speech_transcript><audio_observation>An intermittent electronic alarm; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "probe-noise",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Steady broadband hissing noise; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "probe-music",
+      "content": "<speech_transcript></speech_transcript><audio_observation>A simple melody of electronic tones; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Insect.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "probe-esc50-dog",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Dog. A dog barks once.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell; Percussion.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "fsd50k-156200",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird; Fowl.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "fsd50k-180765",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Hammer.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "fsd50k-182894",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "fsd50k-166192",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "fsd50k-203720",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road); Siren.</audio_observation><|im_end|>"
+    }
+  ],
+  "temporal_outputs": [
+    {
+      "id": "temporal-overlap-validation-00",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Church bell. After a pause: Church bell.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-01",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Plucked string instrument.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-02",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-03",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-04",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Drawer open or close.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-05",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Dog.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-06",
+      "content": "<speech_transcript>The blue bicycle is parked beside the garage gate.</speech_transcript><audio_observation>One speaker with a low rumbling quality; no background sound.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-07",
+      "content": "<speech_transcript>The blue bicycle is parked behind the garden gate.</speech_transcript><audio_observation>Audible sound events: Speech synthesizer.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-08",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Chirp, tweet. After a pause: Cricket.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-09",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Chirp, tweet. After a pause: Breathing.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-10",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Brief repeated clicks; no intelligible speech. After a pause: Steady filtered noise with a low rumbling quality; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-11",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: A simple melody of electronic tones; no intelligible speech. After a pause: Steady broadband hissing noise; no intelligible speech.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-12",
+      "content": "<speech_transcript>The blue bicycle is parked beside the gargon gate.</speech_transcript><audio_observation>One speaker with an intermittent electronic alarm in the background.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-13",
+      "content": "<speech_transcript>THOUGHT: BLUE WISKEYL IS HALF A GALLON</speech_transcript><audio_observation></audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-14",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gull, seagull.</audio_observation><|im_end|>"
+    },
+    {
+      "id": "temporal-overlap-validation-15",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Plucked string instrument.</audio_observation><|im_end|>"
+    }
+  ],
+  "same_frozen4096wide_bridge": true,
+  "source_labels_titles_references_in_generation": false,
+  "held_out_gradient_steps": 0,
+  "new_raw_audio_or_feature_cache_bytes": 0,
+  "native64_export_done": false,
+  "synthetic64_export_fixture_is_excluded": true,
+  "decision": "Reject both500-update source candidates for parity. Added attention parameters have nonzero learned weights and all48 FFNs differ, but no environmental/temporal generation benefit in this matched trial. Natural errors unchanged39/594 versus legacy9/594. Do not export/promote/retrain blindly.",
+  "native64_layout_qualified": false,
+  "quality_gate_passed": false,
+  "release_qualified": false,
+  "publication": false,
+  "training_source_worker_actual_exit_and_normal_release_verified": true
+}

@@ -1,0 +1,210 @@
+{
+  "schema": "robit.omni.qwen-full-FFN-coverage-start.v1",
+  "UTC": "2026-11-02T03:22:43.266080+00:00",
+  "failing_acceptance_criterion": "Natural F50029errors/594 vslegacy9; environmental identity, temporal order, overlapping sound and speech-in-noise remain incorrect.",
+  "bounded_hypothesis": "New earlierFFNs have seen1967/64362 uniqueclips; full-depth F250/F500 improve natural34to28/29 and add correct dog/printer or bells/gunfire/orderedDSP, but both fail parity. Continue F500 for a fixed8000draw exposure, keeping F250 evidence and all original gates.",
+  "parent": {
+    "parent": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-full-ffn-comparison-1/checkpoint-008900",
+    "source_adapter_SHA256": "2e3fe13530af92040be6e9f1a9db7d71718a1ae2a0f906b62a0589b358e24bc9",
+    "source_recovery_SHA256": "8226c4272f08cc30d1e81c924fd1d1af793394951f15c256935ca04616c30b1a",
+    "source_step": 8900,
+    "source_prefix_step": 500,
+    "source_cursor": 6000,
+    "source_seen_unique": 19665,
+    "source_prefix_seen_unique": 1967,
+    "source_prefix_seen_strata": {
+      "speech": 995,
+      "FSD": 836,
+      "control": 136
+    }
+  },
+  "next_draws": 8000,
+  "new_updates": 2000,
+  "original_order_preserved": true,
+  "future_order_SHA256": "8d9c07ccb577867364cc9594ef80565f0422fb77c0514d3a983a524d9f5ba07d",
+  "forecasts": [
+    {
+      "new_updates": 1000,
+      "tail_step": 9900,
+      "prefix_step": 1500,
+      "cursor": 10000,
+      "global_seen_unique": 22242,
+      "prefix_seen_unique": 5733,
+      "prefix_seen_strata": {
+        "speech": 2927,
+        "FSD": 2445,
+        "control": 361
+      }
+    },
+    {
+      "new_updates": 2000,
+      "tail_step": 10900,
+      "prefix_step": 2500,
+      "cursor": 14000,
+      "global_seen_unique": 24824,
+      "prefix_seen_unique": 9359,
+      "prefix_seen_strata": {
+        "speech": 4896,
+        "control": 559,
+        "FSD": 3904
+      }
+    }
+  ],
+  "zero_update_preflight": {
+    "all384_source_weights_and_both_AdamW_groups_exact": true,
+    "source_step": 8900,
+    "source_prefix_step": 500,
+    "source_cursor": 6000,
+    "first_next_batch_loss": 0.026324328035116196,
+    "disabled_text_logits_max_abs_delta": 0,
+    "complete": true,
+    "optimizer_steps": 0,
+    "source_script_SHA256": "55a60fdbe173c1e7d5e6974327f5ac144d405547bfa1fdd6bf40c7e5ab23d26d",
+    "all_weights_and_moments_unchanged": true,
+    "checks": [
+      {
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "losses": [
+          0.06581547111272812,
+          0.06581547111272812,
+          0.06581547111272812,
+          0.06581547111272812
+        ],
+        "tail_gradient_squared_norm": 4.434405777879874,
+        "prefix_gradient_squared_norm": 0.7397315030175378,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 21650.0
+      },
+      {
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "losses": [
+          0.036078885197639465,
+          0.036078885197639465,
+          0.036078885197639465,
+          0.036078885197639465
+        ],
+        "tail_gradient_squared_norm": 0.20142810583638493,
+        "prefix_gradient_squared_norm": 0.06494696632535124,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 21788.0
+      },
+      {
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "losses": [
+          0.7162546515464783,
+          0.7162546515464783,
+          0.7162546515464783,
+          0.7162546515464783
+        ],
+        "tail_gradient_squared_norm": 22.44191438006237,
+        "prefix_gradient_squared_norm": 4.105453194686561,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 20678.0
+      },
+      {
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "losses": [
+          0.17840977013111115,
+          0.17840977013111115,
+          0.17840977013111115,
+          0.17840977013111115
+        ],
+        "tail_gradient_squared_norm": 4.705042502959259,
+        "prefix_gradient_squared_norm": 1.239387094617996,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 20318.0
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21788.0,
+    "GPU_residency_verified": true,
+    "worker_PID": 3864955,
+    "Torch_cap_MiB": 24576,
+    "lease_MiB": 25600,
+    "release_qualified": false
+  },
+  "exact_parent_warm_start": {
+    "all384_source_weights_and_both_AdamW_groups_exact": true,
+    "source_step": 8900,
+    "source_prefix_step": 500,
+    "source_cursor": 6000,
+    "first_next_batch_loss": 0.026324328035116196,
+    "disabled_text_logits_max_abs_delta": 0
+  },
+  "training": {
+    "PID": 3976308,
+    "start_ticks": "69859243",
+    "owner": "qwen-omni-upgrade/qwen-full-ffn-coverage1-training",
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-full-ffn-coverage1-1",
+    "source": "runtime-data/train_qwen_full_ffn_coverage1.py",
+    "source_SHA256": "55a60fdbe173c1e7d5e6974327f5ac144d405547bfa1fdd6bf40c7e5ab23d26d",
+    "lease_MiB": 25600,
+    "Torch_cap_MiB": 24576,
+    "exec_session": 64458,
+    "observed_progress": {
+      "updates": 25,
+      "loss": 0.32768041640520096,
+      "gradient_norm": 2.4803781509399414,
+      "elapsed_s": 320.5745697580278,
+      "peak_reserved_MiB": 24496.0
+    }
+  },
+  "observer": {
+    "PID": 4006222,
+    "start_ticks": "69869027",
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-full-ffn-coverage1-observer-1",
+    "exec_session": 38316,
+    "state": {
+      "state": "waiting_for_fixed_training_and_actual_worker_exit",
+      "publication": false,
+      "release_qualified": false,
+      "observed_worker_identity": {
+        "PID": 3976308,
+        "start_ticks": "69859243"
+      }
+    },
+    "pinned_sources": {
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/train_qwen_full_ffn_coverage1.py": "55a60fdbe173c1e7d5e6974327f5ac144d405547bfa1fdd6bf40c7e5ab23d26d",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/evaluate_qwen_full_ffn_coverage1_source.py": "ecbf981372b426a03e1b1291722f0265f23d61886ad609ffd5e2d14e4c229c52",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audit_qwen_full_ffn_coverage1.py": "e12f79850f693b32fd2df4cab1e5a9249b2073f1336f71a67afc66b6e1dedb72",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/conditional_attention_modules.py": "53c3d8db0ab42440e9a96359db044fdb5d185de5614afa397a65111ca9e4767c",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/virtual_scene_corpus.py": "974691a0cb41f10b8dbe86bfc8ebc6d68cdaf3d363712c392c6ac6c014a36ab3",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/virtual_scene_audio.py": "af31989e99a110588db7c05e963608d671eff4a81711b526009ce1df4f25b1fe",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/event_weighted_supervision.py": "4e9af58d7d39818b0446390024ea4da40bcde8e65633904c8104bdac9680b64b",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen8400-full-ffn-trial-preparation.json": "d36051b121139f39514956e7b9c72ccbff5896ed79611584a47cb9bb3bb5ebd8",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen-full-ffn-coverage1-preparation.json": "eaad141f2587d7094dd5a8f4705e162f4a3326fc6cf3457477956b205cae98ec"
+    },
+    "plan": "Wait for scheduled1000/2000 checkpoints and actual training exit/normal lease release; independent all384/both moment group CPUaudit; then same174raw F500/F1500/F2500 source cases, baseline58must reproduce exactly. No automatic export/promotion."
+  },
+  "artifact_budget": {
+    "two_scheduled_recovery_pairs_GiB": 1.1,
+    "new_raw_audio_or_feature_cache": 0,
+    "new_GGUF_exports": 0,
+    "owned_limit_GiB": 120,
+    "disk_reserve_GiB": 50,
+    "RAM_reserve_GiB": 32
+  },
+  "resources_at_training_admission": {
+    "storage_admitted": true,
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release",
+    "free_bytes": 93300252672,
+    "reserve_bytes": 53687091200,
+    "expected_write_bytes": 1181116006,
+    "ram_available_bytes": 352253997056,
+    "ram_required_bytes": 88046829568,
+    "owned_allocated_bytes": 122770673664,
+    "owned_limit_bytes": 128849018880
+  },
+  "limits": {
+    "training_complete": false,
+    "native384_supported": false,
+    "source_quality_claim": false,
+    "release_qualified": false,
+    "public_weights_uploaded": false,
+    "GPU1_used": false,
+    "other_owners_changed": false
+  }
+}

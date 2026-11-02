@@ -42,7 +42,8 @@
       "status": "passed_stock_upload_download_resolution_direct_preparation_thinking_tools_and_16K_default_on_scoped_A100",
       "evidence": [
         "registry-binding-20261031.md",
-        "registry-binding-20261031.json"
+        "registry-binding-20261031.json",
+        "registry-binding-orin-20261031.json"
       ]
     },
     {
@@ -140,7 +141,8 @@
         "phase-b4-idle-orin-initial.json",
         "phase-b4-idle-orin-pressure.json",
         "phase-b4-validation.json",
-        "phase-b4-idle-orin-adaptive.json"
+        "phase-b4-idle-orin-adaptive.json",
+        "orin-deployed-clone-baseline-20261101.json"
       ]
     },
     {
@@ -201,14 +203,16 @@
     {
       "id": "C1",
       "objective": "Qualify the trained English audio head and training-only decoder, export a native component and reproduce held-out outputs on CUDA",
-      "status": "quality_and_A100_Orin_native_head_cached_feature_gates_passed_sidecar_attachment_live_encoder_and_streaming_pending",
+      "status": "Current raw-audio English text gates pass on A100 and Orin diagnostic; Orin numerical feature parity fails; head disabled; shared live encoder and streaming pending",
       "evidence": [
         "phase-c1-native-head.md",
         "phase-c1-quality.json",
         "phase-c1-rebalance-rejected.json",
         "phase-c1-native-a100.json",
         "phase-c1-native-orin.json",
-        "phase-c1-validation.json"
+        "phase-c1-validation.json",
+        "current-encoder-ctc-20261031.md",
+        "current-encoder-ctc-20261031.json"
       ]
     },
     {
@@ -230,7 +234,7 @@
     {
       "id": "C",
       "objective": "Train, package and qualify exact-trunk decision, retrieval and streaming-audio heads",
-      "status": "English_head_trained_qualified_packaged_in_both_single_tag_candidates_native_A100_Orin_verified_live_encoder_streaming_decision_retrieval_pending",
+      "status": "Current-encoder English text gates pass in component diagnostics; Orin numerical feature parity fails; head disabled. Shared live encoder, streaming, exact-trunk decisions and retrieval remain pending.",
       "evidence": [
         "phase-c0-native-training.md",
         "phase-c0-input-audit.json",
@@ -243,7 +247,9 @@
         "phase-c1-quality.json",
         "phase-c1-native-a100.json",
         "phase-c1-native-orin.json",
-        "phase-c1b-indexed-head.md"
+        "phase-c1b-indexed-head.md",
+        "current-encoder-ctc-20261031.json",
+        "primary-pointing-feasibility-20261101.json"
       ]
     },
     {
@@ -300,14 +306,62 @@
     {
       "id": "E5",
       "objective": "Repair remaining environmental semantics without changing the primary reasoning or TTS checkpoints",
-      "status": "Ornith_richer_run_completed_selected850_recovers_bark_bells_Orin_small_gates_pass_broader_environmental_errors_remain_Qwen_richer_run_continues_two_layer_Ornith_trial_running",
+      "status": "Parity remains failed. Ornith coverage3/source174 and TRAIN96 completed: natural28/26/26 vslegacy9, mean eventCE1.011758\u21921.263100, environmental/temporal failures. Matched LR-only2e-5 trial now running fromD3500, allother variables fixed; Qwen coverage1 continues unchanged. No native192/384 or export/publication.",
       "evidence": [
         "rich-acoustic-targets-20261030.md",
         "rich-acoustic-targets-20261030.json",
         "ornith-training2-diagnostics-20261030.json",
         "qwen-training1-diagnostics-20261030.json",
         "rich-projection-qualification-20261031.md",
-        "rich-projection-qualification-20261031.json"
+        "rich-projection-qualification-20261031.json",
+        "completed-repair-trials-20261031.md",
+        "completed-repair-trials-20261031.json",
+        "class-guided-trial-review-20261031.json",
+        "audio-lora-fit-20261031.json",
+        "qwen-audio-lora-fit-20261031.json",
+        "audio-lora-fixed-checkpoints-20261031.json",
+        "legacy-expanded-audio-20261031.md",
+        "legacy-expanded-audio-20261031.json",
+        "audio-lora-seen-training-20261101.json",
+        "class-uniform-continuation-20261101.json",
+        "class-uniform-4000-review-20261101.json",
+        "audio-training-pairing-20261101.json",
+        "class-uniform-5000-review-20261101.json",
+        "digital-silence-20261101.json",
+        "class-uniform-6400-review-20261101.json",
+        "paired-training-fit-review-20261101.json",
+        "diversity-and-qwen-sampling-trials-20261101.json",
+        "conditional-audio-component-20261101.json",
+        "bounded-trial-resources-20261101.json",
+        "diversity-7400-review-20261101.json",
+        "qwen-sampling-4000-review-20261101.json",
+        "virtual-scene-training-20261101.json",
+        "qwen7400-source-native-review-20261101.json",
+        "ornith13162-scene-review-20261101.json",
+        "qwen8400-scene-review-20261101.json",
+        "scene-recovery-and-qualification-20261101.json",
+        "ornith15696-scene-review-20261101.json",
+        "qwen8900-control-recovery-20261101.json",
+        "paired-projection-review-20261101.json",
+        "attention-adaptation-preflight-20261101.json",
+        "attention-optimizer-recovery-20261101.json",
+        "attention-export-feasibility-20261101.json",
+        "attention-source-review-20261101.json",
+        "joint-projection-ffn-preflight-20261101.json",
+        "joint-projection-ffn-source-review-20261101.json",
+        "full-depth-ffn-preflight-20261101.json",
+        "full-depth-ffn-source-review-20261101.json",
+        "full-ffn-continuation-preflight-20261101.json",
+        "full-ffn-continuation-source-review-20261101.json",
+        "legacy-TRAIN-target-audit-20261101.json",
+        "full-ffn-coverage2-preparation-20261102.json",
+        "qwen-full-ffn-source-review-20261102.json",
+        "qwen-full-ffn-coverage1-preparation-20261102.json",
+        "ornith-full-ffn-coverage2-source-review-20261102.json",
+        "full-ffn-coverage3-preparation-20261102.json",
+        "ornith-full-ffn-coverage3-source-review-20261102.json",
+        "full-ffn-TRAIN-fit-review-20261102.json",
+        "full-ffn-LR-comparison-preparation-20261102.json"
       ]
     },
     {
@@ -337,15 +391,31 @@
         "rich850-ornith-orin-operational-20261031.json",
         "rich850-ornith-orin-semantic-20261031.json",
         "rich850-ornith-orin-concurrency-20261031.json",
-        "rich850-ornith-orin-restoration-20261031.json"
+        "rich850-ornith-orin-restoration-20261031.json",
+        "orin-deployed-clone-baseline-20261101.json"
+      ]
+    },
+    {
+      "id": "E6",
+      "objective": "Native Ollama ASR/TTS with exact bundled weights and full arbitrary-reference cloning, preserving adapter parity",
+      "status": "Pinned patched-native0.40.13 mechanism gates pass for both A100 backbone tags and actual Ornith/Orin. Native complete/streamed PCM/WAV, numeric controls, cache, saved/inline full-reference, cancellation and isolation have bounded gate receipts. Final conditional192/384 weights, full perceptual/profile/language/resource matrix and stock-unmodified compatibility remain unqualified.",
+      "evidence": [
+        "native-ollama-audio-20261101.json",
+        "native-ollama-ornith-mechanism-20261101.json",
+        "native-ollama-qwen-mechanism-20261101.json",
+        "native-ollama-sampling-parity-20261101.json",
+        "native-ollama-conditioning-cache-20261101.json",
+        "native-ollama-complete-speech-20261101.json",
+        "native-ollama-orin-mechanism-20261102.json"
       ]
     },
     {
       "id": "F",
       "objective": "After full validation, publish both releases on Hugging Face and Ollama and verify remote artifacts/digests",
-      "status": "complete_weight_packages_staged_public_promotion_gated_by_failed_semantic_qualification",
+      "status": "Staged packages unqualified; publication gated by audio parity, assigned-target qualification and native Ollama ASR/TTS.",
       "evidence": [
-        "release-qualification-20261030.json"
+        "release-qualification-20261030.json",
+        "training-release-notices-20261101.json"
       ]
     }
   ],
@@ -355,5 +425,262 @@
     "Do not label untrained heads as compatible or useful.",
     "Do not restart existing target services without applicable authorization.",
     "Keep credentials out of source and receipts."
-  ]
+  ],
+  "artifact_control": {
+    "status": "verified",
+    "evidence": [
+      "artifact-control-20261101.md",
+      "artifact-control-20261101.json"
+    ],
+    "reclaimed_GiB": 72.1585693359375,
+    "forecast_budget_and_retention_required_before_new_jobs": true
+  },
+  "current_audio_repair": {
+    "status": "Parity remains failed. Ornith coverage2 source174 is complete: D1500/D2500/D3500 natural errors36/32/28 per594 versuslegacy9, with environmental/temporal failures. Exact next2000-update D3500 continuation and Qwen F500 exact2000-update continuation are live under pinned observers; no192/384 GGUF export or public weights.",
+    "evidence": [
+      "class-uniform-6400-review-20261101.json",
+      "paired-training-fit-review-20261101.json",
+      "cc0-diversity-data-20261101.json",
+      "diversity-and-qwen-sampling-trials-20261101.json",
+      "qwen7400-source-native-review-20261101.json",
+      "virtual-scene-training-20261101.json",
+      "ornith13162-scene-review-20261101.json",
+      "qwen8400-scene-review-20261101.json",
+      "ornith15696-scene-review-20261101.json",
+      "qwen8900-control-recovery-20261101.json",
+      "attention-adaptation-preflight-20261101.json",
+      "attention-optimizer-recovery-20261101.json",
+      "attention-source-review-20261101.json",
+      "joint-projection-ffn-preflight-20261101.json",
+      "joint-projection-ffn-source-review-20261101.json",
+      "full-depth-ffn-preflight-20261101.json",
+      "full-depth-ffn-source-review-20261101.json",
+      "full-ffn-continuation-preflight-20261101.json",
+      "full-ffn-continuation-source-review-20261101.json",
+      "legacy-TRAIN-target-audit-20261101.json",
+      "full-ffn-coverage2-preparation-20261102.json",
+      "qwen-full-ffn-source-review-20261102.json",
+      "qwen-full-ffn-coverage1-preparation-20261102.json",
+      "ornith-full-ffn-coverage2-source-review-20261102.json",
+      "full-ffn-coverage3-preparation-20261102.json",
+      "ornith-full-ffn-coverage3-source-review-20261102.json",
+      "full-ffn-TRAIN-fit-review-20261102.json",
+      "full-ffn-LR-comparison-preparation-20261102.json"
+    ],
+    "publication": "Gated on unchanged full parity and assigned-target qualification; experimental publication rejected by user.",
+    "latest_native_checkpoint": {
+      "family": "ornith",
+      "step": 15696,
+      "status": "rejected",
+      "evidence": "ornith15696-scene-review-20261101.json"
+    },
+    "first_fixed_checkpoints": {
+      "ornith7400": "rejected; Siren and Church bell correct but other mandatory identities fail",
+      "qwen4000": "rejected; speech/silence/alarm correct, mandatory event identities fail",
+      "remaining_original_checkpoints": {
+        "ornith": [
+          8400,
+          10662
+        ],
+        "qwen": [
+          5000,
+          6400
+        ]
+      },
+      "evidence": [
+        "diversity-7400-review-20261101.json",
+        "qwen-sampling-4000-review-20261101.json"
+      ],
+      "public_model_publication": false
+    },
+    "latest_native_by_family": {
+      "qwen": {
+        "family": "qwen",
+        "step": 8400,
+        "status": "rejected",
+        "evidence": "qwen8400-scene-review-20261101.json"
+      },
+      "ornith": {
+        "family": "ornith",
+        "step": 15696,
+        "status": "rejected",
+        "evidence": "ornith15696-scene-review-20261101.json"
+      }
+    }
+  },
+  "conditional_audio_component": {
+    "status": "Both exact-family A100 mechanism gates and actual stock private push/pull verified; whole-model semantic gate remains blocked",
+    "evidence": [
+      "conditional-audio-component-20261101.md",
+      "conditional-audio-component-20261101.json"
+    ],
+    "source_tests_passed": 6380,
+    "release_qualified": false
+  },
+  "active_convergence_goal": {
+    "status": "active",
+    "GPU_assignment": {
+      "GPU0": "Healthy Ornith matched LR-only2000-update comparison and unchanged Qwen coverage1 continuation. Orni192F32/Torch28672/lease29696; Qwen384F32/Torch24576/lease25600MiB. Pinned observers, exact source identities in private handoff. Other owners preserved.",
+      "GPU2": "No current task-owned work: preserve other owner; its57344MiB reservation leaves insufficient admitted capacity for either full-trunk training job. GPU0 admits both.",
+      "GPU1": "excluded from our work"
+    },
+    "latest_completed_trials": "Ornith coverage3:2000 updates,192 recovery audit,source174; parent58exact,natural28/26/26 vslegacy9. D5500 bells and both dog-bell orders improve, voices/printer/overlaps still fail. No192native export. Qwen full-depth baseline remains unqualified; its coverage1 continuation is healthy.",
+    "current_hypothesis": "From the exact D3500 parent, replay the same8000draws/2000updates as completed constant1e-4 coverage3 control with LR2e-5 in both existing AdamW groups. No other training variable changes; compare source cases and fixed TRAIN-fit diagnostic. Preserve healthy Qwen continuation and pinned helpers; no automatic native/export/publication.",
+    "prepared_attributed_data": "17450 verified rows and attribution ledger now ACTIVE in data-only trial",
+    "evidence": [
+      "completed-audio-checkpoints-20261101.json",
+      "gpu0-gpu2-convergence-20261101.json",
+      "parent-target-and-control-balance-20261101.json",
+      "data-diversity-convergence-20261101.json",
+      "qwen6400-and-temporal-baseline-20261101.json",
+      "ornith12162-source-native-review-20261101.json",
+      "qwen7400-source-native-review-20261101.json",
+      "virtual-scene-training-20261101.json",
+      "ornith13162-scene-review-20261101.json",
+      "qwen8400-scene-review-20261101.json",
+      "scene-recovery-and-qualification-20261101.json",
+      "ornith15696-scene-review-20261101.json",
+      "qwen8900-control-recovery-20261101.json",
+      "paired-projection-review-20261101.json",
+      "attention-adaptation-preflight-20261101.json",
+      "attention-optimizer-recovery-20261101.json",
+      "attention-source-review-20261101.json",
+      "joint-projection-ffn-preflight-20261101.json",
+      "joint-projection-ffn-source-review-20261101.json",
+      "full-depth-ffn-preflight-20261101.json",
+      "full-depth-ffn-source-review-20261101.json",
+      "full-ffn-continuation-preflight-20261101.json",
+      "full-ffn-continuation-source-review-20261101.json",
+      "legacy-TRAIN-target-audit-20261101.json",
+      "full-ffn-coverage2-preparation-20261102.json",
+      "qwen-full-ffn-source-review-20261102.json",
+      "qwen-full-ffn-coverage1-preparation-20261102.json",
+      "ornith-full-ffn-coverage2-source-review-20261102.json",
+      "full-ffn-coverage3-preparation-20261102.json",
+      "ornith-full-ffn-coverage3-source-review-20261102.json",
+      "full-ffn-TRAIN-fit-review-20261102.json",
+      "full-ffn-LR-comparison-preparation-20261102.json"
+    ],
+    "completion": "Full audio parity, assigned-target/cloning/operational qualification, native Ollama ASR/TTS and verified HF+Ollama publication remain required.",
+    "prepared_natural_data": "26539 additional verified TRAIN FLACs now ACTIVE in data-only trial",
+    "additional_parity_suite": {
+      "status": "Both paired source58x2 comparisons complete/rejected; original evaluator/admission failures retained and recovered without changing training.",
+      "sequence_cases": 12,
+      "overlap_cases": 4,
+      "actual_TRAIN_waveforms_rehashed": 59800,
+      "new_audio_bytes": 4720948,
+      "evidence": "temporal-overlap-validation-20261101.json",
+      "paired_projection_source": "Ornith A40/B50, Qwen A39/B31 vslegacy9; no full-projector export/publication.",
+      "Ornith15696_exposure_forecast": {
+        "status": "Forecast matched actual final saved order/report/CPU audit exactly; exposure is not semantic acceptance.",
+        "cumulative_unique_IDs": 25644,
+        "acoustic_virtual_scenes": 1792,
+        "speech_background_scenes": 18,
+        "unseen_speech_background_scenes": 238,
+        "full_scene_or_speech_pass": false,
+        "schedule_changed": false,
+        "evidence": "ornith13162-scene-review-20261101.json"
+      },
+      "Ornith15696_full_suites": {
+        "status": "Recovered initial admission-only failure; actual native13/temporal16/full160 complete and normally released",
+        "evidence": "ornith15696-scene-review-20261101.json",
+        "publication": false
+      },
+      "paired_attention_source": {
+        "status": "All116source complete, checkpoint optimizer audit pass; quality rejected. All13environmental and16temporal outputs identical, naturalA39/B39 vslegacy9.",
+        "rows_per_arm": 58,
+        "total_rows": 116,
+        "native_new_layout_verified": false,
+        "evidence": "attention-source-review-20261101.json"
+      },
+      "joint_projection_FFN_source": {
+        "status": "All116source complete; C100vsA40 speech errors/594, broad semantic regressions; rejected, no full-projector GGUF export.",
+        "evidence": "joint-projection-ffn-source-review-20261101.json",
+        "native_qualified": false
+      },
+      "full_depth_FFN_source": {
+        "status": "All116source complete, D39vsA40vslegacy9; one temporal pair recovered, still unqualified.",
+        "evidence": "full-depth-ffn-source-review-20261101.json",
+        "native192_layout_verified": false
+      },
+      "full_FFN_continuation_source": {
+        "status": "Prepared174source rows for preserved D500 and predeclaredD1000/D1500, after actual training exit/release",
+        "evidence": "full-ffn-continuation-preflight-20261101.json",
+        "native192_layout_verified": false
+      }
+    },
+    "GPU0_serial_reference": "Qwen source116 complete/rejected; original failed evaluator attempt retained, inference-tensor version-counter bug repaired and actual finite rerun completed.",
+    "attribution_audit": {
+      "active_attributed_TRAIN_rows": 17450,
+      "exact_ledger_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
+      "record_fields_verified": true,
+      "remote_publication_verified": false
+    },
+    "recovery_integrity": {
+      "steps": [
+        14162,
+        15162,
+        15696
+      ],
+      "all48_parameters_and_AdamW_states_finite_and_shapes_exact": true,
+      "source_order_and_RNG_exact": true,
+      "saved_positions": [
+        8000,
+        12000,
+        14136
+      ],
+      "cumulative_unique_IDs": [
+        22281,
+        24467,
+        25644
+      ],
+      "semantic_qualification": false,
+      "evidence": [
+        "ornith15696-scene-review-20261101.json",
+        "qwen8900-control-recovery-20261101.json"
+      ]
+    },
+    "completion_verified": false
+  },
+  "training_release_notices": {
+    "status": "verified_pinned_17450_record_packet_and_private_stock_create_push_pull_show",
+    "evidence": "training-release-notices-20261101.json",
+    "source_tests_passed": 6394,
+    "public_model_publication": false
+  },
+  "deployed_clone_baseline": {
+    "status": "36serial_actual_Orin_requests_complete; candidate_comparison_and_actual8frame_continuity_pending",
+    "evidence": "orin-deployed-clone-baseline-20261101.json",
+    "new_audio_files": 0,
+    "service_restart": false,
+    "release_qualified": false,
+    "minimum_MemAvailable_MiB": 3556.83203125
+  },
+  "native_ollama_audio": {
+    "required": true,
+    "status": "Both backbone A100 and Ornith/Orin patched-native mechanism gates pass. Final conditional weights, full voice/audio/performance matrix and stock-unmodified compatibility remain open.",
+    "evidence": "native-ollama-audio-20261101.json",
+    "verified": false,
+    "mechanism_evidence": "native-ollama-ornith-mechanism-20261101.json",
+    "stock_unmodified_compatibility_verified": false,
+    "qwen_mechanism_evidence": "native-ollama-qwen-mechanism-20261101.json",
+    "numeric_controls_evidence": "native-ollama-sampling-parity-20261101.json",
+    "conditioning_cache_evidence": "native-ollama-conditioning-cache-20261101.json",
+    "complete_speech_evidence": "native-ollama-complete-speech-20261101.json",
+    "orin_mechanism_evidence": "native-ollama-orin-mechanism-20261102.json",
+    "Python310_setup_evidence": "native-audio-binding-python310-20261102.json"
+  },
+  "encoder_numerical_diagnosis": {
+    "status": "matched_two_device_178tensor_trace_complete; gradual transformer amplification, numerical gate stillfails; no production change",
+    "evidence": "encoder-layer-localization-20261102.json",
+    "feature_gate_passed": false,
+    "runtime_head_enabled": false,
+    "old_Orin_service_preserved": true,
+    "frontend_replay": {
+      "status": "completed; self-controls exact on both devices, identicalCNNinput leaves1.88%/7.02% finalRMSE; CNN-only correction insufficient; original gate stillfailed",
+      "evidence": "encoder-frontend-replay-20261102.json",
+      "production_changes": false,
+      "injected_features_do_not_satisfy_native_parity": true
+    }
+  }
 }

@@ -162,6 +162,26 @@ The model card must say that the file is a custom sidecar, not a directly
 loadable single-architecture GGUF. It must explain how to attach/resolve it and
 which capabilities require the adapter.
 
+For an audio adapter trained with the attributed recording corpus, prepare its
+recording notices from the pinned inputs before selecting the final release:
+
+```bash
+.venv/bin/python -m qwen_omni_adapters.release_notices \
+  --manifest ./training/manifest.jsonl \
+  --attribution-ledger ./training/ATTRIBUTION.jsonl \
+  --expected-attribution-sha256 EXPECTED_LEDGER_SHA256 \
+  --out ./release/training-notices
+```
+
+The default required recording license is `CC-BY-3.0`. The builder rejects a
+changed ledger, missing/extra/duplicate credits, held-out recordings and changed
+creator/title/source/license fields before creating output. It preserves the
+original ledger bytes and records both file digests. This checks the specified
+recording cohort; retain the other dataset and component notices separately.
+Ship `ATTRIBUTION.jsonl`, `TRAINING-NOTICE.txt` and `training-notices.json` on HF,
+include them in the release checksums, and verify the remote bytes. Notice
+preparation does not clear any model quality gate.
+
 Use an authenticated credential store or an environment variable read by the
 Hugging Face client. Never put an access token in a command argument, model
 card, shell history, log, commit, or generated manifest.
@@ -173,6 +193,16 @@ complete until the remote artifact is verifiably available.
 ## 8. Publish to Ollama
 
 Only after local tests and the Hugging Face verification pass:
+
+When creating the local standard tag, supply the complete `TRAINING-NOTICE.txt`
+as an additional string in `/api/create`'s `license` array, using a JSON request.
+Stock Ollama inherits the base tag's license layers; retain those and add the
+training notice once. Then attach the matching sidecar and conditional audio
+adapter. Verify that the original layer digests/sizes and all license payloads
+survive attachment, push and a clean pull. Stock creation can rewrite a layer's
+`from` descriptor without changing its content digest. Check the downloaded
+notice hash and complete `/api/show` license text, alongside the required
+sidecar/binding/adapter checks; a model-card link alone is not this transport gate.
 
 ```bash
 ollama signin

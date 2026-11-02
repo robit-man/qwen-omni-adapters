@@ -8,6 +8,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from qwen_omni_adapters.audio_adapter import (
+    AUDIO_ADAPTER_MEDIA_TYPE,
+    inspect_audio_adapter,
+)
 from qwen_omni_adapters.component_views import (
     prepare_component_views,
     prepare_indexed_source_aliases,
@@ -194,16 +198,53 @@ def _install_blob(source: Path, destination: Path) -> str:
     return digest
 
 
-def _indexed_binding(standard_layers: dict[str, dict[str, Any]], digest: str) -> dict[str, Any]:
+def _indexed_binding(standard_layers: dict[str, dict[str, Any]], digest: str,
+                     audio_adapter: dict[str, Any] | None = None) -> dict[str, Any]:
     required = {"language_model", "projector"}
     if set(standard_layers) != required or any(
         not entry["available"] for entry in standard_layers.values()
     ):
         raise OllamaSidecarError("indexed TTS sidecar requires available language and trained projector layers")
-    return {"schema": "robit.omni.layer-binding.v2", "sidecar": digest,
+    binding = {"schema": "robit.omni.layer-binding.v2", "sidecar": digest,
             "standard_layers": {name: {key: standard_layers[name]["layer"][key]
                                        for key in ("digest", "size")}
                                 for name in sorted(required)}}
+    if audio_adapter is not None:
+        # The existing binding media type is deliberate: old resolvers reject
+        # this required ABI instead of silently running without the adapter.
+        binding["schema"] = "robit.omni.layer-binding.v3"
+        binding["audio_adapter"] = audio_adapter
+    return binding
+
+
+def _resolve_audio_adapter(manifest: dict[str, Any], root: Path,
+                           standard_layers: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    layers = [layer for layer in manifest["layers"]
+              if layer.get("mediaType") == AUDIO_ADAPTER_MEDIA_TYPE]
+    if not layers:
+        return None
+    if len(layers) != 1:
+        raise OllamaSidecarError("expected exactly one conditional audio adapter")
+    layer = layers[0]
+    digest, size = layer.get("digest"), layer.get("size")
+    if (not isinstance(digest, str) or len(digest) != 71 or not digest.startswith("sha256:")
+            or any(c not in "0123456789abcdef" for c in digest[7:])
+            or type(size) is not int or not 0 < size <= 64 * 1024**2):
+        raise OllamaSidecarError("invalid conditional audio adapter descriptor")
+    blob = root / "blobs" / digest.replace(":", "-", 1)
+    try:
+        if blob.stat().st_size != size:
+            raise ValueError("wrong adapter size")
+        report = inspect_audio_adapter(
+            blob, base_model=Path(standard_layers["language_model"]["path"]),
+            base_digest=standard_layers["language_model"]["layer"]["digest"],
+            projector_digest=standard_layers["projector"]["layer"]["digest"],
+        )
+        if report["digest"] != digest:
+            raise ValueError("adapter digest mismatch")
+    except (KeyError, OSError, ValueError) as exc:
+        raise OllamaSidecarError(f"conditional audio adapter is invalid: {exc}") from exc
+    return {"layer": layer, "path": str(blob), "binding": report}
 
 
 def _install_binding_layer(binding: dict[str, Any], root: Path) -> dict[str, Any]:
@@ -272,6 +313,7 @@ def attach_ollama_sidecar(
     model: str,
     bundle_gguf: Path,
     models_dir: Path | None = None,
+    audio_adapter_gguf: Path | None = None,
 ) -> dict[str, Any]:
     """Attach a custom Omni GGUF layer to an existing runnable Ollama tag."""
     bundle = bundle_gguf.expanduser().resolve()
@@ -282,10 +324,28 @@ def attach_ollama_sidecar(
     path = manifest_path(model, root)
     manifest = _read_manifest(path)
     binding = None
+    audio_adapter_layer = None
+    standard_layers = _resolve_standard_layers(manifest, root)
+    if audio_adapter_gguf is not None:
+        if inspection["manifest"]["schema"] != INDEXED_AUDIO_BRIDGE_SCHEMA:
+            raise OllamaSidecarError("conditional audio adapters require indexed v2 TTS")
+        _indexed_binding(standard_layers, "")
+        try:
+            adapter = audio_adapter_gguf.expanduser().resolve()
+            report = inspect_audio_adapter(
+                adapter, base_model=Path(standard_layers["language_model"]["path"]),
+                base_digest=standard_layers["language_model"]["layer"]["digest"],
+                projector_digest=standard_layers["projector"]["layer"]["digest"],
+            )
+        except (OSError, ValueError) as exc:
+            raise OllamaSidecarError(f"conditional audio adapter is invalid: {exc}") from exc
+        audio_adapter_layer = {"mediaType": AUDIO_ADAPTER_MEDIA_TYPE,
+                               "digest": report["digest"], "size": report["size"]}
+        _install_blob(adapter, root / "blobs")
     if inspection["manifest"]["schema"] == INDEXED_AUDIO_BRIDGE_SCHEMA:
         # Validate the tag before installing any payload. This records identity,
         # not evidence that an arbitrary projector was trained for this trunk.
-        binding = _indexed_binding(_resolve_standard_layers(manifest, root), "")
+        binding = _indexed_binding(standard_layers, "", report if audio_adapter_layer else None)
     digest = _install_blob(bundle, root / "blobs")
     layer = {
         "mediaType": OMNI_LAYER_MEDIA_TYPE,
@@ -309,9 +369,12 @@ def attach_ollama_sidecar(
     retained = [
         existing
         for existing in manifest["layers"]
-        if existing.get("mediaType") not in {OMNI_LAYER_MEDIA_TYPE, INDEXED_BINDING_MEDIA_TYPE}
+        if existing.get("mediaType") not in {
+            OMNI_LAYER_MEDIA_TYPE, INDEXED_BINDING_MEDIA_TYPE, AUDIO_ADAPTER_MEDIA_TYPE,
+        }
     ]
-    manifest["layers"] = [*retained, *([binding_layer] if binding_layer else []), layer]
+    manifest["layers"] = [*retained, *([audio_adapter_layer] if audio_adapter_layer else []),
+                          *([binding_layer] if binding_layer else []), layer]
     partial = path.with_name(path.name + ".partial")
     partial.write_text(
         json.dumps(manifest, separators=(",", ":"), sort_keys=True),
@@ -324,6 +387,7 @@ def attach_ollama_sidecar(
         "models_dir": str(root),
         "layer": layer,
         "binding_layer": binding_layer,
+        "audio_adapter_layer": audio_adapter_layer,
         "replaced_existing_sidecar": previous_sidecars > 0,
         "bundle": str(bundle),
         "bundle_inspection": {
@@ -367,8 +431,12 @@ def resolve_ollama_sidecar(
         else "legacy-cascade"
     )
     standard_layers = _resolve_standard_layers(manifest, root)
+    audio_adapter = _resolve_audio_adapter(manifest, root, standard_layers)
+    if audio_adapter is not None and schema != INDEXED_AUDIO_BRIDGE_SCHEMA:
+        raise OllamaSidecarError("conditional audio adapters require indexed v2 TTS")
     if schema == INDEXED_AUDIO_BRIDGE_SCHEMA:
-        expected = _indexed_binding(standard_layers, digest)
+        expected = _indexed_binding(standard_layers, digest,
+                                    audio_adapter["binding"] if audio_adapter else None)
         _verify_indexed_binding(manifest, root, layer, expected)
     if profile == "trained-audio-bridge":
         required = {"language_model", "projector"}
@@ -390,6 +458,7 @@ def resolve_ollama_sidecar(
         "inspection": inspection,
         "profile": profile,
         "standard_layers": standard_layers,
+        "audio_adapter": audio_adapter,
     }
 
 
@@ -449,6 +518,7 @@ def prepare_ollama_sidecar(
         "disposable_cache": True,
         "profile": resolved["profile"],
         "standard_layers": resolved["standard_layers"],
+        "audio_adapter": resolved["audio_adapter"],
         "views": outputs,
         "component_index": component_index,
     }

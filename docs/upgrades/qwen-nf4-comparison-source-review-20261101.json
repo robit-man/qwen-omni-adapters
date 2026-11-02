@@ -1,0 +1,407 @@
+{
+  "schema": "robit.omni.qwen-NF4-matched-source-review.v1",
+  "UTC": "2026-11-02T00:35:43.244578+00:00",
+  "complete": true,
+  "new_training_updates": 500,
+  "same2000_saved_draws_as_control": true,
+  "source_states": {
+    "S8400": {
+      "adapter_SHA256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+      "bridge_SHA256": "266e2d28787bf3119b4a75946be84b097be144bfc7caef6cb6ef3f3a9b80a338",
+      "natural_speech": {
+        "words": 594,
+        "errors": 38,
+        "legacy_errors": 9
+      }
+    },
+    "BF16_A500": {
+      "adapter_SHA256": "146d56965f864c97fc8e7481b2919b19ee4c63e4a60bea53155b7acf48f93f18",
+      "bridge_SHA256": "266e2d28787bf3119b4a75946be84b097be144bfc7caef6cb6ef3f3a9b80a338",
+      "natural_speech": {
+        "words": 594,
+        "errors": 36,
+        "legacy_errors": 9
+      }
+    },
+    "NF4_N500": {
+      "adapter_SHA256": "f333f352e06bfba33bee0177c4cecafd62f4272d5e533cd5e50d1501dfe1d05e",
+      "bridge_SHA256": "266e2d28787bf3119b4a75946be84b097be144bfc7caef6cb6ef3f3a9b80a338",
+      "natural_speech": {
+        "words": 594,
+        "errors": 34,
+        "legacy_errors": 9
+      }
+    }
+  },
+  "source_all174_complete": true,
+  "source_precision": "Shared NF4/doublequant primary BF16 compute; same frozen BF16 encoder/rich750 projection and F32 conditional48",
+  "source_comparison_limits": "Same NF4 inference isolates adapter state differences. Not BF16/native-Q4 equivalence or assigned-target/full acceptance.",
+  "training_CPU_recovery_audit": {
+    "complete": true,
+    "CPU_only": true,
+    "CUDA_started": false,
+    "all48_F32_shapes_and_values_finite": true,
+    "all48_AdamW_steps_moments_valid": true,
+    "source_order_RNG_and_seen_set_exact": true,
+    "parent_and_preserved_control_unchanged": true,
+    "adapter_SHA256": "f333f352e06bfba33bee0177c4cecafd62f4272d5e533cd5e50d1501dfe1d05e",
+    "recovery_SHA256": "93cac5bf1b324d4ef89c81ca39964bb867b25f432d393e7e511bf6f5ba8da518",
+    "release_qualified": false
+  },
+  "all_original8400_and_preserved_BF16_control_files_unchanged": true,
+  "full_training_peak_reserved_MiB": 24390.0,
+  "Torch_cap_MiB": 24576,
+  "lease_MiB": 25600,
+  "training_elapsed_s": 4212.293731478043,
+  "training_resource_minima": {
+    "RAM_available_GiB": 298.70104598999023,
+    "srv_free_GiB": 69.59537124633789,
+    "checkout_free_GiB": 180.03756713867188
+  },
+  "all_actual_training_and_source_workers_exited": true,
+  "both_leases_normally_released": true,
+  "peers_unchanged": true,
+  "manual_semantic_review": {
+    "scope": "Same13diagnostics/29natural/16temporal WAVs per adapter, one shared NF4 inference trunk; actual observations reviewed against fixtures and legacy. No lexical semantic grader.",
+    "partial_gain": "N500 has34naturalerrors vs36matched BF16trained control and38starting adapter; electronic alarm/chord descriptions remain reasonable.",
+    "mandatory_failures": [
+      "Dog remains Meow; bells Guitar; voices Crow; siren Organ.",
+      "Clock alarm becomes Printer; actual printer becomes Bird/Buzz/Human voice/Chirp.",
+      "Order/mixed event sequences omit or misidentify sources; speech-in-noise remains inaccurate.",
+      "Speech/alarm output can omit acoustic evidence."
+    ],
+    "decision": "Unqualified. NF4 is a workable memory-bounded training path, not a release-quality result. Do not export this failed candidate."
+  },
+  "raw_N500_diagnostic_and_temporal_rows": [
+    {
+      "arm": "NF4_N500",
+      "id": "probe-speech",
+      "suite": "diagnostics13",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "content": "<speech_transcript>THE BLUE BICYCLE IS PARKED BESIDE THE GARDEN GATE</speech_transcript><audio_observation></audio_observation><|im_end|>",
+      "transcript": "THE BLUE BICYCLE IS PARKED BESIDE THE GARDEN GATE",
+      "audio_observation": null,
+      "generated_tokens": 35,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "probe-silence",
+      "suite": "diagnostics13",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Silence; no intelligible speech or distinct sound event.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Silence; no intelligible speech or distinct sound event.",
+      "generated_tokens": 30,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "probe-alarm",
+      "suite": "diagnostics13",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Intermittent electronic alarm; no intelligible speech.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Intermittent electronic alarm; no intelligible speech.",
+      "generated_tokens": 29,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "probe-noise",
+      "suite": "diagnostics13",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Steady filtered noise with a low rumbling quality; no intelligible speech.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Steady filtered noise with a low rumbling quality; no intelligible speech.",
+      "generated_tokens": 35,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "probe-music",
+      "suite": "diagnostics13",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Several sustained electronic tones sound together; no intelligible speech.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Several sustained electronic tones sound together; no intelligible speech.",
+      "generated_tokens": 30,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "probe-esc50-clock_alarm",
+      "suite": "diagnostics13",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Printer.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Printer.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "probe-esc50-dog",
+      "suite": "diagnostics13",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Meow.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Meow.",
+      "generated_tokens": 26,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "probe-esc50-church_bells",
+      "suite": "diagnostics13",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Guitar.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Guitar.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "fsd50k-156200",
+      "suite": "diagnostics13",
+      "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Crow.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Crow.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "fsd50k-180765",
+      "suite": "diagnostics13",
+      "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Gunshot, gunfire.",
+      "generated_tokens": 28,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "fsd50k-182894",
+      "suite": "diagnostics13",
+      "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bird; Buzz; Human voice; Chirp, tweet.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Bird; Buzz; Human voice; Chirp, tweet.",
+      "generated_tokens": 36,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "fsd50k-166192",
+      "suite": "diagnostics13",
+      "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Explosion.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "fsd50k-203720",
+      "suite": "diagnostics13",
+      "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Organ.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Organ.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-00",
+      "suite": "temporal16",
+      "audio_sha256": "462ac30e5126dc144f3b46147a986a465bcd79ab071fe3356552878d07fbfdb1",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Cat.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Cat.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-01",
+      "suite": "temporal16",
+      "audio_sha256": "5fba5d3ab9e0229b29a5e0b8f4ac0108d260dcbd6aec7a0637c708236f26ba7f",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Guitar; Strum.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Guitar; Strum.",
+      "generated_tokens": 28,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-02",
+      "suite": "temporal16",
+      "audio_sha256": "1c70d2b1e73abc0f8ec5975830b1b7d0c4d041c649d7560daaea699777f90a0c",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Gunshot, gunfire.",
+      "generated_tokens": 28,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-03",
+      "suite": "temporal16",
+      "audio_sha256": "d49a87e99419310eafc006e17f1ba1c90949433843363dcb261aeb2ade0e973d",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Gunshot, gunfire.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Gunshot, gunfire.",
+      "generated_tokens": 28,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-04",
+      "suite": "temporal16",
+      "audio_sha256": "04d460c6e637c3d1cf258531fdd3aba403157caf1c4bc6481294288b9c6b97c3",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Harmonica.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Harmonica.",
+      "generated_tokens": 26,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-05",
+      "suite": "temporal16",
+      "audio_sha256": "f8ee2606699fdb106f6f21adba2a41fccfe17ce1058a56418f0f2d9a86994580",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Organ.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Organ.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-06",
+      "suite": "temporal16",
+      "audio_sha256": "d06160490739511483b1b250cf74b10b059c4c3837dcfebe57e67ee1f88ed123",
+      "content": "<speech_transcript>THE BLUE BICYCLE IS PASTED BESIDE THE GARDEN GATE</speech_transcript><audio_observation></audio_observation><|im_end|>",
+      "transcript": "THE BLUE BICYCLE IS PASTED BESIDE THE GARDEN GATE",
+      "audio_observation": null,
+      "generated_tokens": 36,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-07",
+      "suite": "temporal16",
+      "audio_sha256": "78c51459fe0dd7774d23b0b5101875a68a91e19189017a9be7dfab956578f604",
+      "content": "<speech_transcript>THE BLUE BICYCLE IS PASTED BESIDE THE GARDEN GATE</speech_transcript><audio_observation></audio_observation><|im_end|>",
+      "transcript": "THE BLUE BICYCLE IS PASTED BESIDE THE GARDEN GATE",
+      "audio_observation": null,
+      "generated_tokens": 36,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-08",
+      "suite": "temporal16",
+      "audio_sha256": "e04f028f29166587e7d95c9680e0e271b593b96472e8ef2a1c2bf87be5481730",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Crow.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Crow.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-09",
+      "suite": "temporal16",
+      "audio_sha256": "a3758e2aa200fd0cf0ab66ad13afdb171d7454a95ab21cc7d8a906b4362f5d02",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Sawing; Hiss.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Sawing; Hiss.",
+      "generated_tokens": 29,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-10",
+      "suite": "temporal16",
+      "audio_sha256": "2312a84a7c931d21c00e50516bf38546143189fe956fcb83567cbb3814af86ed",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: Steady filtered noise with a low rumbling quality; no intelligible speech.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "First: Steady filtered noise with a low rumbling quality; no intelligible speech.",
+      "generated_tokens": 36,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-11",
+      "suite": "temporal16",
+      "audio_sha256": "0d9d2a5c5c790571341c0e70a462628dc621d32354956a13ed230c9b6f1b7137",
+      "content": "<speech_transcript></speech_transcript><audio_observation>First: A simple melody of electronic tones; no intelligible speech. After a pause: An intense, high-energy sound resembling sustained applause or cheering; no intelligible speech.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "First: A simple melody of electronic tones; no intelligible speech. After a pause: An intense, high-energy sound resembling sustained applause or cheering; no intelligible speech.",
+      "generated_tokens": 53,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-12",
+      "suite": "temporal16",
+      "audio_sha256": "a2d35e63013d8067e007286769c7af8a29d9212def677e099816666a336c136f",
+      "content": "<speech_transcript>THE BLUE BICYCLE IS PASTED BESIDE THE GARDEN GATE</speech_transcript><audio_observation></audio_observation><|im_end|>",
+      "transcript": "THE BLUE BICYCLE IS PASTED BESIDE THE GARDEN GATE",
+      "audio_observation": null,
+      "generated_tokens": 36,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-13",
+      "suite": "temporal16",
+      "audio_sha256": "2f72aca59fed93d7fc976065c5b3373031e92932ff3ecae3ef437f3f07b21c33",
+      "content": "<speech_transcript>PERBLOW BISECTAL PARTHISIDE THE GARDEN SHED</speech_transcript><audio_observation>Two different sustained broadband noise events: Steady filtered noise; no intelligible speech.</audio_observation><|im_end|>",
+      "transcript": "PERBLOW BISECTAL PARTHISIDE THE GARDEN SHED",
+      "audio_observation": "Two different sustained broadband noise events: Steady filtered noise; no intelligible speech.",
+      "generated_tokens": 53,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-14",
+      "suite": "temporal16",
+      "audio_sha256": "3d777d75c97336ded33641baad6b004615f23f105bd62f041b1c88d6d94cacdd",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Crow; Human group actions.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Crow; Human group actions.",
+      "generated_tokens": 29,
+      "ended_with_im_end": true
+    },
+    {
+      "arm": "NF4_N500",
+      "id": "temporal-overlap-validation-15",
+      "suite": "temporal16",
+      "audio_sha256": "d066559ec7ab7d2b33d73efa853b475cc6be2ec71d238050e2dfa04d7d070778",
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Clock.</audio_observation><|im_end|>",
+      "transcript": null,
+      "audio_observation": "Audible sound events: Clock.",
+      "generated_tokens": 25,
+      "ended_with_im_end": true
+    }
+  ],
+  "proof_SHA256": {
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-nf4-comparison-1/report.json": "abbefa7ed8cea24fee5ebc473733a77608fda7861f0d39360aaeeaf95cf088a4",
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-nf4-comparison-1/final-CPU-audit.json": "c3b3f86387f5d7ba5b0cd5acd8f0edec140a1ce84b056284e043da0dfd92dfe3",
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-nf4-comparison-source-validation-1/outputs.json": "1fea7e8734b821441e5362a69198e951ba9b3470800a862d41f4a9987db83397",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/train_qwen_nf4_comparison.py": "012e655c55436d481e4aa344ad0a751d43d7210b68a347fe65b350befb2f8016",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/evaluate_qwen_nf4_comparison_source.py": "6bc580e293be29e2403f82a055d8559a9df711db15658f367890e5c2d4eeefaf"
+  },
+  "no_new_GGUF_or_projector_exports": true,
+  "no_public_weight_uploads": true,
+  "quality_gate_passed": false,
+  "release_qualified": false
+}

@@ -1,0 +1,607 @@
+{
+  "schema": "robit.omni.native-qwen-complete-speech-live.v1",
+  "model": "robit/qwen-native-qualification:mechanism-20261101",
+  "version": "0.40.13-robit-omni.4",
+  "binary_SHA256": "99779ab9acd890d18602387aabc0d0801432b7e0fcec21bbc37ba784cfdb72b7",
+  "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+  "complete": true,
+  "modes": [
+    {
+      "format": "pcm",
+      "stream": null,
+      "voice": "female",
+      "language": "en",
+      "PCM_bytes": 38400,
+      "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+      "WAV_declared_frames": null,
+      "actual_frames": 19200,
+      "complete_finite_header": false,
+      "first_response_bytes_s": 3.3223670129664242,
+      "elapsed_s": 4.167146012070589,
+      "exact_default_stream_PCM": true
+    },
+    {
+      "format": "wav",
+      "stream": true,
+      "voice": "female",
+      "language": "en",
+      "PCM_bytes": 38400,
+      "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+      "WAV_declared_frames": 2147483647,
+      "actual_frames": 19200,
+      "complete_finite_header": false,
+      "first_response_bytes_s": 2.1475886040134355,
+      "elapsed_s": 3.08309383795131,
+      "exact_default_stream_PCM": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "en",
+      "PCM_bytes": 38400,
+      "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+      "WAV_declared_frames": 19200,
+      "actual_frames": 19200,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 2.924270802992396,
+      "elapsed_s": 2.9244418679736555,
+      "exact_default_stream_PCM": true
+    },
+    {
+      "format": "pcm",
+      "stream": false,
+      "voice": "female",
+      "language": "en",
+      "PCM_bytes": 38400,
+      "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+      "WAV_declared_frames": null,
+      "actual_frames": 19200,
+      "complete_finite_header": false,
+      "first_response_bytes_s": 3.243205022998154,
+      "elapsed_s": 3.2433298469986767,
+      "exact_default_stream_PCM": true
+    }
+  ],
+  "languages": [
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "en",
+      "PCM_bytes": 38400,
+      "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+      "WAV_declared_frames": 19200,
+      "actual_frames": 19200,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 2.86406848707702,
+      "elapsed_s": 2.864193471032195,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "zh",
+      "PCM_bytes": 26880,
+      "PCM_SHA256": "29c9ecdc5fbaf44b064dfb9a06001ff23f0937264ba8a4719583890e9a83cecc",
+      "WAV_declared_frames": 13440,
+      "actual_frames": 13440,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 3.8565712500130758,
+      "elapsed_s": 3.856688544037752,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "ja",
+      "PCM_bytes": 46080,
+      "PCM_SHA256": "8857c3aa5ffa90953a48b012a2cdd81bbdffcfdb1e9eb3455e666fb7a935641d",
+      "WAV_declared_frames": 23040,
+      "actual_frames": 23040,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 4.099538256064989,
+      "elapsed_s": 4.099764661979862,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "ko",
+      "PCM_bytes": 53760,
+      "PCM_SHA256": "2a55b54f5f79fb453eba499381a25c988ea56011d7bf6c8f6d16ee4d9415f72d",
+      "WAV_declared_frames": 26880,
+      "actual_frames": 26880,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 3.710256607970223,
+      "elapsed_s": 3.71041715296451,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "de",
+      "PCM_bytes": 46080,
+      "PCM_SHA256": "d31f9949d3df87d79177af5ce1eaf692b9950fc2aa43b59e120e474f75a0fd72",
+      "WAV_declared_frames": 23040,
+      "actual_frames": 23040,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 4.513831558055244,
+      "elapsed_s": 4.513986003003083,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "fr",
+      "PCM_bytes": 42240,
+      "PCM_SHA256": "7639bbebc6e1694f96777adac8a81ba536b119e0c7a57810e0b74bbed3ca466d",
+      "WAV_declared_frames": 21120,
+      "actual_frames": 21120,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 4.034410863998346,
+      "elapsed_s": 4.034558168030344,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "ru",
+      "PCM_bytes": 46080,
+      "PCM_SHA256": "cb63a8b5162d8f591cc0aa80d80c7959c9fcadf03a1e4cd5485761290c2040fd",
+      "WAV_declared_frames": 23040,
+      "actual_frames": 23040,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 4.317381041008048,
+      "elapsed_s": 4.317528215004131,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "pt",
+      "PCM_bytes": 34560,
+      "PCM_SHA256": "c7fac7b134c9ee9519037925dc5d0e7c95eae97d9a8b24b4ecc9b8a2f899a057",
+      "WAV_declared_frames": 17280,
+      "actual_frames": 17280,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 3.4706380430143327,
+      "elapsed_s": 3.4707738370634615,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "es",
+      "PCM_bytes": 23040,
+      "PCM_SHA256": "06692a88a52558c75dbf0ba49b0a05117d2ac31bcfa3812c40bcdb0ed87e8306",
+      "WAV_declared_frames": 11520,
+      "actual_frames": 11520,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 3.4372159669874236,
+      "elapsed_s": 3.4373408609535545,
+      "exact_existing_native_control": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "it",
+      "PCM_bytes": 19200,
+      "PCM_SHA256": "331f4bc113e57cd879a8a3609e8142b3a7b1327f1d2e7c4a3588335a64493a5e",
+      "WAV_declared_frames": 9600,
+      "actual_frames": 9600,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 3.1382693729829043,
+      "elapsed_s": 3.138452688930556,
+      "exact_existing_native_control": true
+    }
+  ],
+  "cancellations": [
+    {
+      "stream": true,
+      "cancelled_TTS_PID": 1697647,
+      "CUDA_worker_exit_s": 0.19610664807260036,
+      "main_primary_retained": true,
+      "recovery_PCM_exact": true
+    },
+    {
+      "stream": false,
+      "cancelled_TTS_PID": 1699140,
+      "CUDA_worker_exit_s": 0.19472704594954848,
+      "main_primary_retained": true,
+      "recovery_PCM_exact": true
+    }
+  ],
+  "concurrent_complete": [
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "en",
+      "PCM_bytes": 38400,
+      "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+      "WAV_declared_frames": 19200,
+      "actual_frames": 19200,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 3.257040144992061,
+      "elapsed_s": 3.2572340599726886,
+      "client_index": 0,
+      "isolated_PCM_exact": true
+    },
+    {
+      "format": "wav",
+      "stream": false,
+      "voice": "female",
+      "language": "en",
+      "PCM_bytes": 65280,
+      "PCM_SHA256": "b8c7247cdf7d01654c26803f071fdd86dadcb9976767c3892d99265fc3399ed3",
+      "WAV_declared_frames": 32640,
+      "actual_frames": 32640,
+      "complete_finite_header": true,
+      "first_response_bytes_s": 7.180919662932865,
+      "elapsed_s": 7.181081488030031,
+      "client_index": 1,
+      "isolated_PCM_exact": true
+    }
+  ],
+  "retained_audio_files": 0,
+  "neural_downloads": 0,
+  "release_qualified": false,
+  "public_weight_uploads": 0,
+  "primary_PID": 1658101,
+  "native_ASR_speech_and_silence_passed": true,
+  "male_complete_WAV": {
+    "format": "wav",
+    "stream": false,
+    "voice": "male",
+    "language": "en",
+    "PCM_bytes": 38400,
+    "PCM_SHA256": "6236198ab45cb921ab542d435c5af093e62b614641c4966035cc657ac613b7e6",
+    "WAV_declared_frames": 19200,
+    "actual_frames": 19200,
+    "complete_finite_header": true,
+    "first_response_bytes_s": 2.825156997074373,
+    "elapsed_s": 2.8252703610341996,
+    "exact_existing_native_control": true
+  },
+  "max_live_native_TTS_workers_during_concurrent_calls": 1,
+  "complete_and_streamed_modes_passed": true,
+  "all10_languages_PCM_exact": true,
+  "cancellation_streamed_and_complete_passed": true,
+  "concurrent_requests_isolated": true,
+  "primary_same_across_all_requests": true,
+  "residency_receipts": [
+    {
+      "pid": 1658101,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-server"
+    },
+    {
+      "pid": 1658101,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-server"
+    },
+    {
+      "pid": 1660726,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1661313,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1662601,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1663537,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1664086,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1665442,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1667132,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1669243,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1669350,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1671721,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1672144,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1674930,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1674992,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1677751,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1677983,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1682531,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1682740,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1685032,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1685173,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1687914,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1688018,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1690867,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1691002,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1693384,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1693547,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1697551,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts-refer"
+    },
+    {
+      "pid": 1697647,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1698474,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1699140,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1699780,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1700693,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    },
+    {
+      "pid": 1701371,
+      "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+      "resident": true,
+      "worker": "llama-tts"
+    }
+  ],
+  "scope": "Native request/format/conditioning/control parity; not speaker similarity, multilingual intelligibility, environmental parity or final bundle qualification.",
+  "server_exited": true,
+  "all_actual_workers_exited": true,
+  "temporary_request_files_removed": true,
+  "UTC": "2026-11-01T22:03:22.085507+00:00",
+  "actual_native_workers_exited_verified": true,
+  "qualification_lease_normally_released": true,
+  "Ornith_training_PID_preserved": 1248484,
+  "source_report_SHA256": "24e8b912b751e06468b4bd3b4af439ae9e4d43f8e2c97c4a506f44db24b3d29c",
+  "live_script_SHA256": "0721c74a5fa67985665d295c7cb94b22ae237cd8f5ebe9fe72074cb178a554e5",
+  "source_validation": {
+    "tests_passed": 6394,
+    "warnings": 2,
+    "elapsed_s": 304.61,
+    "log_SHA256": "044af8e57e20585555dc3567160508c8b266473a2a760f321a33a16ea8a4a1cf"
+  },
+  "Go_runner_server_and_focused_race_tests_passed": true,
+  "clean_pinned_source_patch_reproduction": {
+    "clean_pinned_source_patch_applied": true,
+    "all9_modified_files_byte_exact": true,
+    "CUDA_started": false,
+    "patch_SHA256": "972bffa8de4d0497bbd00ec1ac182e49ecd8865849b24eaa469b25784e6e0a48"
+  },
+  "build_source_receipt": {
+    "upstream_commit": "04088e7c9d41cba5d33bafbf788d87a465c79d5b",
+    "source_archive_sha256": "17c24d7268a286722d8e02d0f1d940a94922ecb73c20fb4377d2ebd7b1f9640c",
+    "patch_sha256": "972bffa8de4d0497bbd00ec1ac182e49ecd8865849b24eaa469b25784e6e0a48",
+    "native_files": {
+      "native/ollama/llm/omni_conditioning_test.go": "f994e8e65739f64d8bd64b55a4c20fc5aa0bd0c00691fb69df456b5045dcff1e",
+      "native/ollama/llm/omni.go": "0a7f23563daeb668ac02afc023fa7fea266edcb8a2bfa48a559caeb05f14f9fd",
+      "native/ollama/llm/omni_conditioning.go": "01dbcb652b870dfd42f4eb7480d190a655af8a957181c0e541149c38b386c115",
+      "native/ollama/llm/omni_sampling.go": "8e91a4c38eeefa35bc8b1d99ac3edd5d2eeb501e1ccdaa2b9f3b68ff1a0f0b10",
+      "native/ollama/llm/omni_sampling_test.go": "e7265066613160b0c3aee0d08bbf97f440894b7016326c69c08ed15e08032740",
+      "native/ollama/llm/omni_test.go": "4c3af9e7ebb26484c555b2aa54ab0b93adf20c52e14c54860411fca5b18a33f1",
+      "native/ollama/server/omni.go": "9e9bd8fe7b01f64e69a8aab259cc1712a38cd3345eed61ad2624c23bfe7fd19d",
+      "native/ollama/server/omni_complete_speech.go": "362780a64362d0537cda43f8015169e841c8b6783fe898d718531dcd8b94de70",
+      "native/ollama/server/omni_complete_speech_test.go": "21e5700c9720e9ec5603501e462d2d58c78a7956df72344ecd03770eee7375de",
+      "native/ollama/server/omni_sampling_test.go": "e0a2323e84d437aed2af8b1b07a73da0fc763b8c157af234ad8064de4fe5b57d",
+      "native/ollama/llm/testdata/omni-sampling-baseline.json": "120670b10506f144dade45f0a3d6b5f0d633e7cf097a851032d139d3a244679b"
+    },
+    "CUDA_started": false,
+    "release_qualified": false
+  },
+  "baseline": {
+    "schema": "robit.omni.native-complete-WAV-baseline.v1",
+    "model": "robit/qwen-native-qualification:mechanism-20261101",
+    "binary_SHA256": "ebe8492afb2814424f8c0f2536f39fbe50d63b633cfbd876ac60b7ef79d66f23",
+    "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "complete": true,
+    "retained_audio_files": 0,
+    "public_weight_uploads": 0,
+    "release_qualified": false,
+    "primary_PID": 1431728,
+    "primary_stable": true,
+    "stream_false_requested": true,
+    "declared_WAV_frames": 2147483647,
+    "actual_PCM_frames": 19200,
+    "PCM_SHA256": "834f92b27475d935825d7cde321d331d57af6dbcf305a4a7d89ac5977aa38045",
+    "PCM_exact_to_streamed_control": true,
+    "complete_WAV_length_criterion_passed": false,
+    "residency_receipts": [
+      {
+        "pid": 1431728,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-server"
+      },
+      {
+        "pid": 1434501,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts-refer"
+      },
+      {
+        "pid": 1434719,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 1435704,
+        "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+        "resident": true,
+        "worker": "llama-tts"
+      }
+    ],
+    "server_exited": true,
+    "temporary_request_files_removed": true
+  },
+  "coordinated_lease_summary": [
+    {
+      "owner": "adjacent-conference-routing-0",
+      "gpu_uuids": [
+        "GPU-170a99ee-850f-2182-1050-4e8d3c87b6b0"
+      ],
+      "requested_mib": 12000
+    },
+    {
+      "owner": "adjacent-conference-routing-1",
+      "gpu_uuids": [
+        "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0"
+      ],
+      "requested_mib": 16000
+    },
+    {
+      "owner": "voryn/direct-cuda-inference",
+      "gpu_uuids": [
+        "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a"
+      ],
+      "requested_mib": 57344
+    },
+    {
+      "owner": "qwen-omni-upgrade/ornith-full-ffn-training",
+      "gpu_uuids": [
+        "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0"
+      ],
+      "requested_mib": 28672
+    }
+  ]
+}

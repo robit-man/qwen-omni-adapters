@@ -1,0 +1,249 @@
+{
+  "schema": "robit.omni.native-ollama-Orin-mechanism.v1",
+  "result": "PASS bounded native ASR/TTS integration, NOT final trained-model/full capability qualification",
+  "version": "0.40.13-robit-omni.5",
+  "upstream_commit": "04088e7c9d41cba5d33bafbf788d87a465c79d5b",
+  "native_ARM_binary_SHA256": "bd8717c9eb0e1af117e77c923c2f92d8d6137818d7cd93b804b49232b870a571",
+  "native_ARM_binary_bytes": 53106456,
+  "ARM_Go_tests_and_build": [
+    {
+      "name": "Go-tests",
+      "exit_code": 0,
+      "elapsed_s": 134.2818187638186
+    },
+    {
+      "name": "Go-build",
+      "exit_code": 0,
+      "elapsed_s": 79.16871151095256
+    }
+  ],
+  "build_minimum_available_RAM_bytes": 5972766720,
+  "profile": {
+    "backbone": "Ornith1.5",
+    "model_digest": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+    "projector_digest": "3ab6b8ce7feda7178092eee36b6c2700dbd256d23ec6f09fa350c9fca055b3f2",
+    "sidecar_digest": "d995ba1b768e5e3cc86a65e818601e8cae94ad06c6091330e54ba3db3be5d7d3",
+    "installed_foundation_bridge_without_conditional_LoRA": true,
+    "requested_context": 16384,
+    "requested_KV": "q8_0",
+    "full_reference_Qwen3_TTS_Base_unchanged": true
+  },
+  "actual_endpoint_cases": [
+    {
+      "endpoint": "/v1/audio/transcriptions",
+      "id": "speech",
+      "audio_SHA256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "text": "The blue bicycle is parked beside the garden gate.",
+      "expected_text_passed": true,
+      "elapsed_s": 23.953585292212665
+    },
+    {
+      "endpoint": "/v1/audio/transcriptions",
+      "id": "silence",
+      "audio_SHA256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "text": "",
+      "expected_text_passed": true,
+      "elapsed_s": 2.1714556589722633
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 0,
+      "voice": "female",
+      "full_reference": false,
+      "format": "pcm",
+      "stream": true,
+      "PCM_bytes": 157440,
+      "PCM_SHA256": "57fbf85bf70f4efb22c952b32557e8c706188c11d15bd590886938bb5c1c22fb",
+      "exact_same_device_native_control": true,
+      "response_chunks": 17,
+      "first_response_bytes_s": 3.5626540360972285,
+      "elapsed_s": 15.706824799068272
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 1,
+      "voice": "female",
+      "full_reference": false,
+      "format": "wav",
+      "stream": false,
+      "PCM_bytes": 161280,
+      "PCM_SHA256": "62a88d351cff1712d7974ef3f46148aafa30c47ef2c47f4ccc798e0d7d7ea599",
+      "exact_same_device_native_control": true,
+      "response_chunks": 4,
+      "first_response_bytes_s": 6.876012990018353,
+      "elapsed_s": 15.128759806975722
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 2,
+      "voice": "female",
+      "full_reference": false,
+      "format": "pcm",
+      "stream": true,
+      "PCM_bytes": 157440,
+      "PCM_SHA256": "57fbf85bf70f4efb22c952b32557e8c706188c11d15bd590886938bb5c1c22fb",
+      "exact_same_device_native_control": true,
+      "response_chunks": 19,
+      "first_response_bytes_s": 3.4788446170277894,
+      "elapsed_s": 15.289925944060087
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 3,
+      "voice": "male",
+      "full_reference": false,
+      "format": "wav",
+      "stream": false,
+      "PCM_bytes": 34560,
+      "PCM_SHA256": "b6fca15270f4be0d0b0bc4cf75bb486260d288575f00480fb9d7844b51b9af53",
+      "exact_same_device_native_control": true,
+      "response_chunks": 2,
+      "first_response_bytes_s": 4.084589855978265,
+      "elapsed_s": 9.551355203147978
+    },
+    {
+      "endpoint": "/v1/audio/speech",
+      "case": 4,
+      "voice": "female",
+      "full_reference": true,
+      "format": "pcm",
+      "stream": true,
+      "PCM_bytes": 96000,
+      "PCM_SHA256": "9246d9b1f045f2262d3adb73fe81b8a44981735bd818a75d549d88f340bfe1e2",
+      "exact_same_device_native_control": true,
+      "response_chunks": 13,
+      "first_response_bytes_s": 5.459056285908446,
+      "elapsed_s": 17.819299809867516
+    }
+  ],
+  "one_primary_PID": 1617143,
+  "one_primary_stable_across_all_voice_changes": true,
+  "A_B_A_PCM_exact": true,
+  "two_complete_24k_mono_PCM16_WAV_headers_and_HTTP_lengths_valid": true,
+  "reference_audio_plus_text_acoustic_conditioning_PCM_exact": true,
+  "residency": {
+    "central_Tegra_device_handle_proof": true,
+    "receipts": [
+      {
+        "pid": 1617143,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-server"
+      },
+      {
+        "pid": 1617143,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-server"
+      },
+      {
+        "pid": 1617294,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 1617462,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 1617714,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 1618032,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-tts"
+      },
+      {
+        "pid": 1618204,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-tts-refer"
+      },
+      {
+        "pid": 1618209,
+        "gpu_uuid": "0",
+        "resident": true,
+        "worker": "llama-tts"
+      }
+    ],
+    "GPU_offload_logs": [
+      "time=2026-11-01T18:09:14.850-08:00 level=INFO source=types.go:32 msg=\"inference compute\" id=0 filter_id=0 library=CUDA compute=8.7 name=CUDA0 description=Orin libdirs=ollama,cuda_v12 driver=12.2 pci_id=0000:00:00.0 type=iGPU total=\"30.0 GiB\" available=\"21.9 GiB\"",
+      "load_tensors: offloading output layer to GPU",
+      "load_tensors: offloading 31 repeating layers to GPU",
+      "load_tensors: offloaded 33/33 layers to GPU"
+    ],
+    "all_native_journal_workers_exited": [
+      1617143,
+      1617294,
+      1617462,
+      1617714,
+      1618032,
+      1618204,
+      1618209
+    ]
+  },
+  "minimum_system_available_RAM_bytes": 13293289472,
+  "minimum_system_available_RAM_GiB": 12.380340576171875,
+  "restoration": {
+    "old_before_MainPID": "1607781",
+    "old_after_MainPID": "1618595",
+    "old_restored_and_resident": true,
+    "old_health_HTTP_after": 200,
+    "restored_CUDA_workers": [
+      {
+        "PID": 1619566,
+        "resident": true
+      }
+    ],
+    "new_native_unit_stopped": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ControlGroup": "",
+      "LoadState": "not-found",
+      "ActiveState": "inactive",
+      "SubState": "dead"
+    },
+    "rollback_timer_canceled_after_verified_restoration": true,
+    "request_temporaries_removed_after_native_cgroup_exit": true,
+    "temporary_cleanup_bytes": 0
+  },
+  "storage": {
+    "private_writable_model_metadata": true,
+    "shared_blob_bytes": 8952349875,
+    "new_blob_bytes_copied": 0,
+    "all8_blob_hardlinks_share_original_device_and_inode": true,
+    "shared_system_store_permissions_unchanged": true,
+    "engine_view_files_linked": 25,
+    "generated_audio_files_retained": 0
+  },
+  "original_failures_retained": {
+    "CGO0_crossbuild": "UpstreamMLX requiresCgo; no platform-source hacks or binary produced.",
+    "first_native_CPU_build": "Stopped at2GiB RAM floor, old service preserved. Second started only after fresh5.7GiB and passed2.5GiB floor.",
+    "first_native_window": "HTTP500 before model load: new manifests-v2 directory could not be created in shared read-only system store. Old service restored. Exact Go loader CPU test reproduces error; private metadata/same immutable blobs pass before second deployment."
+  },
+  "limits": {
+    "patched_Ollama_required": true,
+    "stock_Ollama_compatibility_claim": false,
+    "environmental_temporal_and_full_ASR_parity": false,
+    "final_conditional192_or384_weights_native_qualified": false,
+    "multilingual_perceptual_voice_similarity_long_utterance_and_full_performance_matrix": false,
+    "system_available_RAM_is_not_peak_model_memory_or_whole_application_improvement": true,
+    "single_first_audio_timings_are_not_latency_gain_claims": true,
+    "full_release_qualified": false,
+    "public_weights_uploaded": false,
+    "host_Ollama_binary_or_other_owners_changed": false
+  },
+  "source_gate_most_recent": {
+    "repository_tests": 6400,
+    "warnings": 2,
+    "code_unchanged_since_that_gate": true
+  }
+}

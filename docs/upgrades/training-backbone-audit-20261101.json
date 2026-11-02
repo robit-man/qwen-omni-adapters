@@ -1,0 +1,28 @@
+{
+  "schema": "robit.omni.training-backbone-tensor-audit.v1",
+  "complete": true,
+  "scope": "Exact unquantized language norm-vector conversion; first32 rows of each last-eight-layer FFN matrix. Quantization samples are diagnostics, not a model quality gate.",
+  "whole_checkpoint_identity_proven": false,
+  "source_report_sha256": "5c09fcf7abf2f4fe8d6c9680c6bb579a631232cdc4c9b8a3806023f844b832f8",
+  "profiles": {
+    "ornith": {
+      "canonical_base_sha256": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+      "HF_index_sha256": "d5c7fee99574e9a05f901282aee04fc4fc3dccf094a659df48c6b8e9f39109c3",
+      "normalization_vectors": 105,
+      "all_normalization_vectors_exact": true,
+      "quantized_FFN_samples": 24,
+      "max_sample_relative_RMSE": 0.07454305836741079,
+      "min_sample_cosine": 0.9972201199397582
+    },
+    "qwen": {
+      "canonical_base_sha256": "91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+      "HF_index_sha256": "15cc4f8903595092aa30ec760629626fef1c61d2ec8d7cda05280475bb7bf14f",
+      "normalization_vectors": 209,
+      "all_normalization_vectors_exact": true,
+      "quantized_FFN_samples": 24,
+      "max_sample_relative_RMSE": 0.07248508265935139,
+      "min_sample_cosine": 0.9973729114640261
+    }
+  },
+  "release_qualified": false
+}

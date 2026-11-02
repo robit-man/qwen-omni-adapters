@@ -49,6 +49,8 @@ ADAPTER_LANGUAGE_URL=${OMNI_LANGUAGE_URL:-http://127.0.0.1:11434}
 ADAPTER_LANGUAGE_MODEL=$LANGUAGE_MODEL
 SPECULATIVE_TYPE=${OMNI_SPECULATIVE_TYPE:-}
 COMP_SPEC_ARGS=()
+COMP_AUDIO_ADAPTER_ARGS=()
+CONDITIONAL_AUDIO_ADAPTER=0
 
 COMP_PID=""
 TTS_PID=""
@@ -96,6 +98,13 @@ resolve_runtime_profile() {
   if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
     COMP_MODEL_GGUF=$(jq -er '.standard_layers.language_model.path' <<<"$resolved")
     COMP_PROJECTOR_GGUF=$(jq -er '.standard_layers.projector.path' <<<"$resolved")
+    local audio_adapter_path
+    audio_adapter_path=$(jq -r '.audio_adapter.path // empty' <<<"$resolved")
+    if [[ -n "$audio_adapter_path" ]]; then
+      [[ -f "$audio_adapter_path" ]] || die "required conditional audio adapter is missing"
+      COMP_AUDIO_ADAPTER_ARGS=(--lora "$audio_adapter_path" --lora-init-without-apply)
+      CONDITIONAL_AUDIO_ADAPTER=1
+    fi
     [[ -f "$COMP_MODEL_GGUF" ]] || die "audio-bridge language model blob is missing"
     [[ -f "$COMP_PROJECTOR_GGUF" ]] || die "audio-bridge projector blob is missing"
     ADAPTER_COMPREHENSION_MODEL=local-audio-bridge
@@ -597,6 +606,7 @@ run_foreground() {
     --jinja -ngl 99 -c "$COMP_CONTEXT_TOKENS" \
     --parallel "$COMP_PARALLEL_SLOTS" \
     "${COMP_SPEC_ARGS[@]}" \
+    "${COMP_AUDIO_ADAPTER_ARGS[@]}" \
     >"$LOG_DIR/comprehension.log" 2>&1 &
   COMP_PID=$!
   wait_http "http://127.0.0.1:$COMP_PORT/health" "CUDA comprehension" 1200 "$COMP_PID"
@@ -667,6 +677,7 @@ run_foreground() {
   OMNI_COMPREHENSION_CONTEXT_TOKENS="$COMP_CONTEXT_TOKENS" \
   OMNI_COMPREHENSION_DISABLE_THINKING="$ADAPTER_COMPREHENSION_DISABLE_THINKING" \
   OMNI_COMPREHENSION_REPEAT_PENALTY="$ADAPTER_COMPREHENSION_REPEAT_PENALTY" \
+  OMNI_CONDITIONAL_AUDIO_ADAPTER="$CONDITIONAL_AUDIO_ADAPTER" \
   OMNI_LANGUAGE_API="$ADAPTER_LANGUAGE_API" \
   OMNI_LANGUAGE_URL="$ADAPTER_LANGUAGE_URL" \
   OMNI_LANGUAGE_MODEL="$ADAPTER_LANGUAGE_MODEL" \

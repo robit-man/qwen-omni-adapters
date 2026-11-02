@@ -1,0 +1,95 @@
+{
+  "schema": "robit.omni.digital-silence-http-check.v1",
+  "complete": true,
+  "actual_TCP_HTTP": true,
+  "upstreams_deliberately_unreachable": true,
+  "no_CUDA_workload": true,
+  "rows": [
+    {
+      "case": "zero",
+      "one_nonzero_sample": false,
+      "stream": false,
+      "http_status": 200,
+      "terminal_event": null,
+      "backend_attempts": 0,
+      "elapsed_ms": 4.118593060411513
+    },
+    {
+      "case": "zero",
+      "one_nonzero_sample": false,
+      "stream": true,
+      "http_status": 200,
+      "terminal_event": "final",
+      "backend_attempts": 0,
+      "elapsed_ms": 3.515983931720257
+    },
+    {
+      "case": "one_lsb",
+      "one_nonzero_sample": true,
+      "stream": false,
+      "http_status": 502,
+      "terminal_event": null,
+      "backend_attempts": 1,
+      "elapsed_ms": 2.625207998789847
+    },
+    {
+      "case": "one_lsb",
+      "one_nonzero_sample": true,
+      "stream": true,
+      "http_status": 200,
+      "terminal_event": "error",
+      "backend_attempts": 1,
+      "elapsed_ms": 2.1670940332114697
+    },
+    {
+      "case": "multiple_data",
+      "one_nonzero_sample": true,
+      "stream": false,
+      "http_status": 502,
+      "terminal_event": null,
+      "backend_attempts": 1,
+      "elapsed_ms": 2.5136549957096577
+    },
+    {
+      "case": "multiple_data",
+      "one_nonzero_sample": true,
+      "stream": true,
+      "http_status": 200,
+      "terminal_event": "error",
+      "backend_attempts": 1,
+      "elapsed_ms": 3.2447170233353972
+    }
+  ],
+  "service_stopped": true,
+  "scope": "Exact silence only; no neural parity, first-audio or release claim.",
+  "failure": "Actual native step4000 produces Click on A100 and Device interface sounds on Orin for all-zero WAV input.",
+  "hypothesis": "A complete, contract-valid all-zero PCM16 waveform proves digital silence without invoking a neural worker.",
+  "implementation": "Bounded PCM scan in the shared adapter comprehension stage; no energy threshold. Mixed media, all nonzero samples, incomplete/unsupported audio and cloning references retain existing handling.",
+  "baseline_source": "1e35c674a1bf6a6dd0471c7bab41e9eda7443395",
+  "validation": {
+    "command": "./scripts/validate.sh",
+    "passed": true,
+    "pytest_passed": 6358,
+    "pytest_elapsed_s": 285.76,
+    "browser_contract_npm_shell": true,
+    "initial_run": "6347passed; one unrelated existing process-cleanup timing failure. Both parametrizations passed on focused rerun; complete rerun passed without changing that code.",
+    "log_sha256": "4f2d6244f2f382030ee1701423ac952e1aad8e5c8274590eaee565f92f87d1c7",
+    "container_followup_full_gate": "6358 passed; all browser/contract/installer/shell gates passed"
+  },
+  "source_sha256": {
+    "src/qwen_omni_adapters/audio.py": "3108654fae4e6dba93ace52cd596f60b28016df0bd74e5f9c2a75d5e56bf44ae",
+    "runtime/adapter_server.py": "74bcd601f22fe3e85dbdaecb89f6343c98b67d2a2d508859e96f2a167e8f3c4f",
+    "tests/test_digital_silence.py": "d24ef8bc927416b11e9a3b8f67a84be0c95d82e392fb15de3858e181e00c8ed6"
+  },
+  "limitations": [
+    "Only exact digital silence; quiet speech and acoustic events remain neural inputs.",
+    "HTTP timing is local adapter handling with unreachable upstreams, not model first-audio latency.",
+    "No claim of fixed environmental recognition, release parity or registry publication."
+  ],
+  "release_qualified": false,
+  "container_followup": {
+    "counterexample": "A first silent data chunk followed by a nonzero data chunk was incorrectly proven silent by stdlib wave first-chunk reading.",
+    "fixed": "Verify complete RIFF extent/chunk alignment, exactly one format and one data chunk, and no alternative wavl stream before PCM scan. Ambiguous input falls back to ordinary comprehension; metadata-only JUNK/INFO chunks still work.",
+    "real_HTTP_multi_data_backend_attempts": 1
+  }
+}

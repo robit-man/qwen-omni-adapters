@@ -1,0 +1,206 @@
+{
+  "schema": "robit.omni.separate-bounded-audio-repair-trials.v1",
+  "release_qualified": false,
+  "public_model_publication": false,
+  "shared_invariants": "Exact primary, frozen encoder, selected trained projector and TTS retained; same rank8 last8 FFN, event loss4, AdamW1e-4, accumulation4, existing native gates. No feature cache/projector exports.",
+  "resource_preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "source_adapter_sha256": "7967280043637723b5323ae65af0246609d6d68ef173095d5f9d9dfebe411793",
+    "checks": [
+      {
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.1584155410528183,
+        "peak_reserved_MiB": 20904.0,
+        "peak_allocated_MiB": 20301.50341796875
+      },
+      {
+        "id": "fsd50k-245666",
+        "duration_s": 29.7155625,
+        "loss": 0.6559862494468689,
+        "peak_reserved_MiB": 20966.0,
+        "peak_allocated_MiB": 20339.04443359375
+      }
+    ],
+    "maximum_peak_reserved_MiB": 20966.0,
+    "original32768_lease_and30720_Torch_cap_safe": true,
+    "no_weights_or_raw_audio_or_feature_cache_created": true,
+    "GPU_residency_verified": true
+  },
+  "trials": {
+    "ornith": {
+      "status": "running",
+      "policy": {
+        "schema": "robit.omni.audio-lora-full-corpus-policy.v1",
+        "failure": "Completed6400 fits all8 core TRAIN families in both HF and native, but held-out event identities still fail. Learning generalized poorly with only3 group-voice and13 siren examples.",
+        "hypothesis": "Add only4587 verified already-local CC0 TRAIN recordings, including20 sirens,4 group-voice,8 printers and35 bells; preserve architecture, class-uniform strategy, replay, loss and optimizer. One sampling schedule tests data diversity; native gates unchanged.",
+        "base_source": "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-sources/ornith15-standard",
+        "frozen_bridge": "ornith-train-rich1/checkpoint-000850",
+        "initialization": "Restore exact completed step6400 LoRA and AdamW/RNG state; primary/encoder/bridge/TTS frozen",
+        "train_rows": 17045,
+        "FSD_train": 11724,
+        "speech_replay": 4859,
+        "nonspeech_replay": 462,
+        "manifest_sha256": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+        "validation_and_test": "not optimized; existing fixed validation diagnostics only, no new held-out test consumption",
+        "adapter": {
+          "rank": 8,
+          "alpha": 8,
+          "layers": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31
+          ],
+          "modules": [
+            "gate_proj",
+            "up_proj",
+            "down_proj"
+          ],
+          "parameters": 3145728
+        },
+        "training": {
+          "steps": 4262,
+          "serial_accumulation": 4,
+          "seed": 47,
+          "lr": 0.0001,
+          "optimizer": "AdamW",
+          "weight_decay": 0.01,
+          "clip_norm": 1.0,
+          "event_token_weight": 4.0,
+          "unknown_transcripts": "masked by unchanged audited partial collator",
+          "start_step": 6400,
+          "final_step": 10662,
+          "additional_steps": 4262,
+          "budget_basis": "One17045-row sampling schedule at serial accumulation4; three extra draws at final boundary. Class-uniform sampling uses replacement, not a claim of unique coverage."
+        },
+        "fixed_checkpoints": [
+          7400,
+          8400,
+          10662
+        ],
+        "native_gates": "unchanged exact speech, silence/noise, acoustic identity diagnostics first; full160 ASR/full240 environmental and legacy comparisons required for viable checkpoint, then final Orin operational/cloning/concurrency qualification",
+        "checkpoint_gates": {
+          "base_parameter_versions_and_gradients_unchanged": true,
+          "disabled_logits_absolute_delta": 0.0,
+          "only_LoRA_parameters_trainable": 3145728
+        },
+        "primary_encoder_projector_TTS_weight_updates": false,
+        "runtime_integration": false,
+        "publication": false,
+        "release_qualified": false,
+        "resource_limits": {
+          "expected_write_GiB": 1,
+          "srv_reserve_GiB": 50,
+          "checkout_reserve_GiB": 10,
+          "RAM_reserve_GiB": 32,
+          "Torch_cap_MiB": 30720,
+          "lease_MiB": 32768,
+          "no_projector_exports_or_feature_caches": true
+        },
+        "only_neural_experiment_change": "Expanded data; same class-uniform algorithm, same replay and one sampling schedule. No architecture/loss/optimizer changes.",
+        "sampler_source_sha256": "14396311a99a2c6443a1eb81985c78f8ec3e0d88b9dfc2e8b357596fd48dea41"
+      },
+      "exact_resume_before_optimizer": {
+        "source_adapter_sha256": "7967280043637723b5323ae65af0246609d6d68ef173095d5f9d9dfebe411793",
+        "all48_parameters_exact": true,
+        "optimizer_step": 6400,
+        "disabled_logits_max_abs_delta": 0.0,
+        "source_weights_frozen": true,
+        "expanded_data_only": true
+      },
+      "policy_sha256": "d19bc990d79c85a88069612e59952df29162675746863a1d7a9b8a56b77820a6"
+    },
+    "qwen": {
+      "status": "running",
+      "policy": {
+        "schema": "robit.omni.audio-lora-full-corpus-policy.v1",
+        "failure": "Qwen3200 same16 TRAIN audit still misses seen bark, siren, printer and group voices in unquantized source; event CE1.48 versus remaining-token CE0.165. Sampling-only correction precedes any data or architecture change.",
+        "hypothesis": "Change only event selection to uniform over all194 training classes, retaining replay counts, model/data/loss/optimizer. A bounded continuation improves rare-event learning without weakening gates.",
+        "base_source": "/srv/fine_tuning_suite/training_suite/outputs/sessions/qwen38-27b-obliterated-e03-20260829/source",
+        "frozen_bridge": "qwen-train-rich1/checkpoint-000750",
+        "initialization": "Restore exact completed step3200 LoRA and AdamW/RNG state; primary/encoder/bridge/TTS frozen",
+        "train_rows": 12458,
+        "FSD_train": 7137,
+        "speech_replay": 4859,
+        "nonspeech_replay": 462,
+        "manifest_sha256": "f391b0c7dc903a78c7c3a2eef8eb9b261c1e5a521a929b361dc6a14aa1474b68",
+        "validation_and_test": "not optimized; existing fixed validation diagnostics only, no new held-out test consumption",
+        "adapter": {
+          "rank": 8,
+          "alpha": 8,
+          "layers": [
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63
+          ],
+          "modules": [
+            "gate_proj",
+            "up_proj",
+            "down_proj"
+          ],
+          "parameters": 4325376
+        },
+        "training": {
+          "steps": 3200,
+          "serial_accumulation": 4,
+          "seed": 47,
+          "lr": 0.0001,
+          "optimizer": "AdamW",
+          "weight_decay": 0.01,
+          "clip_norm": 1.0,
+          "event_token_weight": 4.0,
+          "unknown_transcripts": "masked by unchanged audited partial collator",
+          "start_step": 3200,
+          "final_step": 6400,
+          "additional_steps": 3200
+        },
+        "fixed_checkpoints": [
+          4000,
+          5000,
+          6400
+        ],
+        "native_gates": "unchanged exact speech, silence/noise, acoustic identity diagnostics first; full160 ASR/full240 environmental and legacy comparisons required for viable checkpoint, then final A100 operational/cloning/concurrency qualification",
+        "checkpoint_gates": {
+          "base_parameter_versions_and_gradients_unchanged": true,
+          "disabled_logits_absolute_delta": 0.0,
+          "only_LoRA_parameters_trainable": 4325376
+        },
+        "primary_encoder_projector_TTS_weight_updates": false,
+        "runtime_integration": false,
+        "publication": false,
+        "release_qualified": false,
+        "resource_limits": {
+          "expected_write_GiB": 1,
+          "srv_reserve_GiB": 50,
+          "checkout_reserve_GiB": 10,
+          "RAM_reserve_GiB": 32,
+          "Torch_cap_MiB": 61440,
+          "lease_MiB": 65536,
+          "no_projector_exports_or_feature_caches": true
+        },
+        "only_neural_experiment_change": "Uniform event selection over194 existing classes; original12458 data, architecture, loss and optimizer unchanged.",
+        "sampler_source_sha256": "14396311a99a2c6443a1eb81985c78f8ec3e0d88b9dfc2e8b357596fd48dea41"
+      },
+      "exact_resume_before_optimizer": {
+        "source_adapter_sha256": "d25e35de90f992489993282178fda993b9a18a1c70c44eaf960c1aa03599eebd",
+        "all48_parameters_exact": true,
+        "optimizer_step": 3200,
+        "disabled_logits_max_abs_delta": 0.0,
+        "source_weights_frozen": true,
+        "new_sampler_only": true
+      },
+      "policy_sha256": "815b8787d9ea5d6adb0cd68e17ea2023dbdd898eeb88d20fe05f77ea5262c852"
+    }
+  }
+}

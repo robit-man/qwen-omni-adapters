@@ -3,6 +3,12 @@
 The reference runtime presents one Ollama-compatible API while coordinating
 three independently executable graphs from one logical model tag.
 
+A tag may also require an exact-pair-bound conditional audio LoRA under a v3
+binding. Updated supervisors load it disabled and enable it only for acoustic
+perception; vision, final language, thinking and tools explicitly disable it.
+Older runtimes reject this required binding. See the
+[packaging and real request isolation checks](upgrades/conditional-audio-component-20261101.md).
+
 New repaired audio projectors can require `robit.qwen3a.trained-prefill.v2`.
 Build all pinned native patches before selecting them. Startup verifies their
 training-prompt signature and the matching native library's ABI 2 capability;

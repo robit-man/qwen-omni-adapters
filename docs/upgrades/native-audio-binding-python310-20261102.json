@@ -1,0 +1,149 @@
+{
+  "schema": "robit.omni.native-audio-binding-python310.v1",
+  "failing_acceptance": "Conditional audio component hashing raisesAttributeError on actualOrinPython3.10 and would reject requiredv3-bound LoRA tags.",
+  "bounded_hypothesis": "Use the same bounded256KiB SHA256 path without modifying tensor shape/precision/namespace or exact-pair binding validation.",
+  "before_actual_Orin_function_execution": {
+    "complete": true,
+    "Python": "3.10.12",
+    "file_digest_available": false,
+    "actual_functions_executed_in_isolation": true,
+    "CUDA_started": false,
+    "service_changed": false,
+    "all_four_passed": false,
+    "rows": [
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "a1632ecb0f65c29faf9812cffc8f875ddd6ba2d0b834650fc0934cb5cdf106b6",
+        "case": "empty",
+        "passed": true,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "a1632ecb0f65c29faf9812cffc8f875ddd6ba2d0b834650fc0934cb5cdf106b6",
+        "case": "million_a",
+        "passed": true,
+        "digest": "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "14ebb087034a9517540015f087071b8a42f68dfed1b8cc68f711f5d112227dee",
+        "case": "empty",
+        "passed": true,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "14ebb087034a9517540015f087071b8a42f68dfed1b8cc68f711f5d112227dee",
+        "case": "million_a",
+        "passed": true,
+        "digest": "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+      },
+      {
+        "source": "src/qwen_omni_adapters/audio_adapter.py",
+        "source_SHA256": "44c8d66b9d69738b716a5f65f288fe37c2677b68877527133a2bedf8d3b3d8d4",
+        "case": "empty",
+        "passed": false,
+        "error": "AttributeError(\"module 'hashlib' has no attribute 'file_digest'\")"
+      },
+      {
+        "source": "src/qwen_omni_adapters/audio_adapter.py",
+        "source_SHA256": "44c8d66b9d69738b716a5f65f288fe37c2677b68877527133a2bedf8d3b3d8d4",
+        "case": "million_a",
+        "passed": false,
+        "error": "AttributeError(\"module 'hashlib' has no attribute 'file_digest'\")"
+      }
+    ]
+  },
+  "after_actual_Orin_function_execution": {
+    "complete": true,
+    "Python": "3.10.12",
+    "file_digest_available": false,
+    "actual_functions_executed_in_isolation": true,
+    "CUDA_started": false,
+    "service_changed": false,
+    "total_cases": 6,
+    "all_passed": true,
+    "rows": [
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "a1632ecb0f65c29faf9812cffc8f875ddd6ba2d0b834650fc0934cb5cdf106b6",
+        "case": "empty",
+        "passed": true,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "a1632ecb0f65c29faf9812cffc8f875ddd6ba2d0b834650fc0934cb5cdf106b6",
+        "case": "million_a",
+        "passed": true,
+        "digest": "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "14ebb087034a9517540015f087071b8a42f68dfed1b8cc68f711f5d112227dee",
+        "case": "empty",
+        "passed": true,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "14ebb087034a9517540015f087071b8a42f68dfed1b8cc68f711f5d112227dee",
+        "case": "million_a",
+        "passed": true,
+        "digest": "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+      },
+      {
+        "source": "src/qwen_omni_adapters/audio_adapter.py",
+        "source_SHA256": "ad8e725284ee615d27f851ee3d1d9342c6b7a5cdb22485335ce1d35faf7a7b11",
+        "case": "empty",
+        "passed": true,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "src/qwen_omni_adapters/audio_adapter.py",
+        "source_SHA256": "ad8e725284ee615d27f851ee3d1d9342c6b7a5cdb22485335ce1d35faf7a7b11",
+        "case": "million_a",
+        "passed": true,
+        "digest": "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+      }
+    ]
+  },
+  "checks": {
+    "before_repository_tests": 6398,
+    "before_elapsed_s": 305.74,
+    "after_repository_tests": 6400,
+    "after_warnings": 2,
+    "after_elapsed_s": 282.2,
+    "canonical_hash_cases": 6,
+    "first_lint_rejection": "New test import ordering; corrected before rerunning full gate; original log retained."
+  },
+  "actual_Orin_native_configuration_preparation": {
+    "configuration": "/home/egg/qwen-omni-upgrade/runtime-data/native-ollama-arm-build-20261102/native-config/c9caa86a0cf94aee9007e1049e729c12998de426277781ff7617870750aaee15.json",
+    "manifest_sha256": "c9caa86a0cf94aee9007e1049e729c12998de426277781ff7617870750aaee15",
+    "weight_bytes_copied": 0,
+    "CUDA_started": false,
+    "native_endpoint_qualified": false
+  },
+  "actual_deployment_doctor": {
+    "ok": true,
+    "python": {
+      "executable": "/home/egg/qwen-omni-upgrade/.venv/bin/python",
+      "version": "3.10.12"
+    },
+    "deployment_mode": "direct",
+    "missing_commands": [],
+    "missing_binaries": [],
+    "missing_models": []
+  },
+  "limits": {
+    "exact_hash_functions_executed_in_isolation_on_realPython310": true,
+    "complete_native_configuration_script_also_passed_on_Orin": true,
+    "selected_prepared_tag_has_binding_v2_without_conditional_LoRA": true,
+    "native_ARM_binary_built_or_executed": false,
+    "full_native_Orin_ASR_cloning_or_final_weight_parity_qualified": false,
+    "old_Orin_service_unchanged": true,
+    "weights_or_public_contract_changed": false,
+    "public_weights_uploaded": false
+  }
+}

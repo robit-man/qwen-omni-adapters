@@ -1,0 +1,304 @@
+{
+  "schema": "robit.omni.ornith-full-FFN-coverage2-source-review.v1",
+  "result": "UNQUALIFIED; partial speech improvement, environmental and temporal parity still fails",
+  "training_updates": 2000,
+  "source_rows": 174,
+  "source_SHA256": "5d0c630e7e1e1f050c64ce3b3fdf7b3e01a5700279dcf1d29dbde51ef15fd86b",
+  "control_all58_contents_reproduce_prior_D1500_exactly": true,
+  "same58_raw_audio_per_state": true,
+  "frozen_BF16_primary_encoder_rich850_projection": true,
+  "natural_errors_per594words": {
+    "D1500": 36,
+    "D2500": 32,
+    "D3500": 28
+  },
+  "legacy_natural_errors": 9,
+  "examples": [
+    {
+      "id": "probe-esc50-dog",
+      "assessment": "D3500 correctly identifies a dog bark; prior D1500 added unsupported clapping.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "First: Bark. After a pause: Clapping."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Speech synthesizer and Bark dog overlap."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Bark. A single, sharp bark from a dog."
+        }
+      }
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "assessment": "D3500 regresses church bells to gong.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gong."
+        }
+      }
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "assessment": "Alarm remains mislabeled frog.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Idling."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Idling; Car."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Frog."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-156200",
+      "assessment": "Human group voices remain mislabeled dog.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Bird vocalization, bird call, bird song; Train."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Bird vocalization, bird call, bird song; Crowd."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Dog."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-180765",
+      "assessment": "Clapping regresses to explosion.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Clapping."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Clapping."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Explosion."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-182894",
+      "assessment": "Printer remains wrong, now dog.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Skateboard."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Printer."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Dog."
+        }
+      }
+    },
+    {
+      "id": "fsd50k-203720",
+      "assessment": "Road vehicle and siren recovered.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Motor vehicle (road); Siren."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Motor vehicle (road); Siren."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Motor vehicle (road); Siren."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-02",
+      "assessment": "D3500 recovers clapping followed by gunfire.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Clapping."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "First: Clapping. After a pause: Gunshot, gunfire."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "First: Clapping. After a pause: Gunshot, gunfire."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-05",
+      "assessment": "Printer followed by siren remains wrong.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Boat, Water vehicle."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "First: Printer. After a pause: Walk, footsteps."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "First: Subway, metro, underground. After a pause: Fart."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-13",
+      "assessment": "Speech in noise remains substantially inaccurate.",
+      "outputs": {
+        "D1500": {
+          "transcript": "THAT BLUE WIZARD IS PART OF THE DESIGN FOR GARDEN GATE",
+          "audio_observation": "Audible sound events: Conversation; Male speech, man speaking."
+        },
+        "D2500": {
+          "transcript": "THE BLUE CYCLADE IS PARKED AT THE CARGO GATE",
+          "audio_observation": "Audible sound events: Bus."
+        },
+        "D3500": {
+          "transcript": "But blue ice cube is far. He's inside the cargo gate.",
+          "audio_observation": "Audible sound events: Speech synthesizer."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-14",
+      "assessment": "Voices and siren are mislabeled cats.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Meow."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Motor vehicle (road); Siren."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Cat. A cat meows and purrs."
+        }
+      }
+    },
+    {
+      "id": "temporal-overlap-validation-15",
+      "assessment": "Overlapping bells and dog reports only gong.",
+      "outputs": {
+        "D1500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        },
+        "D2500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Church bell."
+        },
+        "D3500": {
+          "transcript": null,
+          "audio_observation": "Audible sound events: Gong."
+        }
+      }
+    }
+  ],
+  "CPU_recovery_audit": {
+    "schema": "robit.omni.full-depth-FFN-continuation-final-CPU-audit.v1",
+    "complete": true,
+    "CPU_only": true,
+    "CUDA_started": false,
+    "checks": [
+      {
+        "updates": 1000,
+        "tail_step": 18196,
+        "prefix_step": 2500,
+        "position": 24136,
+        "all192_F32_weights_shapes_finite": true,
+        "all192_AdamW_steps_shapes_moments_valid": true,
+        "both_groups_changed": true,
+        "source_order_RNG_and_seen_sets_exact": true,
+        "global_seen": 29362,
+        "prefix_seen": 9199,
+        "adapter_SHA256": "69bc9b317a937e5b2f9523f072dbff1e6f5d17ba44e99e57260bbb5e0f42c097",
+        "recovery_SHA256": "e75aeeae5072d67beae53490aa61ce5bab3359264f9b3fa67c71e83ca3d8e1cc"
+      },
+      {
+        "updates": 2000,
+        "tail_step": 19196,
+        "prefix_step": 3500,
+        "position": 28136,
+        "all192_F32_weights_shapes_finite": true,
+        "all192_AdamW_steps_shapes_moments_valid": true,
+        "both_groups_changed": true,
+        "source_order_RNG_and_seen_sets_exact": true,
+        "global_seen": 30706,
+        "prefix_seen": 12565,
+        "adapter_SHA256": "164b84a7136800c00478b87c9bbdcb9d70f8b528ab77905cfc3b88219efc2c05",
+        "recovery_SHA256": "e5e4f3084d9178743bd2b97ff247beb4be2919803ba4523ed7393f15881c15a9"
+      }
+    ],
+    "parent_unchanged": true,
+    "frozen_and_disabled_logit_receipts_pass": true,
+    "new_optimizer_updates": 0,
+    "source_quality_not_established": true,
+    "native192_layout_qualified": false,
+    "release_qualified": false
+  },
+  "training_peak_MiB": 28504.0,
+  "training_elapsed_s": 9265.57300069707,
+  "training_resource_minima": {
+    "minimum_RAM_available_GiB": 313.16919326782227,
+    "minimum_srv_free_GiB": 68.6878776550293,
+    "minimum_checkout_free_GiB": 173.3759307861328
+  },
+  "source_peak_MiB": 19032.0,
+  "source_elapsed_s": 417.69457454106305,
+  "actual_training_source_observer_exited_and_leases_normally_released": true,
+  "continuation_choice": {
+    "checkpoint": "D3500",
+    "reason": "Speech improved36to32to28; dog and clap-then-gunfire improve. These do not offset failed environmental/temporal parity; retain all states. Test further unchanged saved-order exposure.",
+    "prefix_unique_seen": 12565,
+    "corpus_train_rows": 64362,
+    "speech_unique_seen": 3500,
+    "speech_train_rows": 31654,
+    "fixed_next_updates": 2000,
+    "next_checkpoints_prefix_steps": [
+      4500,
+      5500
+    ],
+    "no_change_to_labels_LR_loss_sampler_architecture_projection_or_precision": true
+  },
+  "native192_supported": false,
+  "GGUF_exported": false,
+  "release_qualified": false,
+  "public_weights_uploaded": false
+}

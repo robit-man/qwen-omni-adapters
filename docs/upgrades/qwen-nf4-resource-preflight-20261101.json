@@ -1,0 +1,207 @@
+{
+  "schema": "robit.omni.qwen-NF4-resource-qualification.v1",
+  "UTC": "2026-11-01T23:05:07.274864+00:00",
+  "complete": true,
+  "criterion": "Admit fully GPU-resident Qwen27B adapter training computation within a positive25GiB scoped lease while preserving other owners.",
+  "result": {
+    "complete": true,
+    "policy": {
+      "schema": "robit.omni.qwen-NF4-resource-policy.v1",
+      "failure": "Current allowedGPU0/2 scoped promises do not admit prior63232MiB BF16 training lease; other owners must remain undisturbed.",
+      "hypothesis": "Load identical local Qwen checkpoint frozen in NF4/doublequant/BF16 compute, exact8400 F32 conditional48 and AdamW; test full GPU load plus four accumulated backwards on fixed worst TRAIN inputs within25GiB lease/24GiB Torch cap.",
+      "resource_only_not_quality_hypothesis": true,
+      "only_change": "Frozen training-trunk numeric representation, not deployed GGUF, architecture, projection, sampler, LR, losses or adapter values.",
+      "source_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-scene-captions-pass-1/checkpoint-008400",
+      "source_adapter_SHA256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+      "source_recovery_SHA256": "582977d5383c6fd05603636d54a2f3dcc2d316861fd1b1e87d993f16d3de96e3",
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "fixed_TRAIN_cases": [
+        {
+          "id": "fsd50k-323041",
+          "duration_s": 30.0
+        },
+        {
+          "id": "libri100-7859-102521-0017",
+          "duration_s": 24.525
+        },
+        {
+          "id": "scene-v1-event-sequence-0336",
+          "duration_s": 11.9729375
+        },
+        {
+          "id": "scene-v1-speech-background-1816",
+          "duration_s": 5.895
+        }
+      ],
+      "Torch_cap_MiB": 24576,
+      "lease_MiB": 25600,
+      "new_optimizer_updates": 0,
+      "no_CPU_offload": true,
+      "no_neural_downloads": true,
+      "no_raw_features_or_weight_exports": true,
+      "original_GGUF_checkpoint_and_quantization_unchanged": true,
+      "publication": false,
+      "release_qualified": false,
+      "source_script_SHA256": "186715152e4241b9b288316d6166034aef56c4125120cbd1fb509e5497baf232",
+      "dependency_installation": {
+        "version": "0.50.2",
+        "wheel_URL": "https://files.pythonhosted.org/packages/a5/6e/e4e8b75716dbe5e50964f070266e06f4e6806ce051bfb97f52ee162b9310/bitsandbytes-0.50.2-py3-none-manylinux_2_24_x86_64.whl",
+        "wheel_SHA256": "55348a9a4a21bfd99cf8c7b32fe67b4030ae5c2a05738e03c1747f65fa6ec283",
+        "wheel_bytes": 43139553,
+        "target": "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen-qlora-deps",
+        "shared_FTS_environment_modified": false,
+        "dependencies_installed": false,
+        "CUDA_started": false,
+        "official_sources": [
+          "https://huggingface.co/docs/bitsandbytes/v0.50.2/installation",
+          "https://huggingface.co/docs/transformers/v5.9.0/quantization/bitsandbytes"
+        ],
+        "installed_payload_bytes": 129152224,
+        "no_model_weights_downloaded": true
+      }
+    },
+    "checks": [
+      {
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "losses": [
+          0.359365314245224,
+          0.359365314245224,
+          0.359365314245224,
+          0.359365314245224
+        ],
+        "all48_finite_nonzero_gradients": true,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 21122.0,
+        "peak_allocated_MiB": 20350.0791015625
+      },
+      {
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "losses": [
+          0.07914799451828003,
+          0.07914799451828003,
+          0.07914799451828003,
+          0.07914799451828003
+        ],
+        "all48_finite_nonzero_gradients": true,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 21306.0,
+        "peak_allocated_MiB": 20478.0810546875
+      },
+      {
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "losses": [
+          0.6085259318351746,
+          0.6085259318351746,
+          0.6085259318351746,
+          0.6085259318351746
+        ],
+        "all48_finite_nonzero_gradients": true,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 20286.0,
+        "peak_allocated_MiB": 19542.630859375
+      },
+      {
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "losses": [
+          0.09316562861204147,
+          0.09316562861204147,
+          0.09316562861204147,
+          0.09316562861204147
+        ],
+        "all48_finite_nonzero_gradients": true,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 19898.0,
+        "peak_allocated_MiB": 19365.7041015625
+      }
+    ],
+    "optimizer_steps": 0,
+    "publication": false,
+    "release_qualified": false,
+    "worker_PID": 2928387,
+    "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "quantized_linear_count": 496,
+    "all_parameters_CUDA": true,
+    "all48_adapter_values_exact": true,
+    "optimizer_all48_moments_and_steps_exact": true,
+    "initial_peak_reserved_MiB": 18420.0,
+    "maximum_peak_reserved_MiB": 21306.0,
+    "all_weights_and_optimizer_unchanged": true,
+    "disabled_NF4_text_logits_max_abs_delta": 0.0,
+    "GPU_residency_verified": true,
+    "elapsed_s": 78.98089382098988
+  },
+  "matched_BF16_control": {
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-projection-comparison-resource-preflight-1/resource-preflight.json",
+    "SHA256": "4f06cb894449294a86b6bee573892ee33f85bebaafc9b2f3eab446310bb54f21",
+    "arm": "A",
+    "same8400adapter_and_frozen_rich750_projection": true,
+    "same4TRAIN_cases_and4backwards_each": true,
+    "source_adapter_SHA256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+    "maximum_peak_reserved_MiB": 55708.0
+  },
+  "paired_checks": [
+    {
+      "id": "fsd50k-323041",
+      "duration_s": 30.0,
+      "BF16_peak_reserved_MiB": 55554.0,
+      "NF4_peak_reserved_MiB": 21122.0,
+      "BF16_loss": 0.4379802644252777,
+      "NF4_loss": 0.359365314245224
+    },
+    {
+      "id": "libri100-7859-102521-0017",
+      "duration_s": 24.525,
+      "BF16_peak_reserved_MiB": 55708.0,
+      "NF4_peak_reserved_MiB": 21306.0,
+      "BF16_loss": 0.04335782676935196,
+      "NF4_loss": 0.07914799451828003
+    },
+    {
+      "id": "scene-v1-event-sequence-0336",
+      "duration_s": 11.9729375,
+      "BF16_peak_reserved_MiB": 54490.0,
+      "NF4_peak_reserved_MiB": 20286.0,
+      "BF16_loss": 0.5611780285835266,
+      "NF4_loss": 0.6085259318351746
+    },
+    {
+      "id": "scene-v1-speech-background-1816",
+      "duration_s": 5.895,
+      "BF16_peak_reserved_MiB": 54306.0,
+      "NF4_peak_reserved_MiB": 19898.0,
+      "BF16_loss": 0.12279316037893295,
+      "NF4_loss": 0.09316562861204147
+    }
+  ],
+  "peak_reserved_reduction_percent": 61.75414662167014,
+  "worker_actual_exit_and_normal_release": true,
+  "Ornith_training_and_peer_scopes_budgets_preserved": true,
+  "shared_environment_unchanged": true,
+  "first_preflight_failure": {
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-nf4-resource-preflight-1/resource-preflight.json",
+    "error": "Weighted-loss wrapper installed after adapter construction; unexpected suffix_event_weights before any backward or update.",
+    "actual_worker_exited_and_normal_release_verified": true,
+    "correction": "Install the existing virtual/partial/event wrappers before adapter construction; unchanged NF4/resource/input settings.",
+    "retained_as_failed": true
+  },
+  "proofs": {
+    "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-nf4-resource-preflight-2/resource-preflight.json": "8d9be8bd74c0a523fc5319401dccfffcbabc0825574345a6f15c7ddd0e3c163d",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/preflight_qwen_nf4_training.py": "186715152e4241b9b288316d6166034aef56c4125120cbd1fb509e5497baf232",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen-nf4-resource-preparation.json": "bc909c4a02e02c05e69a1bcda1bbef3a2b35f36bb4208e280a845186058bf9b3",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen-qlora-deps-installation.json": "67279da0839b5d24750ea1420b9a00d895902fd9f04ce55059692b4a75b8db97",
+    "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen-nf4-resource-preflight-2-20261101.log": "2f280afb9625d7c1b4266bc6778158a63700568aa148660149091e6937f89c8e"
+  },
+  "deployment_or_release_changes": false,
+  "publication": false,
+  "limitations": [
+    "This is a zero-update training-computation preflight, not a complete training run or runtime memory benchmark.",
+    "Frozen training weights use NF4/double quantization; deployed checkpoint and Q4_K_M weights remain unchanged.",
+    "Bit-exact disabled logits are relative to the same NF4 trunk, not BF16 equivalence.",
+    "Losses change in both directions; no speech, environmental or temporal quality improvement is established.",
+    "Any new training candidate must pass source, native, assigned-target and full release gates."
+  ]
+}

@@ -1,0 +1,1519 @@
+{
+  "schema": "robit.omni.full-depth-FFN-preflight.v1",
+  "UTC": "2026-11-01T21:39:50.997593+00:00",
+  "bounded_hypothesis": {
+    "schema": "robit.omni.full-depth-FFN-policy.v1",
+    "failure": "Tail attentionA39/B39 provides no environmental/temporal benefit. Joint projector/FFN C100/594 vscontrol40 damages known speech and environmental identities; reject it and keep original rich850 projection frozen.",
+    "hypothesis": "Audio needs adaptation in earlier frozen language blocks. Add conditional FFNs on layers0..23 while preserving original tail adapters and projector; compare saved tail-only A against new full-depthD.",
+    "arms": {
+      "A": "Saved source15696 tail-only500, original rich850 projection.",
+      "D": "Same tail/AdamW source plus9437184zero-residual-initialized early-FFN parameters; same next2000draws/500updates."
+    },
+    "controls_retrained": false,
+    "fixed_updates": 500,
+    "accumulation": 4,
+    "LR": 0.0001,
+    "weight_decay": 0.01,
+    "event_loss_factor": 4.0,
+    "clip_grad_norm": 1.0,
+    "source_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-scene-captions-pass-2/checkpoint-015696",
+    "source_adapter_sha256": "524a237a3a27ad20d64777a66479897e78d80b6d5bc71cbc31672d8ec0fa7e4f",
+    "source_recovery_sha256": "cb80a4da395ff65ad57138f046f0b6e60a7620ccbd027adc4ae0fab1d7e3354d",
+    "fixed_record_order_sha256": "2f2f66e4cc153a9ed68474616e1539082bf4d6b6f9db450bc516fd89563403a6",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "source_cursor": 14136,
+    "final_cursor": 16136,
+    "only_one_language_trunk_loaded": true,
+    "primary_encoder_projection_TTS_frozen": true,
+    "source_script_sha256": "3fff561c2589084390a66a910c8e9446d975bd3d273bd7a99e645e4c1bfa4b2c",
+    "scope_helper_sha256": "53c3d8db0ab42440e9a96359db044fdb5d185de5614afa397a65111ca9e4767c",
+    "new_prefix_modules": [
+      {
+        "module": "model.layers.0.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.0.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.0.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.0.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.0.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.0.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.0.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.0.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.0.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.1.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.1.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.1.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.1.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.1.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.1.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.1.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.1.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.1.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.2.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.2.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.2.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.2.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.2.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.2.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.2.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.2.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.2.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.3.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.3.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.3.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.3.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.3.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.3.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.3.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.3.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.3.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.4.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.4.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.4.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.4.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.4.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.4.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.4.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.4.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.4.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.5.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.5.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.5.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.5.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.5.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.5.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.5.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.5.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.5.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.6.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.6.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.6.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.6.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.6.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.6.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.6.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.6.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.6.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.7.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.7.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.7.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.7.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.7.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.7.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.7.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.7.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.7.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.8.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.8.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.8.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.8.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.8.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.8.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.8.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.8.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.8.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.9.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.9.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.9.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.9.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.9.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.9.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.9.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.9.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.9.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.10.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.10.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.10.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.10.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.10.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.10.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.10.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.10.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.10.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.11.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.11.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.11.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.11.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.11.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.11.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.11.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.11.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.11.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.12.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.12.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.12.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.12.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.12.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.12.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.12.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.12.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.12.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.13.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.13.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.13.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.13.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.13.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.13.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.13.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.13.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.13.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.14.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.14.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.14.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.14.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.14.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.14.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.14.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.14.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.14.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.15.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.15.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.15.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.15.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.15.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.15.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.15.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.15.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.15.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.16.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.16.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.16.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.16.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.16.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.16.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.16.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.16.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.16.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.17.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.17.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.17.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.17.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.17.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.17.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.17.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.17.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.17.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.18.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.18.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.18.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.18.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.18.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.18.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.18.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.18.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.18.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.19.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.19.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.19.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.19.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.19.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.19.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.19.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.19.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.19.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.20.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.20.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.20.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.20.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.20.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.20.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.20.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.20.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.20.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.21.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.21.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.21.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.21.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.21.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.21.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.21.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.21.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.21.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.22.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.22.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.22.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.22.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.22.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.22.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.22.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.22.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.22.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.23.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.23.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.23.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.23.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.23.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.23.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.23.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.23.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.23.ffn_down.weight"
+      }
+    ],
+    "new_prefix_initialization_seed": 5087,
+    "resource_limits": {
+      "Torch_cap_MiB": 27648,
+      "lease_MiB": 28672,
+      "expected_write_GiB": 0.5,
+      "RAM_reserve_GiB": 32,
+      "srv_reserve_GiB": 50,
+      "checkout_reserve_GiB": 10
+    },
+    "no_new_audio_features_or_GGUF_export": true,
+    "new192tensor_native_layout_not_qualified": true,
+    "preflight_only": false,
+    "release_qualified": false,
+    "publication": false,
+    "preflight_sha256": "dd70dd182031d156d5b463eaba49e511b37a9dc4e0b44a84bcc39b17988066d9"
+  },
+  "CPU_preparation": {
+    "schema": "robit.omni.ornith15696-full-FFN-trial-preparation.v1",
+    "complete": true,
+    "CPU_only": true,
+    "CUDA_started": false,
+    "new_training_optimizer_steps": 0,
+    "source_step": 15696,
+    "source_adapter_sha256": "524a237a3a27ad20d64777a66479897e78d80b6d5bc71cbc31672d8ec0fa7e4f",
+    "source_recovery_sha256": "cb80a4da395ff65ad57138f046f0b6e60a7620ccbd027adc4ae0fab1d7e3354d",
+    "source_order_and_RNG_reconstructed_exact": true,
+    "source_cursor": 14136,
+    "final_cursor": 16136,
+    "fixed_updates": 500,
+    "same_original2000draws": true,
+    "original_proof_SHA256": "a6eb948d0c28e0bb9eaa51430cb32ee275ab4c733e90fa95ab2b0bcb507b9b6f",
+    "new_prefix_FFN_modules": [
+      {
+        "module": "model.layers.0.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.0.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.0.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.0.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.0.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.0.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.0.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.0.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.0.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.1.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.1.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.1.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.1.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.1.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.1.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.1.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.1.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.1.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.2.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.2.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.2.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.2.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.2.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.2.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.2.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.2.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.2.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.3.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.3.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.3.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.3.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.3.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.3.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.3.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.3.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.3.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.4.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.4.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.4.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.4.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.4.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.4.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.4.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.4.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.4.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.5.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.5.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.5.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.5.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.5.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.5.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.5.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.5.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.5.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.6.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.6.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.6.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.6.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.6.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.6.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.6.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.6.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.6.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.7.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.7.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.7.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.7.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.7.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.7.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.7.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.7.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.7.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.8.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.8.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.8.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.8.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.8.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.8.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.8.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.8.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.8.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.9.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.9.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.9.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.9.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.9.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.9.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.9.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.9.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.9.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.10.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.10.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.10.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.10.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.10.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.10.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.10.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.10.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.10.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.11.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.11.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.11.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.11.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.11.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.11.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.11.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.11.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.11.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.12.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.12.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.12.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.12.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.12.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.12.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.12.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.12.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.12.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.13.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.13.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.13.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.13.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.13.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.13.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.13.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.13.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.13.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.14.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.14.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.14.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.14.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.14.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.14.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.14.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.14.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.14.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.15.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.15.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.15.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.15.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.15.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.15.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.15.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.15.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.15.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.16.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.16.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.16.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.16.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.16.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.16.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.16.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.16.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.16.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.17.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.17.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.17.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.17.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.17.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.17.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.17.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.17.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.17.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.18.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.18.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.18.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.18.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.18.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.18.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.18.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.18.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.18.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.19.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.19.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.19.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.19.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.19.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.19.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.19.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.19.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.19.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.20.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.20.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.20.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.20.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.20.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.20.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.20.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.20.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.20.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.21.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.21.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.21.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.21.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.21.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.21.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.21.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.21.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.21.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.22.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.22.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.22.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.22.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.22.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.22.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.22.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.22.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.22.ffn_down.weight"
+      },
+      {
+        "module": "model.layers.23.mlp.gate_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.23.mlp.gate_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.23.ffn_gate.weight"
+      },
+      {
+        "module": "model.layers.23.mlp.up_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.23.mlp.up_proj",
+        "shape": [
+          12288,
+          4096
+        ],
+        "native_base_tensor": "blk.23.ffn_up.weight"
+      },
+      {
+        "module": "model.layers.23.mlp.down_proj",
+        "portable_stem": "base_model.model.model.language_model.layers.23.mlp.down_proj",
+        "shape": [
+          4096,
+          12288
+        ],
+        "native_base_tensor": "blk.23.ffn_down.weight"
+      }
+    ],
+    "new_prefix_tensors": 144,
+    "source_tail_tensors": 48,
+    "total_FFN_tensors": 192,
+    "new_prefix_parameters": 9437184,
+    "source_tail_parameters": 3145728,
+    "total_FFN_parameters": 12582912,
+    "zero_residual_initialization": true,
+    "initialization_seed": 5087,
+    "initialization_SHA256": "1da6ee11b6a3cbd91b70060dbacebb75a389f6884a22eddf3cddea53b0fcb166",
+    "all72_new_linear_shapes_match_exact_native_base_GGUF": true,
+    "base_GGUF": "/srv/ollama/models/blobs/sha256-852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+    "helper_SHA256": "53c3d8db0ab42440e9a96359db044fdb5d185de5614afa397a65111ca9e4767c",
+    "control_A_adapter_SHA256": "56f2fa151165f8a14af54849a594afa1cc74439d2df490729620a213bf834f0d",
+    "control_retrained": false,
+    "projection_frozen_at_original_rich850": true,
+    "primary_encoder_TTS_frozen": true,
+    "new_inference_compatibility_claim": false,
+    "current48tensor_runtime_validator_rejects_full192": true,
+    "planned_lease_MiB": 28672,
+    "planned_Torch_cap_MiB": 27648,
+    "expected_write_GiB": 0.5,
+    "release_qualified": false,
+    "publication": false
+  },
+  "zero_update_CUDA_preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "initial_audio_loss_bit_exact": true,
+    "initial_audio_logits_bit_exact": true,
+    "checks": [
+      {
+        "FFN_gradient_squared_norm": 16.932170243468136,
+        "new_prefix_gradient_squared_norm": 0,
+        "arm": "A",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.07800020277500153,
+        "peak_reserved_MiB": 20940.0,
+        "peak_allocated_MiB": 20357.62890625
+      },
+      {
+        "FFN_gradient_squared_norm": 1.0541128992917947,
+        "new_prefix_gradient_squared_norm": 0,
+        "arm": "A",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.0906297117471695,
+        "peak_reserved_MiB": 21102.0,
+        "peak_allocated_MiB": 20471.439453125
+      },
+      {
+        "FFN_gradient_squared_norm": 9.074826317140833,
+        "new_prefix_gradient_squared_norm": 0,
+        "arm": "A",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.23225322365760803,
+        "peak_reserved_MiB": 20080.0,
+        "peak_allocated_MiB": 19638.0341796875
+      },
+      {
+        "FFN_gradient_squared_norm": 17.287626940757036,
+        "new_prefix_gradient_squared_norm": 0,
+        "arm": "A",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.3050190210342407,
+        "peak_reserved_MiB": 19880.0,
+        "peak_allocated_MiB": 19478.65625
+      },
+      {
+        "FFN_gradient_squared_norm": 16.932275198865682,
+        "new_prefix_gradient_squared_norm": 4.041071654763073,
+        "arm": "D",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.07800020277500153,
+        "peak_reserved_MiB": 21074.0,
+        "peak_allocated_MiB": 20465.62890625
+      },
+      {
+        "FFN_gradient_squared_norm": 1.0540790010418277,
+        "new_prefix_gradient_squared_norm": 0.11091195048356894,
+        "arm": "D",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.0906297117471695,
+        "peak_reserved_MiB": 21222.0,
+        "peak_allocated_MiB": 20579.439453125
+      },
+      {
+        "FFN_gradient_squared_norm": 9.074786328943446,
+        "new_prefix_gradient_squared_norm": 2.152830829960294,
+        "arm": "D",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.23225322365760803,
+        "peak_reserved_MiB": 20190.0,
+        "peak_allocated_MiB": 19746.0341796875
+      },
+      {
+        "FFN_gradient_squared_norm": 17.289242209866643,
+        "new_prefix_gradient_squared_norm": 3.397342416457832,
+        "arm": "D",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.3050190210342407,
+        "peak_reserved_MiB": 19988.0,
+        "peak_allocated_MiB": 19586.65625
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21222.0,
+    "source_script_sha256": "3fff561c2589084390a66a910c8e9446d975bd3d273bd7a99e645e4c1bfa4b2c",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "one_language_trunk": true,
+    "new_audio_features_or_weights_bytes": 0,
+    "source_weights_unchanged": true,
+    "GPU_residency_verified": true,
+    "lease_MiB": 28672,
+    "Torch_cap_MiB": 27648,
+    "release_qualified": false
+  },
+  "new_training_initial_equivalence": {
+    "initial_audio_loss_bit_exact": true,
+    "initial_audio_logits_bit_exact": true,
+    "loss": 0.40456074476242065,
+    "disabled_logits_max_abs_delta": 0,
+    "all48_source_adapter_tensors_exact": true,
+    "source_order_cursor_exact": true
+  },
+  "training_PID": 1248484,
+  "training_exec_session": 42414,
+  "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+  "training_owner": "qwen-omni-upgrade/ornith-full-ffn-training",
+  "training_script_SHA256": "3fff561c2589084390a66a910c8e9446d975bd3d273bd7a99e645e4c1bfa4b2c",
+  "training_status": "running_fixed500_updates",
+  "observer_PID": 1257046,
+  "observer_exec_session": 74526,
+  "source_evaluator_SHA256": "10f26b0f7cefd9324aad1585df34796647b36ec9adf2ba631f2ce9a9b2f59409",
+  "observer_SHA256": "0b34d2356d3eaa5d54915dd0e2e8cb984cfcb590d3d070f18e5e4e9182f7f9c7",
+  "source_preparation": {
+    "complete_preparation": true,
+    "rows_per_arm": 58,
+    "all_input_hashes_match_native15696": true,
+    "same_frozen4096wide_bridge_in_both_arms": true,
+    "source_labels_or_references_in_prompt": false,
+    "CUDA_started": false,
+    "new_optimizer_steps": 0
+  },
+  "same_original2000data_and_saved_control": true,
+  "held_out_gradient_steps": 0,
+  "existing_runtime_48tensor_validator_does_not_accept192": true,
+  "native192_layout_qualified": false,
+  "new_audio_or_feature_cache": false,
+  "neural_downloads": 0,
+  "quality_gate_passed": false,
+  "release_qualified": false,
+  "publication": false
+}

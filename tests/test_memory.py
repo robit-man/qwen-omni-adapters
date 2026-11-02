@@ -14,7 +14,7 @@ import math
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -304,7 +304,8 @@ def test_a_memory_says_when_it_happened_the_way_a_person_would(tmp_path: Path) -
             id=1,
             text="the dog is called Biscuit",
             kind="exchange",
-            created_at=now - days_ago * 86400,
+            # Calendar days can span 23 or 25 hours across a DST change.
+            created_at=(datetime.fromtimestamp(now) - timedelta(days=days_ago)).timestamp(),
             last_used_at=now,
             uses=0,
             strength=0.5,
@@ -316,7 +317,7 @@ def test_a_memory_says_when_it_happened_the_way_a_person_would(tmp_path: Path) -
     # Far enough back that a weekday name would be useless.
     assert "days ago" not in at(40).when()
     # Older than this year carries the year.
-    assert str(datetime.fromtimestamp(now - 500 * 86400).year) in at(500).when()
+    assert str(datetime.fromtimestamp(at(500).created_at).year) in at(500).when()
 
 
 def test_the_stamp_travels_with_the_text(tmp_path: Path) -> None:

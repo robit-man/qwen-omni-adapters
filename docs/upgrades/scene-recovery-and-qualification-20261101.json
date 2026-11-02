@@ -1,0 +1,139 @@
+{
+  "schema": "robit.omni.scene-recovery-and-qualification-chain-review.v1",
+  "completed_recovery_audits": [
+    {
+      "schema": "robit.omni.ornith-scene-recovery-audit.v1",
+      "complete": true,
+      "CPU_only": true,
+      "actual_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-scene-captions-pass-2/checkpoint-014162",
+      "coverage_reproduced_exact": {
+        "step": 14162,
+        "position": 8000,
+        "unique_training_records": 22281,
+        "unique_virtual_scenes": 1034,
+        "scene_families": {
+          "scene-v1-voice-overlap": 144,
+          "scene-v1-signal-overlap": 137,
+          "scene-v1-signal-sequence": 295,
+          "scene-v1-event-overlap": 146,
+          "scene-v1-event-sequence": 300,
+          "scene-v1-speech-background": 12
+        }
+      },
+      "all48_F32_parameters_finite_and_shapes_exact": true,
+      "parameters": 3145728,
+      "all48_AdamW_steps_and_moment_shapes_exact": true,
+      "all_moments_finite_and_variance_nonnegative": true,
+      "source_saved_order_and_Python_RNG_unchanged": true,
+      "Torch_RNG_unchanged": true,
+      "CUDA_RNG_unchanged": true,
+      "checkpoint_reported_frozen_components_and_disabled_logit_delta_verified": true,
+      "scope": "Read-only file/metadata/optimizer/replay audit. Does not independently prove live semantic parity or all source weight values.",
+      "resource_minima": {
+        "minimum_RAM_available_GiB": 318.0730514526367,
+        "minimum_srv_free_GiB": 71.10417938232422,
+        "minimum_checkout_free_GiB": 196.57636260986328
+      },
+      "peak_Torch_reserved_MiB": 21224.0,
+      "evidence_sha256": {
+        "adapter_model.safetensors": "a652b9cbf31bd073293476383e789a40fdc9270530349f97a82027f5dc29acbd",
+        "adapter_config.json": "3819c12c97860b66dab5e3b49bb4abf24104911d48328d3e94932665d5c78e2c",
+        "recovery-state.pt": "8b2442b510055316354e65eb579f90b70e48f211c2fd862399093bb6238cf844",
+        "checkpoint.json": "8fbcf763503dc5cbe8116ad88f4acfdf0f800bab1db96e93837c375c5c9b20e8"
+      },
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "source_recovery_sha256": "919e9b936eb78b692d0968dcc87f67e4900d2065bb6740cb1a7fe3b1965f64d9",
+      "source_script_sha256": "62553c50514d51f67638b4b9ef943bdec31d952ab5cefaaf71f67cffeb28e37e",
+      "optimizer_steps": 0,
+      "CUDA_started": false,
+      "new_weights_audio_or_feature_cache_bytes": 0,
+      "release_qualified": false
+    },
+    {
+      "schema": "robit.omni.ornith-scene-recovery-audit.v1",
+      "complete": true,
+      "CPU_only": true,
+      "actual_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-scene-captions-pass-2/checkpoint-015162",
+      "coverage_reproduced_exact": {
+        "step": 15162,
+        "position": 12000,
+        "unique_training_records": 24467,
+        "unique_virtual_scenes": 1530,
+        "scene_families": {
+          "scene-v1-event-sequence": 434,
+          "scene-v1-event-overlap": 207,
+          "scene-v1-signal-sequence": 428,
+          "scene-v1-signal-overlap": 222,
+          "scene-v1-voice-overlap": 222,
+          "scene-v1-speech-background": 17
+        }
+      },
+      "all48_F32_parameters_finite_and_shapes_exact": true,
+      "parameters": 3145728,
+      "all48_AdamW_steps_and_moment_shapes_exact": true,
+      "all_moments_finite_and_variance_nonnegative": true,
+      "source_saved_order_and_Python_RNG_unchanged": true,
+      "Torch_RNG_unchanged": true,
+      "CUDA_RNG_unchanged": true,
+      "checkpoint_reported_frozen_components_and_disabled_logit_delta_verified": true,
+      "scope": "Read-only file/metadata/optimizer/replay audit. Does not independently prove live semantic parity or all source weight values.",
+      "resource_minima": {
+        "minimum_RAM_available_GiB": 313.5571594238281,
+        "minimum_srv_free_GiB": 70.83651351928711,
+        "minimum_checkout_free_GiB": 195.79819107055664
+      },
+      "peak_Torch_reserved_MiB": 21254.0,
+      "evidence_sha256": {
+        "adapter_model.safetensors": "ce01be1ddc19fe100648d7b0de0f9d429a41fea0d23dd60504cbf29bda5c1819",
+        "adapter_config.json": "3819c12c97860b66dab5e3b49bb4abf24104911d48328d3e94932665d5c78e2c",
+        "recovery-state.pt": "fc1a25068ff2725a5e7b6e78b6e70ac0a1f622d3a2eeef3b49cc6f524de75707",
+        "checkpoint.json": "398cb30db02c3cdea0ada57e5094467466d00cf4dac53974888b98ca4c7a2b50"
+      },
+      "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+      "source_recovery_sha256": "919e9b936eb78b692d0968dcc87f67e4900d2065bb6740cb1a7fe3b1965f64d9",
+      "source_script_sha256": "62553c50514d51f67638b4b9ef943bdec31d952ab5cefaaf71f67cffeb28e37e",
+      "optimizer_steps": 0,
+      "CUDA_started": false,
+      "new_weights_audio_or_feature_cache_bytes": 0,
+      "release_qualified": false
+    }
+  ],
+  "evidence_sha256": {
+    "ornith-scene-recovery-audits-1/step14162.json": "40251020cee6c511ae1f0016c19c27136c0eb04d746cb37adf912be5514e2b15",
+    "ornith-scene-recovery-audits-1/step15162.json": "d58a040221b8cf137fc259e8ecd6aa41ba056d0edf9b2a761181df4a8aeff74b"
+  },
+  "full_native_qualification_chain": {
+    "status": "Actual finite observer PID confirmed live, waiting for completed15696native13 and CUDA worker exit; no new GPU worker started.",
+    "plans": [
+      {
+        "suite": "temporal16",
+        "script": "runtime-data/evaluate_conditional_temporal_overlap.py",
+        "rows": 16,
+        "manifest": "temporal-overlap-validation-20261101/manifest.jsonl",
+        "manifest_sha256": "5521a65eb4a70b2947524a48bfff4aa158b7ce6e3bb57570d7835bc9fce2a5fb",
+        "output": "ornith15696-temporal-validation-1",
+        "evaluator_source_sha256": "65485c32bca19d0b3d9b975967270051ca1670e172a663a047717d53f00bf5da"
+      },
+      {
+        "suite": "replay160",
+        "script": "runtime-data/evaluate_conditional_full_validation.py",
+        "rows": 160,
+        "manifest": "replay-validation.jsonl",
+        "manifest_sha256": "09f34f1dc34abf8a8054c954bcc45427b1c06befa43029588190a201b7c0cadc",
+        "output": "ornith15696-full-replay-validation-1",
+        "evaluator_source_sha256": "ab74eb3df0139fbe82929afa5cb8cbf97d30ecf300d07d2090f5461a026b2650"
+      }
+    ],
+    "source_sha256": "b35cb4a9d76930e600a9d6509d8ef5455657e5aaec252f24720b50bdc0fbe2c1",
+    "GPU": "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a",
+    "lease_MiB": 16384,
+    "forecast_write_GiB": 0.02,
+    "normal_owner_release_fresh_discover_guard_each_suite": true,
+    "no_automatic_semantic_grade_or_publication": true
+  },
+  "production_source_unchanged": true,
+  "no_new_weights_audio_or_feature_cache_bytes": 0,
+  "checkpoint_quality_qualified": false,
+  "publication": false,
+  "completed_whole_objective": false
+}

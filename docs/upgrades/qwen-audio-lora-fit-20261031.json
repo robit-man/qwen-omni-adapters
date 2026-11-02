@@ -1,0 +1,280 @@
+{
+  "schema": "robit.omni.audio-lora-training-fit-canary.v1",
+  "complete": true,
+  "policy": {
+    "schema": "robit.omni.audio-lora-training-fit-canary-policy.v1",
+    "failure": "Projection-only training does not recover known seen-event semantics; independent temporal heads fail their fixed gates.",
+    "hypothesis": "A small conditional delta in the existing primary trunk can learn to interpret the frozen audio representation.",
+    "scope": "fit precondition only, no generalization or release claim",
+    "base_source": "/srv/fine_tuning_suite/training_suite/outputs/sessions/qwen38-27b-obliterated-e03-20260829/source",
+    "frozen_bridge_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-train-rich1/checkpoint-000750",
+    "train_ids": [
+      "fsd50k-377642",
+      "fsd50k-155309",
+      "fsd50k-324275",
+      "fsd50k-259143",
+      "fsd50k-345053",
+      "fsd50k-239137",
+      "fsd50k-165898",
+      "fsd50k-416692",
+      "fsd50k-117562",
+      "fsd50k-325262",
+      "fsd50k-164039",
+      "fsd50k-369112",
+      "fsd50k-67669",
+      "fsd50k-324464",
+      "fsd50k-392498",
+      "fsd50k-324637",
+      "fsd50k-365657",
+      "fsd50k-130105",
+      "fsd50k-130418",
+      "fsd50k-333711",
+      "fsd50k-264047",
+      "fsd50k-422333",
+      "fsd50k-216755",
+      "fsd50k-131171",
+      "fsd50k-350221",
+      "fsd50k-277516",
+      "fsd50k-396536",
+      "fsd50k-269744",
+      "fsd50k-233465",
+      "fsd50k-79386",
+      "fsd50k-184723",
+      "fsd50k-59318",
+      "fsd50k-364116",
+      "fsd50k-90504",
+      "fsd50k-381828",
+      "fsd50k-433960",
+      "fsd50k-389609",
+      "fsd50k-340984",
+      "fsd50k-253871",
+      "fsd50k-320469",
+      "fsd50k-386360",
+      "fsd50k-386279",
+      "fsd50k-330136",
+      "fsd50k-143125",
+      "fsd50k-276317",
+      "fsd50k-89496",
+      "fsd50k-11807",
+      "fsd50k-143902",
+      "fsd50k-209679",
+      "fsd50k-91150",
+      "fsd50k-202778",
+      "fsd50k-156554",
+      "fsd50k-239465",
+      "fsd50k-64008",
+      "fsd50k-104003",
+      "fsd50k-429120",
+      "fsd50k-365007",
+      "fsd50k-365619",
+      "fsd50k-31417",
+      "fsd50k-154698",
+      "fsd50k-431212",
+      "fsd50k-393769",
+      "fsd50k-398814",
+      "fsd50k-363586"
+    ],
+    "speech_control_ids": [
+      "libri100-83-11691-0009",
+      "libri100-5808-48608-0055",
+      "libri100-5339-14133-0055",
+      "libri100-730-358-0064",
+      "libri100-2182-181173-0037",
+      "libri100-2518-154826-0035",
+      "libri100-298-126791-0030",
+      "libri100-7113-86041-0110",
+      "tts-recovery-00026-r2",
+      "tts-recovery-00135-r1",
+      "tts-recovery-00362-r1",
+      "tts-recovery-00175-r0",
+      "tts-recovery-00002-r0",
+      "tts-recovery-00022-r1",
+      "tts-recovery-00415-r0",
+      "tts-recovery-00085-r1"
+    ],
+    "selection": "same prior64 seen training records;8 natural and8 TTS training controls selected by fixed ID hash; controls not optimized",
+    "test_or_validation_rows": 0,
+    "manifest_sha256": "f391b0c7dc903a78c7c3a2eef8eb9b261c1e5a521a929b361dc6a14aa1474b68",
+    "adapter": {
+      "rank": 8,
+      "alpha": 8,
+      "layers": [
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ],
+      "modules": [
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ],
+      "parameters": 4325376
+    },
+    "training": {
+      "steps": 128,
+      "serial_accumulation": 4,
+      "seed": 47,
+      "lr": 0.0001,
+      "optimizer": "AdamW",
+      "weight_decay": 0.01,
+      "clip_norm": 1.0,
+      "event_token_weight": 4.0,
+      "unknown_transcripts": "masked by unchanged audited partial collator"
+    },
+    "gates": {
+      "event_CE_ratio_max": 0.75,
+      "remaining_CE_ratio_max": 1.05,
+      "untrained_control_speech_CE_ratio_max": 1.1,
+      "base_versions_unchanged": true,
+      "only_lora_trainable": true,
+      "finite_nonzero_gradients": true,
+      "disabled_logits_max_absolute_delta": 0.0
+    },
+    "native_compatibility": "passed zero/nonzero/off-on-off before training",
+    "runtime_integration": false,
+    "publication": false,
+    "release_qualified": false
+  },
+  "before": {
+    "event": 5.1951013037612315,
+    "remaining": 1.6434857960839628,
+    "control_speech": 0.2748140229483582
+  },
+  "after": {
+    "event": 0.34910221666607527,
+    "remaining": 0.3292846679533647,
+    "control_speech": 0.2762000112290887
+  },
+  "checks": {
+    "event_CE": true,
+    "remaining_CE": true,
+    "speech_control_CE": true,
+    "base_unchanged": true,
+    "disabled_logits": true,
+    "finite_nonzero_gradients": true
+  },
+  "fit_precondition_passed": true,
+  "initial_zero_logit_delta": 0.0,
+  "disabled_final_logit_delta": 0.0,
+  "base_weights_and_versions_unchanged": true,
+  "adapter_sha256": "5d1141682c1cf08a5b594f307b74f42d274b10de21120e77747481ed416421b2",
+  "source_script_sha256": "a7b49b4e630f4f0138cf2826bda5feede84bc379fa4c29f7b597ed1d68fd91b7",
+  "elapsed_s": 250.6590585440863,
+  "peak_reserved_mib": 56538.0,
+  "held_out_test_used": false,
+  "release_qualified": false,
+  "runtime_integrated": false,
+  "source_report_sha256": "32437efc236db3d3fdd350ac70db5e81daf5b34b956de28430521e2e17f95ee8",
+  "native_media": {
+    "schema": "robit.omni.conditional-audio-lora-native-diagnostic.v1",
+    "complete": true,
+    "quality_gate_passed": false,
+    "release_qualified": false,
+    "context_tokens": 16384,
+    "kv": "f16",
+    "input_manifest_sha256": "598bd863b4b67997324bed0a68647fd0ec17f3d928dacd02148c892146bfb91d",
+    "adapter_sha256": "c7397da942d9a45507aec3bfb18eb61f913b97810539eeb5c9d74fa75e97a351",
+    "base_sha256": "91804f5668d8e5deef47cced0e4ecff9d30da6e965418307d92f3a2822be4248",
+    "projector_sha256": "2d9609efef6af1112bc03bf34646cf271deaae9317f17891ec6342380778c3e1",
+    "source_script_sha256": "261aa44eb58fb7c132f6a4f490b506901601c89d8fa952c2d4518debeba4707d",
+    "inference_prompt_changed": false,
+    "labels_or_titles_in_request": false,
+    "elapsed_s": 17.141408031922765,
+    "primary_gpu_resident": true,
+    "source_report_sha256": "bd59ff2e33b9d90c740cf87bbeb7accddb0de3a6983e08f2a1200cdc35a6b637",
+    "observations": [
+      {
+        "id": "probe-speech",
+        "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+        "audio_observation": "Audible speech with brief pauses and no prominent background sound events.",
+        "transcript": "The blue bicycle is parked beside the garden gate."
+      },
+      {
+        "id": "probe-silence",
+        "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+        "audio_observation": "Audible silence; no speech or non-speech events.",
+        "transcript": null
+      },
+      {
+        "id": "probe-alarm",
+        "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+        "audio_observation": "Audible alarm events.",
+        "transcript": null
+      },
+      {
+        "id": "probe-noise",
+        "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+        "audio_observation": "Audible sound events.",
+        "transcript": null
+      },
+      {
+        "id": "probe-music",
+        "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+        "audio_observation": "Audible sound events: Steady, high-pitched electronic tone.",
+        "transcript": null
+      },
+      {
+        "id": "probe-esc50-clock_alarm",
+        "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+        "audio_observation": "Audible sound events.",
+        "transcript": null
+      },
+      {
+        "id": "probe-esc50-dog",
+        "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+        "audio_observation": "Audible sound events: Bark.",
+        "transcript": null
+      },
+      {
+        "id": "probe-esc50-church_bells",
+        "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+        "audio_observation": "Audible sound events.",
+        "transcript": null
+      },
+      {
+        "id": "fsd50k-156200",
+        "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+        "audio_observation": "Audible sound events: Livestock, working animals.",
+        "transcript": null
+      },
+      {
+        "id": "fsd50k-180765",
+        "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+        "audio_observation": "Audible sound events: Clapping.",
+        "transcript": null
+      },
+      {
+        "id": "fsd50k-182894",
+        "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+        "audio_observation": "Audible sound events: Livestock (farm animals).",
+        "transcript": null
+      },
+      {
+        "id": "fsd50k-166192",
+        "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+        "audio_observation": "Audible sound events: Gunshot.",
+        "transcript": null
+      },
+      {
+        "id": "fsd50k-203720",
+        "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+        "audio_observation": "Audible sound events: Car passing by, Truck passing by.",
+        "transcript": null
+      }
+    ],
+    "passed": false,
+    "failed_families": [
+      "clock alarm",
+      "bells",
+      "crowd",
+      "printer",
+      "siren"
+    ],
+    "initial_attempt": "No updates: native helper used absent blob path; retry uses existing build artifact with exactSHA verification."
+  }
+}

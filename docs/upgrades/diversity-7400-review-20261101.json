@@ -1,0 +1,130 @@
+{
+  "schema": "robit.omni.data-diversity-checkpoint-review.v1",
+  "family": "ornith",
+  "global_step": 7400,
+  "status": "rejected; finite trial continues to its predeclared8400/10662 checks",
+  "release_qualified": false,
+  "method": "Same13 validation recordings and unchanged native prompts; manual semantic assessment; no new held-out test consumption. Native silence error retained separately from the verified exact-zero adapter DSP path.",
+  "native_report_sha256": "12a8def06f7a3944b2293869837b30fcef831d4364df39681eb0a8aec3e79b50",
+  "conversion_integrity": {
+    "complete": true,
+    "family": "ornith",
+    "tensors": 48,
+    "all_exported_values_exact": true,
+    "adapter_sha256": "f1701840ba3c57cbac3b9d3a686d9e13f121d2e71249afc5cce720357addfb78",
+    "release_qualified": false
+  },
+  "checkpoint_integrity": {
+    "step": 7400,
+    "elapsed_s": 3242.2390401109587,
+    "unique_training_records": 13254,
+    "adapter_sha256": "2efe3e80ed73c68e6eb3bdaf71b07aa360f689021822570af5a77baf59aa56fb",
+    "disabled_logits_max_abs_delta": 0.0,
+    "base_encoder_bridge_unchanged": true,
+    "peak_reserved_mib": 30446.0,
+    "resource_minima": {
+      "minimum_RAM_available_GiB": 324.0006103515625,
+      "minimum_srv_free_GiB": 88.77205657958984,
+      "minimum_checkout_free_GiB": 228.1783218383789
+    },
+    "release_qualified": false
+  },
+  "rows": [
+    {
+      "id": "probe-speech",
+      "audio_sha256": "81a9fad83602a24b96d64f792c5d44dc74d3cb05ac571a31577bd3b13f9c0bf5",
+      "required_behavior": "Exact sentence: The blue bicycle is parked beside the garden gate.",
+      "accepted": true,
+      "content": "<speech_transcript>The blue bicycle is parked beside the garden gate.</speech_transcript><audio_observation>One speaker with no notable background sound.</audio_observation>"
+    },
+    {
+      "id": "probe-silence",
+      "audio_sha256": "74f8b2f8243ae5bffea8da082c3e7c6e9210ac3a459e29676b5324f7a42f23a7",
+      "required_behavior": "No speech or invented acoustic event.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: a single brief electronic beep.</audio_observation>"
+    },
+    {
+      "id": "probe-alarm",
+      "audio_sha256": "b2ffe28ee3761c830e20de46a251ae52118d0452960dc4f542c82bdf32eb3b75",
+      "required_behavior": "Intermittent electronic alarm.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Tone; Electronic tone.</audio_observation>"
+    },
+    {
+      "id": "probe-noise",
+      "audio_sha256": "446ff5be5d29d4186fcb5e9cb2aa06c0f24f8226948266527f9137c9e92e5c1a",
+      "required_behavior": "Steady noise/hum, no invented animal or speech.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Raindrop; Drip.</audio_observation>"
+    },
+    {
+      "id": "probe-music",
+      "audio_sha256": "ef8338656bc96d840ce46e8ecde73366935fcb349d7a5de16605af2e662999b9",
+      "required_behavior": "Describe the audible electronic tones without inventing an instrument.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bass guitar.</audio_observation>"
+    },
+    {
+      "id": "probe-esc50-clock_alarm",
+      "audio_sha256": "58f8e77ab12cb477d303f56c7632cf6900f18f441340dfa3309d0d9cb9233c24",
+      "required_behavior": "Clock alarm.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Mechanical fan.</audio_observation>"
+    },
+    {
+      "id": "probe-esc50-dog",
+      "audio_sha256": "17b03cc16e78816cd269f7131e0aac59e89f7bc0eb1f82e1c1a523b881863e65",
+      "required_behavior": "Dog barking.",
+      "accepted": true,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Bark.</audio_observation>"
+    },
+    {
+      "id": "probe-esc50-church_bells",
+      "audio_sha256": "d147e582a83c03963645f3c7b9cb673404b15156eb6dc7cdfe7220798d403936",
+      "required_behavior": "Church bells/chimes.",
+      "accepted": true,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Church bell.</audio_observation>"
+    },
+    {
+      "id": "fsd50k-156200",
+      "audio_sha256": "f033c3d19918f5844643da174f8c7536fe62324c81b1197954286c722d7c6202",
+      "required_behavior": "Human group voices.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Crow.</audio_observation>"
+    },
+    {
+      "id": "fsd50k-180765",
+      "audio_sha256": "f3842581e5946a05bb836cfc0b11a8a3c2d31ae497716c46fa97133aeac75e57",
+      "required_behavior": "Clapping.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation>"
+    },
+    {
+      "id": "fsd50k-182894",
+      "audio_sha256": "10dbe6462b49f31a36bdb7e2fc49401e43f39c8daf5aafe997577b3a2ed9f8e1",
+      "required_behavior": "Printer.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Engine; Mechanisms.</audio_observation>"
+    },
+    {
+      "id": "fsd50k-166192",
+      "audio_sha256": "4cb45a67b4a5dcefaf73c72e1b62b48915b842c51391ab202c437aaef17a922b",
+      "required_behavior": "Gunfire.",
+      "accepted": false,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Explosion.</audio_observation>"
+    },
+    {
+      "id": "fsd50k-203720",
+      "audio_sha256": "5e2f6210158bd8897b402f683eae36b3145d0fa63e73db6688865cba7423c83f",
+      "required_behavior": "Passing siren, not only its vehicle.",
+      "accepted": true,
+      "content": "<speech_transcript></speech_transcript><audio_observation>Audible sound events: Motor vehicle (road); Siren.</audio_observation>"
+    }
+  ],
+  "comparison": "Siren recovered and Bell became Church bell; speech and Bark retained. Group voices, clapping, printer, gunfire, clock alarm and negative controls still fail. Four of13 diagnostic behaviors accepted; this is not a release-quality score.",
+  "runtime_activation": false,
+  "public_model_publication": false,
+  "further_Orin_outage": false,
+  "fixed_trial_extended": false
+}

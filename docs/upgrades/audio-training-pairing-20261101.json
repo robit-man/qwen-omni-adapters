@@ -1,0 +1,23 @@
+{
+  "schema": "robit.omni.audio-training-pairing-audit.v1",
+  "complete": true,
+  "manifest_sha256": "f391b0c7dc903a78c7c3a2eef8eb9b261c1e5a521a929b361dc6a14aa1474b68",
+  "train_rows": 12458,
+  "counts": {
+    "TRAIN_waveform_format_complete": 12458,
+    "stored_waveform_hash_verified": 9137,
+    "ancestor_pruning_applied": 5493,
+    "FSD_exact_source_ID_leaf_MIDs_label_names_CC0_verified": 7137
+  },
+  "training_only_raw_audio_read": true,
+  "inference_or_new_optimizer_steps": 0,
+  "data_or_weights_changed": false,
+  "feature_cache_used_by_current_training": false,
+  "training_path": "Collator reads the selected record audio_path with soundfile and extracts fresh features serially; no feature-cache index is involved.",
+  "FSD_label_policy": "Compare exact AudioSet names and leaf MID set; original ancestor labels are deliberately removed by the existing builder, not swapped classes.",
+  "full_private_hash_ledger_sha256": "c469c8dcad0d726f49209045cb89b96c776b4c13d2dccaf8ad452194a0671cf7",
+  "full_private_hash_ledger_bytes": 3073646,
+  "elapsed_s": 6.765234841965139,
+  "conclusion": "No normalized-waveform corruption, source-ID swap or FSD MID-set mismatch found. Weak-label and pseudo-caption perceptual accuracy is not established by this audit.",
+  "release_qualified": false
+}

@@ -1,0 +1,41 @@
+{
+  "schema": "robit.omni.audio-lora-native-compatibility.v1",
+  "trained": false,
+  "release_qualified": false,
+  "complete": true,
+  "gpu_uuid": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+  "source_script_sha256": "06ab5d151415dfbe45ac613bcbec2feb227ca3ae086d95e4affe14fc7e2bc0ec",
+  "model_sha256": "852922174ee4f76621df26105333f1dfe2171cdfb60ebe5a4b013836681a8a77",
+  "gates": [
+    {
+      "vanilla_off_delta": 0.0,
+      "vanilla_zero_delta": 0.0,
+      "off_return_delta": 0.0,
+      "first_token_nonzero_delta": 0.06106758117675781,
+      "off_tokens_equal": true,
+      "passed": true
+    },
+    {
+      "vanilla_off_delta": 0.0,
+      "vanilla_zero_delta": 0.0,
+      "off_return_delta": 0.0,
+      "first_token_nonzero_delta": 0.058144330978393555,
+      "off_tokens_equal": true,
+      "passed": true
+    }
+  ],
+  "gpu_residency_verified": true,
+  "compatibility_passed": true,
+  "comparison_note": "Nonzero deltas recomputed on shared token IDs, excluding rank-changed top10 IDs; no additional model inference.",
+  "source_report_sha256": "f11284e4e07626e5d2a229899b45f96d5dc41e6b6bb913d59a92a2c16c50252c",
+  "loaded_adapter_count": 2,
+  "fixtures": "zero and deterministic nonzero FFN deltas, untrained, never release artifacts",
+  "initial_attempt": "HTTP bind refused on preexisting SSH listener, before CUDA; retry uses OS-selected loopback port",
+  "base_TTS_or_runtime_source_changed": false,
+  "context_tokens": 4096,
+  "prompts": 2,
+  "generated_tokens_per_request": 16,
+  "cache_prompt": true,
+  "probability_scope": "top10 logprob entries at each generated token; ordinary text compatibility only",
+  "native_media_or_model_quality_qualified": false
+}

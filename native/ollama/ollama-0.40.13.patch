@@ -1,0 +1,142 @@
+--- a/llm/server.go
++++ b/llm/server.go
+@@ -79,0 +80 @@
++	Omni                 *OmniConfig
+@@ -106,0 +108,8 @@
++	if config.Omni != nil {
++		if len(gpus) != 1 || opts.NumGPU == 0 {
++			return nil, errors.New("native Omni requires one admitted accelerator and full GPU offload")
++		}
++		if PredictServerVRAM(modelPath, f, opts.NumCtx)+OmniAuxiliaryReserve > gpus[0].FreeMemory {
++			return nil, errors.New("insufficient admitted headroom for native Omni primary plus speech")
++		}
++	}
+--- a/llm/speech.go
++++ b/llm/speech.go
+@@ -11,2 +11,3 @@
+-	Input string `json:"input"`
+-	Voice string `json:"voice,omitempty"`
++	Input string             `json:"input"`
++	Omni  *OmniSpeechOptions `json:"omni,omitempty"`
++	Voice string             `json:"voice,omitempty"`
+--- a/llm/llama_server_speech.go
++++ b/llm/llama_server_speech.go
+@@ -27,0 +28,6 @@
++	if s.launch.config.Omni != nil {
++		return s.omniSpeech(ctx, req, fn)
++	}
++	if req.Omni != nil {
++		return errors.New("omni speech options require an Omni bundle")
++	}
+--- a/llm/llama_server.go
++++ b/llm/llama_server.go
+@@ -376,0 +377,4 @@
++	if launch.config.Omni != nil {
++		exe = launch.config.Omni.Engine.Path
++		err = nil
++	}
+@@ -419,0 +424,9 @@
++	if launch.config.Omni != nil {
++		if len(launch.adapters) > 0 {
++			return nil, 0, errors.New("native Omni requires exclusive ownership of its conditional adapter slot")
++		}
++		params = append(params, "--gpu-layers", "999")
++		if a := launch.config.Omni.AudioAdapter; a != nil {
++			params = append(params, "--lora-scaled", a.Path+":0")
++		}
++	}
+@@ -1450,0 +1464 @@
++	Lora            []omniLora      `json:"lora,omitempty"`
+@@ -1717,0 +1732,4 @@
++	if s.launch.config.Omni != nil {
++		lsReq.CachePrompt = false
++		lsReq.Lora = s.omniLoras(false)
++	}
+@@ -2309 +2327,2 @@
+-		"cache_prompt":      true,
++		"cache_prompt":      s.launch.config.Omni == nil,
++		"lora":              s.omniLoras(false),
+--- a/server/images.go
++++ b/server/images.go
+@@ -26,0 +27 @@
++	"github.com/ollama/ollama/llm"
+@@ -66,0 +68 @@
++	Omni               *llm.OmniConfig
+@@ -203,0 +206,4 @@
++	if m.Omni != nil {
++		capabilities = appendCapability(capabilities, model.CapabilitySpeech)
++		capabilities = appendCapability(capabilities, model.CapabilityAudio)
++	}
+@@ -898,0 +905,5 @@
++	omniCfg, err := llm.LoadOmniConfig(m.ManifestDigest, m.ModelPath, m.ProjectorPaths)
++	if err != nil {
++		return nil, err
++	}
++	m.Omni = omniCfg
+--- a/server/routes.go
++++ b/server/routes.go
+@@ -2944,0 +2945 @@
++		Omni:                 m.Omni,
+--- a/server/speech.go
++++ b/server/speech.go
+@@ -30,7 +30,9 @@
+-		Model          string   `json:"model"`
+-		Input          string   `json:"input"`
+-		Voice          string   `json:"voice"`
+-		ResponseFormat string   `json:"response_format"`
+-		Speed          *float64 `json:"speed"`
+-		Instructions   string   `json:"instructions"`
+-		StreamFormat   string   `json:"stream_format"`
++		Model          string                 `json:"model"`
++		Omni           *llm.OmniSpeechOptions `json:"omni,omitempty"`
++		Input          string                 `json:"input"`
++		Voice          string                 `json:"voice"`
++		ResponseFormat string                 `json:"response_format"`
++		Speed          *float64               `json:"speed"`
++		Instructions   string                 `json:"instructions"`
++		StreamFormat   string                 `json:"stream_format"`
++		Stream         *bool                  `json:"stream,omitempty"`
+@@ -38 +40 @@
+-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
++	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<20)
+@@ -67,0 +70,5 @@
++	if err := llm.ValidateOmniSpeechOptions(req.Omni); err != nil {
++		openAIError(c, http.StatusBadRequest, err.Error())
++		return
++	}
++
+@@ -81 +88 @@
+-	streamSpeech(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter}, format)
++	omniSpeechResponse(c, speaker, llm.SpeechRequest{Input: req.Input, Voice: req.Voice, Prompter: prompter, Omni: req.Omni}, format, req.Stream)
+@@ -165,0 +173,10 @@
++	if m.Omni != nil {
++		voices := make([]string, 0, len(m.Omni.Voices))
++		for name := range m.Omni.Voices {
++			voices = append(voices, name)
++		}
++		slices.SortFunc(voices, func(a, b string) int {
++			return cmp.Or(cmp.Compare(strings.ToLower(a), strings.ToLower(b)), cmp.Compare(a, b))
++		})
++		return voices
++	}
+--- a/server/transcription.go
++++ b/server/transcription.go
+@@ -92,0 +93,4 @@
++	if m, err := s.getExistingModelForRunner(ref.Name.String(), ""); err == nil && m.Omni != nil {
++		s.omniTranscription(c, form, task)
++		return
++	}
+--- a/server/sched.go
++++ b/server/sched.go
+@@ -579,0 +580,3 @@
++			if req.model.Omni != nil {
++				predicted += llm.OmniAuxiliaryReserve
++			}
+@@ -1339,0 +1343 @@
++	omniReserve := map[ml.DeviceID]uint64{}
+@@ -1350,0 +1355,3 @@
++				if m := r.model.Load(); m != nil && m.Omni != nil && slices.Contains(r.gpus, gpu.DeviceID) {
++					omniReserve[gpu.DeviceID] += llm.OmniAuxiliaryReserve
++				}
+@@ -1373,0 +1381 @@
++		allGpus[i].FreeMemory -= min(allGpus[i].FreeMemory, omniReserve[allGpus[i].DeviceID])

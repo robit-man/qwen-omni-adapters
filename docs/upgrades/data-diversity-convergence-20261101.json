@@ -1,0 +1,346 @@
+{
+  "schema": "robit.omni.audio-data-diversity-convergence.v1",
+  "UTC": "2026-11-01T11:14:29.071959+00:00",
+  "goal_status": "active",
+  "publication": false,
+  "release_qualified": false,
+  "previous_sampling_trial": {
+    "work": "ornith-control-balanced-pass-1",
+    "complete": true,
+    "step": 11162,
+    "decision": "REJECT",
+    "native13_manual_review": {
+      "speech": "PASS exact blue-bicycle sentence",
+      "silence": "FAIL device fault",
+      "alarm": "FAIL drum kit",
+      "white_noise": "FAIL wind",
+      "tones": "FAIL chink/clink",
+      "clock_alarm": "PASS",
+      "dog_bark": "PASS",
+      "church_bells": "PASS",
+      "group_voices": "FAIL subway",
+      "clapping": "PASS",
+      "printer": "FAIL zipper",
+      "gunfire": "FAIL generic boom",
+      "siren": "PASS"
+    },
+    "notes": "Clapping recovers; alarm/printer regress. Six accepted identities; no full160 or full240 run for this failed checkpoint. Training loss/export integrity do not clear parity.",
+    "native_outputs_sha256": "386a427b902b51ded02631f1b96d049497521e09a453d9acb92ff34f438311c7"
+  },
+  "current_trial": {
+    "work": "ornith-full-diversity-pass-1",
+    "PID": 1772896,
+    "GPU_UUID": "GPU-fc9d264d-8a20-bf8c-eb72-72a6dcbdaf2a",
+    "CUDA_residency_verified": true,
+    "policy": {
+      "schema": "robit.omni.audio-lora-full-diversity-policy.v1",
+      "failure": "Sampling-only11162 recovers clapping but fails silence/noise/tones/group/gunfire and regresses alarm/printer. Original natural ASR36errors versus legacy9. Only66 unique procedural control waveforms and sparse human event examples were available.",
+      "hypothesis": "Data-only expansion:17450verified attributed human-event recordings,26539verified human-transcribed TRAIN FLACs,1280varied DSP controls. Same2event/1speech/1control accumulation strategy, original targets/splits, frozen base/encoder/bridge/TTS, LoRA architecture, weighted loss4, optimizer and LR. Assess fixed1000update checkpoint before extending.",
+      "only_neural_experiment_change": "TRAIN data support/diversity; no architecture, loss, learning-rate, inference prompt, precision or quantization change.",
+      "initialization": "Exact sampling-only11162 adapter, AdamW and RNG; new corpus requires a new declared sampling schedule.",
+      "base_source": "/srv/fine_tuning_suite/training_suite/outputs/audio-bridge-sources/ornith15-standard",
+      "frozen_bridge": "ornith-train-rich1/checkpoint-000850",
+      "data": {
+        "source_manifest_sha256s": {
+          "class-guided-cc0-diversity-data-20261101": "06aea70b52210be9a41546405c29bf27f41a89f9ab60a6dc567ebdb0b1dbd783",
+          "natural-speech-diversity-data-20261101": "68b2061c1297b65df713a55e62464b1b9090a11f380c334df07f5157cc2aff50",
+          "attributed-audio-diversity-20261101": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+          "procedural-acoustic-diversity-20261101": "b4228d7dd9602ec3f385af407e6a5b70f657db77f959e9bf05646b419059db34"
+        },
+        "additions": {
+          "class-guided-cc0-diversity-data-20261101": 17985,
+          "natural-speech-diversity-data-20261101": 26539,
+          "attributed-audio-diversity-20261101": 17450,
+          "procedural-acoustic-diversity-20261101": 1280
+        },
+        "TRAIN_rows": 62314,
+        "event_rows": 29174,
+        "speech_rows": 31398,
+        "control_rows": 1742,
+        "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+        "protected_rows_unchanged": true,
+        "duplicate_metadata_identical": true,
+        "no_audio_or_combined_manifest_copies": true,
+        "attribution_manifest": "attributed-audio-diversity-20261101/ATTRIBUTION.jsonl"
+      },
+      "adapter": {
+        "rank": 8,
+        "alpha": 8,
+        "layers": [
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "modules": [
+          "gate_proj",
+          "up_proj",
+          "down_proj"
+        ],
+        "parameters": 3145728
+      },
+      "training": {
+        "steps": 1000,
+        "serial_accumulation": 4,
+        "seed": 47,
+        "lr": 0.0001,
+        "optimizer": "AdamW",
+        "weight_decay": 0.01,
+        "clip_norm": 1.0,
+        "event_token_weight": 4.0,
+        "unknown_transcripts": "masked by unchanged audited partial collator",
+        "start_step": 11162,
+        "final_step": 12162,
+        "additional_steps": 1000
+      },
+      "fixed_checkpoints": [
+        12162
+      ],
+      "native_gates": "Unchanged13 source/speech/negative controls, full160ASR/full240environment and legacy comparison, fixed16temporal/overlap then Orin operational/cloning/concurrency. No automatic promotion.",
+      "resource_limits": {
+        "expected_write_GiB": 0.15,
+        "srv_reserve_GiB": 50,
+        "checkout_reserve_GiB": 10,
+        "RAM_reserve_GiB": 32,
+        "Torch_cap_MiB": 21504,
+        "lease_MiB": 22528,
+        "no_projector_exports_or_feature_caches": true
+      },
+      "sampler_source_sha256": "1214f0f78d02af21db9a47badabba691fa542269a376dbbf1940a91545b4d135",
+      "data_loader_source_sha256": "100a1e7bbe93dae47b0ba6097165687618758ee5f530aa1819a3ee59c7e95b8a",
+      "primary_encoder_projector_TTS_weight_updates": false,
+      "attributed_credits_required": true,
+      "preflight_only": false,
+      "optimizer_updates_permitted": true,
+      "runtime_integration": false,
+      "publication": false,
+      "release_qualified": false,
+      "resource_preflight_sha256": "f3f1897844db69ac0e64451baa96079b3cbc4874306fe5222f5f1c9ce4d4ec8b"
+    },
+    "exact_resume": {
+      "source_adapter_sha256": "483d2f137f7214e47b0eeb5037225f97dfca9a3155d25b9219f360a636512fce",
+      "all48_parameters_exact": true,
+      "optimizer_step": 11162,
+      "disabled_logits_max_abs_delta": 0.0,
+      "source_weights_frozen": true,
+      "data_only_continuation": true,
+      "original_sampling_order_position": 2000,
+      "new_sampling_position": 0
+    },
+    "source_sha256": "a1ba9c882500d54c7139bae50fec798b198df6b6cdeb5b05e8f3d0c6775c1f12",
+    "latest_progress": {
+      "step": 11200,
+      "loss": 0.39941487088799477,
+      "gradient_norm": 3.325364112854004,
+      "unique_training_records": 14839,
+      "additional_unique_training_records": 152,
+      "elapsed_s": 132.5597935160622,
+      "reserved_mib": 21110.0,
+      "peak_reserved_mib": 21350.0
+    }
+  },
+  "resource_preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "source_adapter_sha256": "483d2f137f7214e47b0eeb5037225f97dfca9a3155d25b9219f360a636512fce",
+    "checks": [
+      {
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.007135762367397547,
+        "peak_reserved_MiB": 20908.0,
+        "peak_allocated_MiB": 20325.19140625
+      },
+      {
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.13040655851364136,
+        "peak_reserved_MiB": 21066.0,
+        "peak_allocated_MiB": 20441.263671875
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21066.0,
+    "GPU2_22528_lease_21504_Torch_cap_safe": true,
+    "serial_accumulation": 4,
+    "optimizer_state_loaded": true,
+    "no_weights_or_raw_audio_or_feature_cache_created": true,
+    "source_script_sha256": "a1ba9c882500d54c7139bae50fec798b198df6b6cdeb5b05e8f3d0c6775c1f12",
+    "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+    "GPU_residency_verified": true
+  },
+  "training_format_check": {
+    "schema": "robit.omni.full-diversity-training-format-check.v1",
+    "complete": true,
+    "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+    "sampler_exact_2_1_1_per_update": true,
+    "deterministic_rng_restore": true,
+    "1000speech_and_control_IDs_without_replacement": true,
+    "partial_unknown_transcripts_still_masked": true,
+    "human_transcripts_and_valid_nonspeech_targets_unchanged": true,
+    "event_weight_factor4_unchanged": true,
+    "encoder_inputs_unchanged": true,
+    "CPU_only": true,
+    "quality_qualified": false,
+    "checks": [
+      {
+        "id": "fsd50k-40515",
+        "finite_features": true,
+        "scored_tokens": 18,
+        "input_features_unchanged": true
+      },
+      {
+        "id": "libri100-7859-102521-0017",
+        "finite_features": true,
+        "scored_tokens": 139,
+        "input_features_unchanged": true
+      },
+      {
+        "id": "dsp-v2-beeps-0000",
+        "finite_features": true,
+        "scored_tokens": 28,
+        "input_features_unchanged": true
+      },
+      {
+        "id": "dsp-v2-silence-0000",
+        "finite_features": true,
+        "scored_tokens": 31,
+        "input_features_unchanged": true
+      },
+      {
+        "id": "dsp-v2-melody-0000",
+        "finite_features": true,
+        "scored_tokens": 30,
+        "input_features_unchanged": true
+      }
+    ],
+    "sampler": {
+      "classes": 198,
+      "updates": 1000,
+      "event_draws": 2000,
+      "speech_draws": 1000,
+      "control_draws": 1000,
+      "speech_pool": 31398,
+      "control_pool": 1742,
+      "unique_rows": 3853,
+      "per_optimizer_group": {
+        "events": 2,
+        "speech": 1,
+        "controls": 1
+      }
+    }
+  },
+  "procedural_data": {
+    "schema": "robit.omni.procedural-acoustic-diversity-preparation.v1",
+    "complete": true,
+    "TRAIN_rows": 1280,
+    "signal_families": [
+      "silence",
+      "white-noise",
+      "pink-noise",
+      "tone",
+      "chord",
+      "melody",
+      "sweep",
+      "beeps",
+      "clicks",
+      "hum-noise"
+    ],
+    "per_family": 128,
+    "all_PCM_headers_and_samples_verified": true,
+    "no_duplicate_or_protected_raw_hashes": true,
+    "manifest_sha256": "b4228d7dd9602ec3f385af407e6a5b70f657db77f959e9bf05646b419059db34",
+    "builder_sha256": "6ee1dac2d6c9ccf54075c6651b8779f994d27c50068136ca7700d1d04fe56f45",
+    "new_audio_bytes": 128763730,
+    "training_activated": false,
+    "new_download_bytes": 0,
+    "feature_cache_bytes": 0,
+    "inference_or_model_architecture_changed": false,
+    "release_qualified": false,
+    "original_manifest_sha256": "600f080e38fd4cc2fbf89b60800cf91363113bba838a3e71f08c141db3596df7",
+    "description_corrections": 37,
+    "all_original_audio_bytes_unchanged": true,
+    "all_nonsilent_types_have_nonzero_PCM": true
+  },
+  "exited_owner_reservation_cleanup": {
+    "schema": "robit.omni.exited-owner-lease-reclamation.v1",
+    "UTC": "2026-11-01T11:00:41.133402+00:00",
+    "owner": "qwen-omni-upgrade/ornith-control-balanced",
+    "registered_CUDA_PIDs": [
+      898715
+    ],
+    "all_registered_owner_PIDs_exited": true,
+    "independent_CUDA_residency_false": true,
+    "normal_release_attempts_failed": 2,
+    "normal_release_error": "new foreign allocation did not return to pre-lease baseline",
+    "documented_force_scope": "already-gone owner reservation only",
+    "own_reservation_released": true,
+    "all_other_owner_tokens_scopes_budgets_and_registered_contexts_unchanged": true,
+    "peer_processes_not_stopped_or_modified": true,
+    "admission_not_bypassed": true
+  },
+  "full_parity_still_required": [
+    "fixed13 native identities and negative controls",
+    "fixed160 ASR including natural-speech stratum and legacy comparison",
+    "full240 environmental and protected test qualification",
+    "fixed16 temporal and overlap versus legacy",
+    "Ornith Orin and Qwen A100 operational/think/tools/media/voice-cloning/rawPCM/concurrency/resource gates",
+    "complete HF+Ollama package remote digest verification"
+  ],
+  "source_validation": "Production source unchanged; prior6380-pass full validation retained. CPU data-format and actual CUDA memory preflight cover this new training source/data.",
+  "resources": {
+    "owned_allocated_bytes": 116922482688,
+    "owned_limit_bytes": 128849018880,
+    "srv_free_bytes": 96173985792,
+    "checkout_free_bytes": 232048656384,
+    "new_DSP_audio_bytes": 128763730,
+    "new_feature_cache_bytes": 0,
+    "new_full_projector_exports": 0,
+    "all_learned_and_recovery_weights_retained": true,
+    "additional_corpus_audio_copies": 0,
+    "combined_manifest_copies": 0,
+    "host_memory_bytes": {
+      "MemFree": 11579486208,
+      "MemAvailable": 351796662272,
+      "Cached": 318019493888
+    }
+  },
+  "Qwen_GPU0": {
+    "PID": 3504493,
+    "CUDA_residency_verified": true,
+    "latest_progress": {
+      "step": 6275,
+      "loss": 0.5318613543640822,
+      "gradient_norm": 5.949219703674316,
+      "unique_training_records": 12458,
+      "additional_unique_training_records": 4249,
+      "elapsed_s": 8068.520962344948,
+      "reserved_mib": 56684.0,
+      "peak_reserved_mib": 60972.0
+    },
+    "fixed_final": 6400
+  },
+  "active_training_attribution_audit": {
+    "schema": "robit.omni.active-training-attribution-audit.v1",
+    "complete": true,
+    "UTC": "2026-11-01T11:22:02.331990+00:00",
+    "current_training_work": "ornith-full-diversity-pass-1",
+    "dataset_fingerprint": "5b0f48408c3f03bd04179b88fae892b9fb0d8e2b298f1218f2d80b4303d5c4c5",
+    "per_record_credits": 17450,
+    "every_active_attributed_TRAIN_ID_covered_exactly_once": true,
+    "creator_title_source_and_license_match_records": true,
+    "normalization_changes_disclosed": true,
+    "noncommercial_and_sampling_licenses_excluded": true,
+    "attribution_sha256": "375ce985679b19c92853ed0bdc5ffb26bd966339489820e202edca145bdcfda9",
+    "attribution_bytes": 6913127,
+    "manifest_sha256": "008c12b2aa5f80c3911f96b3ab2435165414d2685ac7e402d4a5b044a36810b2",
+    "canonical_file": "attributed-audio-diversity-20261101/ATTRIBUTION.jsonl",
+    "release_requirement": "Publish this exact ledger with provenance onHF; carry complete applicable attribution/license notices with theOllama bundle and verify both remote artifacts. Model publication is still gated by semantic qualification.",
+    "new_audio_or_weight_bytes": 0,
+    "public_model_publication": false,
+    "release_qualified": false
+  }
+}

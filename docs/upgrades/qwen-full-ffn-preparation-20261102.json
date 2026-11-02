@@ -1,0 +1,183 @@
+{
+  "schema": "robit.omni.qwen-full-FFN-trial-start.v1",
+  "UTC": "2026-11-02T00:57:22.857503+00:00",
+  "failing_acceptance_criterion": "Matched NF4 tail-only N500 has34 natural errors/594 versus legacy9 and still fails environmental/temporal parity.",
+  "bounded_hypothesis": "Conditioning earlier FFNs can improve the preserved frozen audio representation; test exactly500updates against the already measured tail-only NF4 N500 control on the same2000TRAINdraws.",
+  "only_training_change": "Add rank8/alpha8 zero-residual FFN adapters in blocks0..55. Keep original8400 tail48/AdamW, frozen NF4 primary, rich750 bridge, encoder, order, targets/masks, LR/loss and accumulation unchanged.",
+  "source_step": 8400,
+  "source_cursor": 4000,
+  "new_updates": 500,
+  "final_cursor": 6000,
+  "source_adapter_SHA256": "41a6d81fa915dec2601ce1170169b924c0153420c07ec6229fcb479fb520ab0d",
+  "source_recovery_SHA256": "582977d5383c6fd05603636d54a2f3dcc2d316861fd1b1e87d993f16d3de96e3",
+  "control_adapter_SHA256": "f333f352e06bfba33bee0177c4cecafd62f4272d5e533cd5e50d1501dfe1d05e",
+  "control_recovery_SHA256": "93cac5bf1b324d4ef89c81ca39964bb867b25f432d393e7e511bf6f5ba8da518",
+  "control_retrained": false,
+  "future_order_SHA256": "6e48645f54d0d1e799b49f06f757257b4ca14097d5e777e5a1fe84c5e1c0b9a1",
+  "future_order_encoding": "UTF8 newline-joined ordered record IDs, no terminal newline",
+  "CPU_scope": {
+    "all192_linear_shapes_match_exact_native_GGUF": true,
+    "new_prefix_tensors": 336,
+    "source_tail_tensors": 48,
+    "total_tensors": 384,
+    "new_prefix_parameters": 30277632,
+    "source_tail_parameters": 4325376,
+    "total_parameters": 34603008,
+    "zero_residual_initialization": true,
+    "initialization_seed": 5087,
+    "initialization_SHA256": "ce33c27f58d6206ef2ec488916921d246e6757505cfff233bd71fa462bb97733"
+  },
+  "preflight": {
+    "initial_audio_logits_bit_exact": true,
+    "initial_audio_loss_bit_exact": true,
+    "loss": 0.2357291430234909,
+    "disabled_text_logits_max_abs_delta": 0,
+    "all384_initial_weights_and_tail48_AdamW_exact": true,
+    "complete": true,
+    "optimizer_steps": 0,
+    "source_script_SHA256": "6171c76ea1f8cf8167a4cd0054a30055131ea0fedaa507b047f886724e59f983",
+    "all_weights_and_moments_unchanged": true,
+    "checks": [
+      {
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "losses": [
+          0.359365314245224,
+          0.359365314245224,
+          0.359365314245224,
+          0.359365314245224
+        ],
+        "tail_gradient_squared_norm": 45.99658707133494,
+        "prefix_gradient_squared_norm": 2.659548837109469,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 21650.0
+      },
+      {
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "losses": [
+          0.07914799451828003,
+          0.07914799451828003,
+          0.07914799451828003,
+          0.07914799451828003
+        ],
+        "tail_gradient_squared_norm": 0.8208952958520968,
+        "prefix_gradient_squared_norm": 0.10065020476395148,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 21788.0
+      },
+      {
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "losses": [
+          0.6085259318351746,
+          0.6085259318351746,
+          0.6085259318351746,
+          0.6085259318351746
+        ],
+        "tail_gradient_squared_norm": 27.319234289228916,
+        "prefix_gradient_squared_norm": 2.412657614098862,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 20678.0
+      },
+      {
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "losses": [
+          0.09316562861204147,
+          0.09316562861204147,
+          0.09316562861204147,
+          0.09316562861204147
+        ],
+        "tail_gradient_squared_norm": 3.1575311845517717,
+        "prefix_gradient_squared_norm": 0.150545571501425,
+        "four_accumulated_backwards": true,
+        "peak_reserved_MiB": 20318.0
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21788.0,
+    "GPU_residency_verified": true,
+    "worker_PID": 1014995,
+    "Torch_cap_MiB": 24576,
+    "lease_MiB": 25600,
+    "release_qualified": false
+  },
+  "actual_preflight_worker_exited_and_lease_normally_released": true,
+  "initial_equivalence": {
+    "initial_audio_logits_bit_exact": true,
+    "initial_audio_loss_bit_exact": true,
+    "loss": 0.2357291430234909,
+    "disabled_text_logits_max_abs_delta": 0,
+    "all384_initial_weights_and_tail48_AdamW_exact": true
+  },
+  "training": {
+    "PID": 1063262,
+    "start_ticks": "69014400",
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-full-ffn-comparison-1",
+    "owner": "qwen-omni-upgrade/qwen-full-ffn-training",
+    "GPU_UUID": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "lease_MiB": 25600,
+    "Torch_cap_MiB": 24576,
+    "source": "runtime-data/train_qwen_full_ffn_trial.py",
+    "source_SHA256": "6171c76ea1f8cf8167a4cd0054a30055131ea0fedaa507b047f886724e59f983",
+    "exec_session": 16595,
+    "GPU_residency_verified": true
+  },
+  "observer": {
+    "PID": 1079659,
+    "start_ticks": "69019842",
+    "work": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/qwen-full-ffn-observer-1",
+    "pinned_sources": {
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/train_qwen_full_ffn_trial.py": "6171c76ea1f8cf8167a4cd0054a30055131ea0fedaa507b047f886724e59f983",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/evaluate_qwen_full_ffn_source.py": "1e2c205cb541b50d94f93f0174d4d67447070faf8cba0a51634f629c397eb486",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/audit_qwen_full_ffn_trial.py": "b9be932703b623448d2201ea1cb023557a93042e68a9e0ccb444be19878b778d",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/conditional_attention_modules.py": "53c3d8db0ab42440e9a96359db044fdb5d185de5614afa397a65111ca9e4767c",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/virtual_scene_corpus.py": "974691a0cb41f10b8dbe86bfc8ebc6d68cdaf3d363712c392c6ac6c014a36ab3",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/virtual_scene_audio.py": "af31989e99a110588db7c05e963608d671eff4a81711b526009ce1df4f25b1fe",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/event_weighted_supervision.py": "4e9af58d7d39818b0446390024ea4da40bcde8e65633904c8104bdac9680b64b",
+      "/home/roko/Documents/qwen-omni-upgrade/runtime-data/qwen8400-full-ffn-trial-preparation.json": "d36051b121139f39514956e7b9c72ccbff5896ed79611584a47cb9bb3bb5ebd8"
+    },
+    "state": {
+      "state": "waiting_for_fixed_training_and_actual_worker_exit",
+      "publication": false,
+      "release_qualified": false,
+      "observed_worker_identity": {
+        "PID": 1063262,
+        "start_ticks": "69014400"
+      }
+    },
+    "exec_session": 60663,
+    "plan": "Wait for both250/500 saves and actual worker exit/normal lease release; independent384-tensor CPU recovery audit, then fixed174raw N500/F250/F500 source cases; matched N500 outputs must reproduce prior58exactly. No automatic promotion or export."
+  },
+  "artifact_budget": {
+    "new_scheduled_checkpoint_pairs": 2,
+    "expected_write_GiB": 1.1,
+    "new_raw_audio_or_feature_cache": false,
+    "GGUF_exports": 0,
+    "owned_limit_GiB": 120,
+    "srv_free_reserve_GiB": 50,
+    "RAM_available_reserve_GiB": 32
+  },
+  "resources_at_training_admission": {
+    "storage_admitted": true,
+    "path": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release",
+    "free_bytes": 94754467840,
+    "reserve_bytes": 53687091200,
+    "expected_write_bytes": 1181116006,
+    "ram_available_bytes": 342039932928,
+    "ram_required_bytes": 88046829568,
+    "owned_allocated_bytes": 121151279104,
+    "owned_limit_bytes": 128849018880
+  },
+  "retained_CPU_preparation_failure": "The ordered IDs matched; an initial hash assertion mixed compactJSON with the existing newline encoding. Corrected and reran CPU gate before CUDA. Original failure log retained; no GPU retry.",
+  "limits": {
+    "training_complete": false,
+    "quality_improvement_claimed": false,
+    "native384_supported": false,
+    "assigned_target_qualified": false,
+    "release_qualified": false,
+    "public_weights_uploaded": false,
+    "GPU1_used": false,
+    "peer_or_global_service_changes": false
+  }
+}

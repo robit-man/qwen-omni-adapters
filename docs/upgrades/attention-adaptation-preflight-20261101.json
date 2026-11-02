@@ -1,0 +1,268 @@
+{
+  "schema": "robit.omni.attention-adaptation-preflight.v1",
+  "UTC": "2026-11-01T19:57:08.260877+00:00",
+  "acceptance_failure": "Ornith matched source A40/B50 natural errors/594 versus legacy9. Mandatory identities and temporal overlap still fail.",
+  "hypothesis": "Additional rank8 residuals on existing full-attention linears; same sourceFFN+AdamW, next2000records and500updates as FFN-only control.",
+  "source_checkpoint": "/srv/fine_tuning_suite/runs/qwen-edge-v2-release/environmental-repair/ornith-projection-comparison-1/arm-A-checkpoint-000500",
+  "source_adapter_sha256": "56f2fa151165f8a14af54849a594afa1cc74439d2df490729620a213bf834f0d",
+  "source_recovery_sha256": "d93caf1ff93ec6c96cf903aec31279c17ab5c09bb7e644ecb536d806d73fb932",
+  "source_bridge_sha256": "5eef239de3b83f9c9a37bad61ff7c0326fcd70bc87c4b5c237583e76670938bb",
+  "new_attention_modules": [
+    {
+      "module": "model.layers.27.self_attn.q_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.27.self_attn.q_proj",
+      "shape": [
+        8192,
+        4096
+      ]
+    },
+    {
+      "module": "model.layers.27.self_attn.k_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.27.self_attn.k_proj",
+      "shape": [
+        1024,
+        4096
+      ]
+    },
+    {
+      "module": "model.layers.27.self_attn.v_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.27.self_attn.v_proj",
+      "shape": [
+        1024,
+        4096
+      ]
+    },
+    {
+      "module": "model.layers.27.self_attn.o_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.27.self_attn.o_proj",
+      "shape": [
+        4096,
+        4096
+      ]
+    },
+    {
+      "module": "model.layers.31.self_attn.q_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.31.self_attn.q_proj",
+      "shape": [
+        8192,
+        4096
+      ]
+    },
+    {
+      "module": "model.layers.31.self_attn.k_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.31.self_attn.k_proj",
+      "shape": [
+        1024,
+        4096
+      ]
+    },
+    {
+      "module": "model.layers.31.self_attn.v_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.31.self_attn.v_proj",
+      "shape": [
+        1024,
+        4096
+      ]
+    },
+    {
+      "module": "model.layers.31.self_attn.o_proj",
+      "portable_stem": "base_model.model.model.language_model.layers.31.self_attn.o_proj",
+      "shape": [
+        4096,
+        4096
+      ]
+    }
+  ],
+  "new_attention_parameters": 491520,
+  "source_cursor": 16136,
+  "final_cursor": 18136,
+  "source_order_sha256": "0abdc682d2ccd7fb7540f2513971a43e903dbc129487f45b178435cd979b2c5f",
+  "novel_ID_forecast": 750,
+  "unique_ID_forecast": 27182,
+  "CPU_checks": [
+    {
+      "module": "model.layers.27.self_attn.q_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    },
+    {
+      "module": "model.layers.27.self_attn.k_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    },
+    {
+      "module": "model.layers.27.self_attn.v_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    },
+    {
+      "module": "model.layers.27.self_attn.o_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    },
+    {
+      "module": "model.layers.31.self_attn.q_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    },
+    {
+      "module": "model.layers.31.self_attn.k_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    },
+    {
+      "module": "model.layers.31.self_attn.v_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    },
+    {
+      "module": "model.layers.31.self_attn.o_proj",
+      "zero_residual_exact": true,
+      "gradient_finite_and_B_nonzero": true,
+      "disabled_output_exact": true
+    }
+  ],
+  "CUDA_zero_update_preflight": {
+    "complete": true,
+    "optimizer_steps": 0,
+    "initial_audio_loss_bit_exact": true,
+    "initial_audio_logits_bit_exact": true,
+    "checks": [
+      {
+        "arm": "A",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.21013745665550232,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 20908.0,
+        "peak_allocated_MiB": 20323.50390625
+      },
+      {
+        "arm": "A",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.08066558837890625,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 21068.0,
+        "peak_allocated_MiB": 20437.314453125
+      },
+      {
+        "arm": "A",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.19625602662563324,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 20046.0,
+        "peak_allocated_MiB": 19603.9091796875
+      },
+      {
+        "arm": "A",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.1176428347826004,
+        "attention_gradient_squared_norm": 0,
+        "peak_reserved_MiB": 19846.0,
+        "peak_allocated_MiB": 19444.53125
+      },
+      {
+        "arm": "B",
+        "id": "fsd50k-323041",
+        "duration_s": 30.0,
+        "loss": 0.21013745665550232,
+        "attention_gradient_squared_norm": 0.09976456733420491,
+        "peak_reserved_MiB": 20938.0,
+        "peak_allocated_MiB": 20329.12890625
+      },
+      {
+        "arm": "B",
+        "id": "libri100-7859-102521-0017",
+        "duration_s": 24.525,
+        "loss": 0.08066558837890625,
+        "attention_gradient_squared_norm": 0.001459761188016273,
+        "peak_reserved_MiB": 21072.0,
+        "peak_allocated_MiB": 20442.939453125
+      },
+      {
+        "arm": "B",
+        "id": "scene-v1-event-sequence-0336",
+        "duration_s": 11.9729375,
+        "loss": 0.19625602662563324,
+        "attention_gradient_squared_norm": 0.010596870037261397,
+        "peak_reserved_MiB": 20054.0,
+        "peak_allocated_MiB": 19609.5341796875
+      },
+      {
+        "arm": "B",
+        "id": "scene-v1-speech-background-1816",
+        "duration_s": 5.895,
+        "loss": 0.1176428347826004,
+        "attention_gradient_squared_norm": 0.005422972142696381,
+        "peak_reserved_MiB": 19850.0,
+        "peak_allocated_MiB": 19450.15625
+      }
+    ],
+    "maximum_peak_reserved_MiB": 21072.0,
+    "source_script_sha256": "29a3ac1e6e62edd10420a07dc278e3c49c14ac2bf534f58613bc46fd0e92f3f0",
+    "dataset_fingerprint": "216b2e364bdcc1161188073c202858dfc45c1e61c60ebcb7d833aab574a0c75b",
+    "one_language_trunk": true,
+    "primary_encoder_projection_TTS_frozen": true,
+    "disabled_logits_max_abs_delta": 0,
+    "GPU_residency_verified": true,
+    "new_audio_or_feature_cache_bytes": 0,
+    "Torch_cap_MiB": 23552,
+    "lease_MiB": 24576,
+    "release_qualified": false
+  },
+  "training": {
+    "status": "running",
+    "PID": 3081309,
+    "GPU": "GPU-3538758b-6ba7-fa1b-a80c-e315a606c3f0",
+    "owner": "qwen-omni-upgrade/ornith-attention-comparison-training",
+    "exec_session": 19007,
+    "last_observed_progress": {
+      "arm": "A",
+      "updates": 200,
+      "loss": 0.05109753739088774,
+      "gradient_norm": 0.8501907587051392,
+      "elapsed_s": 638.7019140520133,
+      "peak_reserved_MiB": 23372.0
+    },
+    "source_script_sha256": "29a3ac1e6e62edd10420a07dc278e3c49c14ac2bf534f58613bc46fd0e92f3f0",
+    "GPU0_resident": true,
+    "GPU1_resident": false
+  },
+  "source_evaluation": {
+    "fixed_clips_per_arm": 58,
+    "diagnostics": 13,
+    "natural": 29,
+    "temporal_overlap": 16,
+    "actual_wave_hashes_match_native15696": true,
+    "same_actual4096wide_frozen_bridge_in_both_arms": true,
+    "WER_formula_matches_previous_A40_B50": true,
+    "source_script_sha256": "d202fa12f6659c9b5968d82209f0ea72b4e74d5d2b86a2ac1eceffffc0ba2343",
+    "observer_PID": 3221201,
+    "observer_exec_session": 61203,
+    "state": "waiting_for_fixed_trial_and_actual_worker_exit",
+    "starts_only_after_actual_train_exit_and_lease_release": true
+  },
+  "native_feasibility_scope": "Read-only baseGGUF headers match all8 q/k/v/o shapes. Pinned qwen35.cpp uses build_lora_mm on them. Actual64-tensor export/generation and required new binding/runtime validation remain unqualified.",
+  "resource_forecast": {
+    "expected_write_GiB": 0.5,
+    "new_audio_or_feature_cache_bytes": 0,
+    "Torch_cap_MiB": 23552,
+    "lease_MiB": 24576,
+    "RAM_reserve_GiB": 32,
+    "srv_reserve_GiB": 50,
+    "checkout_reserve_GiB": 10
+  },
+  "quality_gate_passed": false,
+  "release_qualified": false,
+  "public_model_publication": false
+}

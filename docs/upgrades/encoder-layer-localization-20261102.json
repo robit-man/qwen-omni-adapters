@@ -1,0 +1,1024 @@
+{
+  "schema": "robit.omni.encoder-layer-localization.v1",
+  "UTC": "2026-11-02T04:04:49.092727+00:00",
+  "result": "Diagnostic localized gradual cross-device error amplification; original numerical parity gate remains failed. No production fix claimed.",
+  "same_two_raw_clips": [
+    "base-nonspeech-0015-silence",
+    "librispeech-1988-24833-0003"
+  ],
+  "same_frozen_encoder_and_rich850_projector": true,
+  "same_encoder_graph_and_CUDA_source_hashes": {
+    "tools/mtmd/clip.cpp": "89c21571660914f050463a9e473ec90254d3d1806e79bbe003380b466eed5aca",
+    "tools/mtmd/models/qwen3a.cpp": "97bd40aa6010bf9efaa35a1ba33653b4cb069f2a8e87b304f8c3549983c7001e",
+    "ggml/src/ggml-cuda/ggml-cuda.cu": "4c72e779288aaa3bc4ef60266b68b4bce3ee923ca96600110ba42059075f6df4"
+  },
+  "diagnostic_configuration": "Existing F32 GGML_OP_MUL_MAT accumulation diagnostic, original FlashAttention and NVIDIA_TF32_OVERRIDE=0; no precision or attention sweep.",
+  "probe_source_SHA256": "1c38612e316b67f43ec6e2c7a592f92a6e843d401c31f488e933ce8c1bd09266",
+  "full_paired178tensor_report_SHA256": "a12bd2502dc2b19d313374a00d7121d18b22a9add3246078a81a2787d81765a4",
+  "all178_tensor_shapes_match": true,
+  "all_final_features_byte_exact_to_original_F32_controls_on_each_device": true,
+  "A100_fresh_original_new_and_saved_controls": {
+    "F32_TF32_override0_matched_controls": [
+      {
+        "audio": "base-nonspeech-0015-silence.wav",
+        "original_control_vs_saved_relative_RMSE": 0.0,
+        "new_vs_fresh_original_relative_RMSE": 0.0,
+        "new_vs_fresh_original_exact": true
+      },
+      {
+        "audio": "librispeech-1988-24833-0003.wav",
+        "original_control_vs_saved_relative_RMSE": 0.0,
+        "new_vs_fresh_original_relative_RMSE": 0.0,
+        "new_vs_fresh_original_exact": true
+      }
+    ]
+  },
+  "Orin_saved_controls": [
+    {
+      "clip_index": 0,
+      "final_features_exact_vs_old_F32_Orin_control": true,
+      "SHA256": "f33d936cdbc1ab4c9e6075f547a7ec69c544349282829a7d0983fe558bbb6978"
+    },
+    {
+      "clip_index": 1,
+      "final_features_exact_vs_old_F32_Orin_control": true,
+      "SHA256": "c2fa2ce503aa00e8fb220e47414c93c9de7e414a063277687e6bc99a330e9904"
+    }
+  ],
+  "invalid_first_attempt": {
+    "excluded": true,
+    "reason": "TF32 override was omitted. Fresh matched old/new probes with original override0 reproduce saved controls exactly; only those matched traces are diagnostic evidence.",
+    "receipt_SHA256": "0e9f83810144fb7c40165920853ddbae5fdfd463d0bc5f9fcf8d0577183deb76"
+  },
+  "observed_stages": [
+    {
+      "tensor": "after_conv_blocks-0.f32",
+      "shape": [
+        13,
+        16,
+        480,
+        3
+      ],
+      "exact": false,
+      "cosine": 0.9999999995665142,
+      "relative_RMSE": 3.0082095239239544e-05,
+      "max_abs_delta": 7.033348083496094e-05
+    },
+    {
+      "tensor": "after_conv_out-0.f32",
+      "shape": [
+        1280,
+        39,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999999997461781,
+      "relative_RMSE": 2.2859760616886365e-05,
+      "max_abs_delta": 0.000453948974609375
+    },
+    {
+      "tensor": "layer_out-0-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999999983043103,
+      "relative_RMSE": 0.00018442035238606222,
+      "max_abs_delta": 0.02001190185546875
+    },
+    {
+      "tensor": "layer_out-1-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999999962827629,
+      "relative_RMSE": 0.0002733110538496578,
+      "max_abs_delta": 0.0362091064453125
+    },
+    {
+      "tensor": "layer_out-2-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999998961113563,
+      "relative_RMSE": 0.0004559348887528698,
+      "max_abs_delta": 0.0279693603515625
+    },
+    {
+      "tensor": "layer_out-3-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999995278213626,
+      "relative_RMSE": 0.0009717806656938081,
+      "max_abs_delta": 0.03716278076171875
+    },
+    {
+      "tensor": "layer_out-4-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999998614019905,
+      "relative_RMSE": 0.0016651176091413862,
+      "max_abs_delta": 0.09211349487304688
+    },
+    {
+      "tensor": "layer_out-5-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999975714444717,
+      "relative_RMSE": 0.002205512625294353,
+      "max_abs_delta": 0.08136367797851562
+    },
+    {
+      "tensor": "layer_out-6-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999965576745148,
+      "relative_RMSE": 0.002624635940938489,
+      "max_abs_delta": 0.07788848876953125
+    },
+    {
+      "tensor": "layer_out-7-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999955521787782,
+      "relative_RMSE": 0.0029843389558461297,
+      "max_abs_delta": 0.0731964111328125
+    },
+    {
+      "tensor": "layer_out-8-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999947264823607,
+      "relative_RMSE": 0.003252707361641812,
+      "max_abs_delta": 0.09295654296875
+    },
+    {
+      "tensor": "layer_out-9-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999937925183281,
+      "relative_RMSE": 0.0035247319949867676,
+      "max_abs_delta": 0.11130523681640625
+    },
+    {
+      "tensor": "layer_out-10-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999931255989122,
+      "relative_RMSE": 0.0037096811404989114,
+      "max_abs_delta": 0.1236724853515625
+    },
+    {
+      "tensor": "layer_out-11-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999992734063898,
+      "relative_RMSE": 0.0038142959133400213,
+      "max_abs_delta": 0.1484203338623047
+    },
+    {
+      "tensor": "layer_out-12-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999925639724305,
+      "relative_RMSE": 0.0038653602127131153,
+      "max_abs_delta": 0.16234111785888672
+    },
+    {
+      "tensor": "layer_out-13-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999924226013044,
+      "relative_RMSE": 0.003906599496674108,
+      "max_abs_delta": 0.15528440475463867
+    },
+    {
+      "tensor": "layer_out-14-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999921511925723,
+      "relative_RMSE": 0.0039759075038278925,
+      "max_abs_delta": 0.1813507080078125
+    },
+    {
+      "tensor": "layer_out-15-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999918543163256,
+      "relative_RMSE": 0.004040723004806097,
+      "max_abs_delta": 0.1707916259765625
+    },
+    {
+      "tensor": "layer_out-16-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999913070705266,
+      "relative_RMSE": 0.00417513568121181,
+      "max_abs_delta": 0.16310930252075195
+    },
+    {
+      "tensor": "layer_out-17-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999907516608525,
+      "relative_RMSE": 0.004303415967758342,
+      "max_abs_delta": 0.15694475173950195
+    },
+    {
+      "tensor": "layer_out-18-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999905313745551,
+      "relative_RMSE": 0.004351701248591067,
+      "max_abs_delta": 0.15797901153564453
+    },
+    {
+      "tensor": "layer_out-19-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999903506578731,
+      "relative_RMSE": 0.004393924885108612,
+      "max_abs_delta": 0.16235685348510742
+    },
+    {
+      "tensor": "layer_out-20-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999893449504822,
+      "relative_RMSE": 0.0046186614762402135,
+      "max_abs_delta": 0.13573932647705078
+    },
+    {
+      "tensor": "layer_out-21-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999875306867054,
+      "relative_RMSE": 0.004996957769422921,
+      "max_abs_delta": 0.14306640625
+    },
+    {
+      "tensor": "layer_out-22-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999851833005061,
+      "relative_RMSE": 0.005452420800676675,
+      "max_abs_delta": 0.155853271484375
+    },
+    {
+      "tensor": "layer_out-23-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999804161168816,
+      "relative_RMSE": 0.006280890851546144,
+      "max_abs_delta": 0.1878337860107422
+    },
+    {
+      "tensor": "layer_out-24-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999743667885351,
+      "relative_RMSE": 0.007163964895566977,
+      "max_abs_delta": 0.31104278564453125
+    },
+    {
+      "tensor": "layer_out-25-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999723911351622,
+      "relative_RMSE": 0.007451860955458848,
+      "max_abs_delta": 0.343170166015625
+    },
+    {
+      "tensor": "layer_out-26-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999706145991973,
+      "relative_RMSE": 0.008077646296623522,
+      "max_abs_delta": 3.065155029296875
+    },
+    {
+      "tensor": "layer_out-27-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999957426554469,
+      "relative_RMSE": 0.009446868410334805,
+      "max_abs_delta": 3.9957122802734375
+    },
+    {
+      "tensor": "layer_out-28-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999689941056049,
+      "relative_RMSE": 0.007895563031476946,
+      "max_abs_delta": 2.82470703125
+    },
+    {
+      "tensor": "layer_out-29-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999668754856473,
+      "relative_RMSE": 0.008145596032606473,
+      "max_abs_delta": 2.2219772338867188
+    },
+    {
+      "tensor": "layer_out-30-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999624183104403,
+      "relative_RMSE": 0.008678340347444616,
+      "max_abs_delta": 1.7322311401367188
+    },
+    {
+      "tensor": "layer_out-31-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999792631091113,
+      "relative_RMSE": 0.006468612618601968,
+      "max_abs_delta": 2.11572265625
+    },
+    {
+      "tensor": "after_transformer-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999896771400539,
+      "relative_RMSE": 0.014368540379466334,
+      "max_abs_delta": 0.08673889935016632
+    },
+    {
+      "tensor": "ffn_gelu_erf-0.f32",
+      "shape": [
+        1280,
+        28,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9998464946929061,
+      "relative_RMSE": 0.017523138379830126,
+      "max_abs_delta": 0.011172682046890259
+    },
+    {
+      "tensor": "after_conv_blocks-1.f32",
+      "shape": [
+        13,
+        16,
+        480,
+        6
+      ],
+      "exact": false,
+      "cosine": 0.999999999521401,
+      "relative_RMSE": 3.093916685080385e-05,
+      "max_abs_delta": 0.0016014575958251953
+    },
+    {
+      "tensor": "after_conv_out-1.f32",
+      "shape": [
+        1280,
+        78,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999999999550111,
+      "relative_RMSE": 9.486241603987488e-06,
+      "max_abs_delta": 0.0005502700805664062
+    },
+    {
+      "tensor": "layer_out-0-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999999942521556,
+      "relative_RMSE": 0.00010723035837839944,
+      "max_abs_delta": 0.01348876953125
+    },
+    {
+      "tensor": "layer_out-1-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999999896291434,
+      "relative_RMSE": 0.0001440265509558138,
+      "max_abs_delta": 0.06340789794921875
+    },
+    {
+      "tensor": "layer_out-2-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999999725884192,
+      "relative_RMSE": 0.00023437827209350505,
+      "max_abs_delta": 0.02143096923828125
+    },
+    {
+      "tensor": "layer_out-3-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999998649789736,
+      "relative_RMSE": 0.0005196556957210459,
+      "max_abs_delta": 0.03939056396484375
+    },
+    {
+      "tensor": "layer_out-4-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999996029944606,
+      "relative_RMSE": 0.0008916415784606263,
+      "max_abs_delta": 0.08554840087890625
+    },
+    {
+      "tensor": "layer_out-5-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999991559593577,
+      "relative_RMSE": 0.0012993104729670775,
+      "max_abs_delta": 0.09942626953125
+    },
+    {
+      "tensor": "layer_out-6-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999984070590702,
+      "relative_RMSE": 0.0017849588186741186,
+      "max_abs_delta": 0.06195831298828125
+    },
+    {
+      "tensor": "layer_out-7-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999975559607001,
+      "relative_RMSE": 0.002210907460453568,
+      "max_abs_delta": 0.08884429931640625
+    },
+    {
+      "tensor": "layer_out-8-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999961959275646,
+      "relative_RMSE": 0.002758289527676326,
+      "max_abs_delta": 0.08426666259765625
+    },
+    {
+      "tensor": "layer_out-9-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999948411968854,
+      "relative_RMSE": 0.0032121532276772613,
+      "max_abs_delta": 0.07970046997070312
+    },
+    {
+      "tensor": "layer_out-10-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999934168613513,
+      "relative_RMSE": 0.0036286018664547035,
+      "max_abs_delta": 0.10533523559570312
+    },
+    {
+      "tensor": "layer_out-11-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999919327315273,
+      "relative_RMSE": 0.004016938568890212,
+      "max_abs_delta": 0.10370302200317383
+    },
+    {
+      "tensor": "layer_out-12-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999990468672363,
+      "relative_RMSE": 0.0043660713535812355,
+      "max_abs_delta": 0.09061789512634277
+    },
+    {
+      "tensor": "layer_out-13-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.99998859201923,
+      "relative_RMSE": 0.00477666147268403,
+      "max_abs_delta": 0.1092681884765625
+    },
+    {
+      "tensor": "layer_out-14-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999871033052341,
+      "relative_RMSE": 0.005078730283629255,
+      "max_abs_delta": 0.1146087646484375
+    },
+    {
+      "tensor": "layer_out-15-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999851787966955,
+      "relative_RMSE": 0.005444520113314562,
+      "max_abs_delta": 0.12784790992736816
+    },
+    {
+      "tensor": "layer_out-16-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999834532681445,
+      "relative_RMSE": 0.005752775223442956,
+      "max_abs_delta": 0.14134979248046875
+    },
+    {
+      "tensor": "layer_out-17-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999817553544836,
+      "relative_RMSE": 0.006040691082559233,
+      "max_abs_delta": 0.1346287727355957
+    },
+    {
+      "tensor": "layer_out-18-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999808191014539,
+      "relative_RMSE": 0.006194250641919704,
+      "max_abs_delta": 0.15873003005981445
+    },
+    {
+      "tensor": "layer_out-19-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999788848114955,
+      "relative_RMSE": 0.006499028533698266,
+      "max_abs_delta": 0.1669158935546875
+    },
+    {
+      "tensor": "layer_out-20-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999775691449191,
+      "relative_RMSE": 0.006699390931679271,
+      "max_abs_delta": 0.16616058349609375
+    },
+    {
+      "tensor": "layer_out-21-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999767676638971,
+      "relative_RMSE": 0.006816508688391037,
+      "max_abs_delta": 0.16286849975585938
+    },
+    {
+      "tensor": "layer_out-22-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999703004923013,
+      "relative_RMSE": 0.0077070185770632595,
+      "max_abs_delta": 0.21201705932617188
+    },
+    {
+      "tensor": "layer_out-23-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999673832067116,
+      "relative_RMSE": 0.008078346434033752,
+      "max_abs_delta": 0.2222442626953125
+    },
+    {
+      "tensor": "layer_out-24-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999626009764592,
+      "relative_RMSE": 0.008655057632658609,
+      "max_abs_delta": 0.45453548431396484
+    },
+    {
+      "tensor": "layer_out-25-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999560460178872,
+      "relative_RMSE": 0.009379027660125825,
+      "max_abs_delta": 1.1107635498046875
+    },
+    {
+      "tensor": "layer_out-26-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999520992134854,
+      "relative_RMSE": 0.009806563493323529,
+      "max_abs_delta": 3.9820556640625
+    },
+    {
+      "tensor": "layer_out-27-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.999958495761075,
+      "relative_RMSE": 0.009142498778799257,
+      "max_abs_delta": 2.79949951171875
+    },
+    {
+      "tensor": "layer_out-28-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999611702029936,
+      "relative_RMSE": 0.008836964488915097,
+      "max_abs_delta": 0.91583251953125
+    },
+    {
+      "tensor": "layer_out-29-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999540595118631,
+      "relative_RMSE": 0.009607276130592384,
+      "max_abs_delta": 0.837158203125
+    },
+    {
+      "tensor": "layer_out-30-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999478843827178,
+      "relative_RMSE": 0.010215874579825307,
+      "max_abs_delta": 0.781005859375
+    },
+    {
+      "tensor": "layer_out-31-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999940913794637,
+      "relative_RMSE": 0.0034398088306891446,
+      "max_abs_delta": 2.5548095703125
+    },
+    {
+      "tensor": "after_transformer-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9999110958068922,
+      "relative_RMSE": 0.013334936080807295,
+      "max_abs_delta": 0.027063965797424316
+    },
+    {
+      "tensor": "ffn_gelu_erf-1.f32",
+      "shape": [
+        1280,
+        67,
+        1,
+        1
+      ],
+      "exact": false,
+      "cosine": 0.9998452308026303,
+      "relative_RMSE": 0.0176057275158419,
+      "max_abs_delta": 0.010566070675849915
+    }
+  ],
+  "interpretation": "CNN output error about3e-5 grows through multiple transformer layers. Layer0 residual relativeRMSE is0.000184/0.000107 for silence/speech; layer3 is0.000972/0.000520, layer27 is0.009447/0.009142. Preprojection final GELU outputs still0.017523/0.017606. This does not isolate one faulty operator or justify a production precision change.",
+  "original_gate": {
+    "minimum_cosine": 0.999,
+    "maximum_relative_RMSE": 0.01,
+    "passed": false
+  },
+  "A100_encoder_only_scoped_GPU2_lease_MiB": 4096,
+  "A100_encoder_jobs_exited_and_leases_normally_released": true,
+  "Orin_encoder_PID": 1697841,
+  "Orin_encoder_residency_and_actual_exit_proven": true,
+  "Orin_old_service_same_MainPID": 1618595,
+  "Orin_minimum_available_RAM_bytes": 9913925632,
+  "old_Orin_service_not_paused_or_restarted": true,
+  "primary_language_weights_loaded": false,
+  "optimizer_updates": 0,
+  "healthy_audio_training_jobs_unchanged": true,
+  "CTC_runtime_enabled": false,
+  "new_weight_exports": false,
+  "release_qualified": false,
+  "public_weights_uploaded": false,
+  "cleanup": {
+    "local_removed_disposable_feature_bytes": 167612416,
+    "local_files": 482,
+    "local_plan_SHA256": "7e9f11dd9e360e2667d79ff0d1d3d01f3cb6e4ad21dc1e0347f78f301b4bc4e7",
+    "local_apply_receipt_SHA256": "02726ed100ee60c6b431b35cb0105c53c8e72088dfd79a787b7cbc367a7c4bd4",
+    "Orin_removed_disposable_feature_bytes": 64565248,
+    "Orin_files": 180,
+    "Orin_plan_SHA256": "c89d4234ad902abf8147a7b5a74d0b06668183fafa3fea8f6f1256a48cba488c",
+    "Orin_apply_receipt_SHA256": "c7a75ec697cedb1705159a12cffd5adaa48b3ab7bb57f6ca6da884f846d08310",
+    "retained_local_selected_frontend_layer0_and_final_snapshots": 68,
+    "retained_snapshot_bytes": 31682560,
+    "no_model_weights_training_data_or_recovery_checkpoints_deleted": true
+  }
+}

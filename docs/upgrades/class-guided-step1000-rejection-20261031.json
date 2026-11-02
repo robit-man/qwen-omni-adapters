@@ -1,0 +1,52 @@
+{
+  "schema": "robit.omni.class-guided-checkpoint-semantic-review.v1",
+  "reviewed_at": "2026-10-31T04:39:13.689573+00:00",
+  "family": "ornith",
+  "step": 1000,
+  "projector_sha256": "ad39f8cb8c04c360b454eece0b1a1075186a1280dcce0c435492d1a889fcb776",
+  "changed_tensors": [
+    "mm.a.mlp.2.weight",
+    "mm.a.mlp.2.bias"
+  ],
+  "frozen_tensor_count": 858,
+  "runtime_context_tokens": 16384,
+  "primary_gpu_resident": true,
+  "ground_truth_labels_or_titles_in_requests": false,
+  "native_rows": 13,
+  "release_qualified": false,
+  "decision": "reject checkpoint for publication; retain evidence and continue already-planned training",
+  "observed_passes": [
+    "Exact synthetic speech sentence retained",
+    "Silence correctly identified",
+    "Procedural electronic alarm identified",
+    "Dog barking identified",
+    "Clapping identified natively (previous checkpoint called it gunfire)"
+  ],
+  "unresolved_critical_failures": {
+    "probe-esc50-clock_alarm": "Rattle instead of recorded clock alarm",
+    "probe-esc50-church_bells": "Music/guitar instead of church bells",
+    "fsd50k-156200": "Birds instead of human group activity",
+    "fsd50k-182894": "Vehicle/engine instead of printer",
+    "fsd50k-166192": "Explosion instead of gunfire",
+    "fsd50k-203720": "Car horn instead of siren"
+  },
+  "full_precision_comparison": {
+    "complete": true,
+    "rows": 13,
+    "checkpoint_same": true,
+    "main_errors_reproduced": [
+      "Group voices described as birds",
+      "Printer described as a vehicle",
+      "Gunfire described as explosion",
+      "Siren described as vehicle horn",
+      "Church bells described as piano instead of guitar: both wrong"
+    ],
+    "conclusion": "Not primarily a GGUF export/quantization defect; no runtime or native patch justified by this comparison."
+  },
+  "ASR160_and_environmental240_deferred": "Early mandatory semantic gate already failed; no candidate can be selected or published on this result. Run complete suites on a candidate that passes the critical probes.",
+  "heldout_test_consumed": false,
+  "new_runtime_changes": false,
+  "assigned_device_qualification_performed": false,
+  "hardware_scope": "A100 development diagnostic at16K/F16; final Ornith release qualification remains Orin",
+  "precision_comparison_report_sha256": "517816c079a4f447d3f4f047b1246c04340d6245e4b2f1e36f7c17f33059b6bd"
+}
