@@ -104,17 +104,19 @@ memory or quality gain. Deployed Q4_K_M weights are unchanged. Source/native/ful
 release gates remain mandatory. The initial wrapper-order failure is retained.
 See `docs/upgrades/qwen-nf4-resource-preflight-20261101.json`.
 
-The bounded Qwen NF4 trial is now running: restore exact8400 conditional48
-and AdamW, then500 updates on the same next2000 original draws as preserved
-BF16control8900. Architecture, rich750 projection, data/order, LR and loss stay
-fixed. The first25 actual updates pass within24GiB Torch/25GiB scoped lease;
-GPU0 only, all parameters on CUDA, other owners and Ornith training preserved.
-Keep125/250/500 checkpoints for recovery. Its observer waits for actual exit,
-normal release and a CPU recovery audit before fixed174 source cases: original
-8400, BF16trained8900 and NF4trained8900 through one shared NF4 inference trunk.
-Do not edit/restart healthy workers or export a failing candidate. No quality,
-native compatibility, runtime-memory or publication claim follows from updates.
-See `docs/upgrades/qwen-nf4-comparison-preparation-20261101.json`.
+The matched Qwen NF4 trial completed500updates and source174. Exact8400
+conditional48/AdamW and the same next2000draws as preserved BF16control8900;
+architecture, rich750 projection, LR and loss stay fixed. Full training peaks
+24,390MiB within24GiB Torch/25GiB lease. CPU audit passes all48weights/moments,
+steps/order/RNG/seen IDs and unchanged parent/control files. Both actual workers
+exited and leases released normally. Shared NF4 inference scores38/36/34natural
+errors for original8400/BF16trained8900/NF4trained8900 versuslegacy9. Dog/Meow,
+bells/Guitar, voices/Crow, siren/Organ and omitted/misordered mixtures remain.
+N500 is UNQUALIFIED and excluded from release; keep125/250/500 recovery, no GGUF
+export. This verifies a lower-memory training path, not runtime memory, native
+quality or publication. See
+`docs/upgrades/qwen-nf4-comparison-source-review-20261101.json` and the original
+`docs/upgrades/qwen-nf4-comparison-preparation-20261101.json`.
 
 The completed attention comparison is REJECTED: both valid arms produce
 39 natural-speech errors/594 versus legacy 9. All 13 environmental and 16
