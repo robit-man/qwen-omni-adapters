@@ -3,11 +3,12 @@ import hashlib
 
 import pytest
 
+from qwen_omni_adapters.audio_adapter import sha256
 from scripts.build_native_ollama import sha
 from scripts.prepare_native_ollama import identity
 
 
-@pytest.mark.parametrize('function', [sha, identity], ids=['source-archive', 'model-binding'])
+@pytest.mark.parametrize('function', [sha, identity, sha256], ids=['source-archive', 'model-binding', 'conditional-audio-binding'])
 @pytest.mark.parametrize('contents,expected', [
     (b'', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'),
     (b'a' * 1000000, 'cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0'),

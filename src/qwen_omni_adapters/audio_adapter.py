@@ -14,8 +14,11 @@ _PREFIX = "robit.audio_adapter."
 
 
 def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
     with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        while chunk := stream.read(256 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _digest(value: Any) -> bool:

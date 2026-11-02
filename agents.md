@@ -94,8 +94,14 @@ Native setup archive/configuration hashing now supports Orin Python3.10.
 Both functions previously raisedAttributeError there because file_digest
 requires3.11. Bounded256KiB SHA256 reads preserve exact results and the existing
 artifact-change check. Actual Orin empty/million-a canonical checks pass4/4;
-all6,398 repository tests pass. Conditional audio-component hashing is a
-separate remaining3.10 issue. The ARM native build is not qualified: its guarded
+all6,398 repository tests pass. The subsequent conditional audio-component hash
+fix also passes on actualPython3.10; all six canonical cases and6,400 repository
+tests pass, preserving exact48 tensor/precision/ABI/binding restrictions.
+The complete exact-tag configuration preparation and deployment doctor pass
+on Orin, with zero weight copies and no CUDA/service changes. That prepared
+binding-v2 tag has no conditional LoRA; actual final native/v3 weights remain
+unqualified. See `docs/upgrades/native-audio-binding-python310-20261102.json`.
+The ARM native build is not qualified: its guarded
 CPU build stopped at the2GiB available-memory floor, preserving the active old
 service. Keep its source/toolchain/caches and rejection report; no automatic
 retry or native/weight release claim. See
