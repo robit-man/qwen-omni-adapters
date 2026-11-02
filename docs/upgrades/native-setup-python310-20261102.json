@@ -1,0 +1,127 @@
+{
+  "schema": "robit.omni.native-setup-python310.v1",
+  "failing_acceptance": "Native source-archive and exact-model binding hash functions must run on Orin Python3.10.12; before each raisesAttributeError becausefile_digest is absent.",
+  "bounded_hypothesis": "Bounded256KiB SHA256 streaming preserves digest results and the existing artifact mutation check while using supportedPython3.10 APIs.",
+  "change": [
+    "scripts/build_native_ollama.py:sha",
+    "scripts/prepare_native_ollama.py:identity"
+  ],
+  "before_actual_Orin_function_execution": {
+    "complete": true,
+    "Python": "3.10.12",
+    "file_digest_available": false,
+    "actual_functions_executed_in_isolation": true,
+    "CUDA_started": false,
+    "service_changed": false,
+    "all_four_passed": false,
+    "rows": [
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "c43ebba5a7bbb3a961ee51c64d3caadd7feefcf273b3b89e53d7510701e8a75a",
+        "case": "empty",
+        "passed": false,
+        "error": "AttributeError(\"module 'hashlib' has no attribute 'file_digest'\")"
+      },
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "c43ebba5a7bbb3a961ee51c64d3caadd7feefcf273b3b89e53d7510701e8a75a",
+        "case": "million_a",
+        "passed": false,
+        "error": "AttributeError(\"module 'hashlib' has no attribute 'file_digest'\")"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "858a5422a78fb5b7e748792a652b0062d42d28ef3f1ca40d819f47bf2c77b08b",
+        "case": "empty",
+        "passed": false,
+        "error": "AttributeError(\"module 'hashlib' has no attribute 'file_digest'\")"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "858a5422a78fb5b7e748792a652b0062d42d28ef3f1ca40d819f47bf2c77b08b",
+        "case": "million_a",
+        "passed": false,
+        "error": "AttributeError(\"module 'hashlib' has no attribute 'file_digest'\")"
+      }
+    ]
+  },
+  "after_actual_Orin_function_execution": {
+    "complete": true,
+    "Python": "3.10.12",
+    "file_digest_available": false,
+    "actual_functions_executed_in_isolation": true,
+    "CUDA_started": false,
+    "service_changed": false,
+    "all_four_passed": true,
+    "rows": [
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "a1632ecb0f65c29faf9812cffc8f875ddd6ba2d0b834650fc0934cb5cdf106b6",
+        "case": "empty",
+        "passed": true,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "scripts/build_native_ollama.py",
+        "source_SHA256": "a1632ecb0f65c29faf9812cffc8f875ddd6ba2d0b834650fc0934cb5cdf106b6",
+        "case": "million_a",
+        "passed": true,
+        "digest": "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "14ebb087034a9517540015f087071b8a42f68dfed1b8cc68f711f5d112227dee",
+        "case": "empty",
+        "passed": true,
+        "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "scripts/prepare_native_ollama.py",
+        "source_SHA256": "14ebb087034a9517540015f087071b8a42f68dfed1b8cc68f711f5d112227dee",
+        "case": "million_a",
+        "passed": true,
+        "digest": "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+      }
+    ]
+  },
+  "checks": {
+    "baseline_repository_tests": 6394,
+    "baseline_warnings": 2,
+    "baseline_elapsed_s": 285.97,
+    "after_repository_tests": 6398,
+    "after_warnings": 2,
+    "after_elapsed_s": 305.74,
+    "new_canonical_empty_and_NIST_million_a_regression_cases": 4
+  },
+  "limits": {
+    "hash_functions_executed_in_isolation_on_actual_Orin": true,
+    "complete_native_Orin_ASR_TTS_qualified": false,
+    "conditional_audio_adapter_hashing_is_a_separate_remainingPython310_issue": true,
+    "weights_or_public_contract_changed": false,
+    "CUDA_deployments_changed": false,
+    "old_Orin_service_unchanged": true,
+    "public_weights_uploaded": false
+  },
+  "ARM_build_preparation": {
+    "CGO0_cross_compile_rejected": "UpstreamMLX bindings needCgo; no binary produced or platform source hacks applied.",
+    "private_ARM_Go_toolchain_verified_and_staged": true,
+    "CPU_native_build_rejected_by_memory_floor": {
+      "complete": false,
+      "CUDA_started": false,
+      "release_qualified": false,
+      "old_service_before": "active",
+      "wrapper_PID": 1578828,
+      "steps": [],
+      "minimum_available_RAM_bytes": 2132189184,
+      "minimum_disk_free_bytes": 628135923712,
+      "RAM_floor_bytes": 2147483648,
+      "disk_reserve_bytes": 10737418240,
+      "current_step": "Go-tests",
+      "actual_build_PID": 1578837,
+      "actual_build_start_ticks": "158487650",
+      "error": "AssertionError('CPU build crossed available-memory floor; stop build only')",
+      "old_service_after": "active"
+    },
+    "further_work": "Preserve cache/source and old service; use a separate controlled resource/lifecycle window for native build and actual qualification."
+  }
+}

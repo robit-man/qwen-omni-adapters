@@ -90,6 +90,17 @@ This is trusted native-config discovery/selection with request reference text,
 not desktop profile import, perceptual similarity, Orin or final-model parity.
 See `docs/upgrades/native-ollama-voice-discovery-20261101.json`.
 
+Native setup archive/configuration hashing now supports Orin Python3.10.
+Both functions previously raisedAttributeError there because file_digest
+requires3.11. Bounded256KiB SHA256 reads preserve exact results and the existing
+artifact-change check. Actual Orin empty/million-a canonical checks pass4/4;
+all6,398 repository tests pass. Conditional audio-component hashing is a
+separate remaining3.10 issue. The ARM native build is not qualified: its guarded
+CPU build stopped at the2GiB available-memory floor, preserving the active old
+service. Keep its source/toolchain/caches and rejection report; no automatic
+retry or native/weight release claim. See
+`docs/upgrades/native-setup-python310-20261102.json`.
+
 ## Active convergence goal and GPU assignment — 2026-11-01
 
 Qwen NF4 resource preflight now PASSES on GPU0: the same8400 conditional48,

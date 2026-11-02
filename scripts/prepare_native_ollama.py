@@ -22,13 +22,15 @@ from qwen_omni_adapters.ollama_sidecar import resolve_ollama_sidecar
 def identity(path: Path) -> dict:
     path = path.absolute()
     before = path.stat()
+    digest = hashlib.sha256()
     with path.open('rb') as stream:
-        digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        while chunk := stream.read(256 * 1024):
+            digest.update(chunk)
     after = path.stat()
     if (before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
             after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
         raise ValueError('native artifact changed during hashing')
-    return {'path': str(path), 'sha256': digest}
+    return {'path': str(path), 'sha256': digest.hexdigest()}
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
