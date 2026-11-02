@@ -1,0 +1,33 @@
+{
+  "schema": "robit.omni.decision-family-catalog-closure.v1",
+  "problem": "Delivery was declared as a tool family but absent from classifier choices, so a valid delivery prediction was rejected as unknown.",
+  "before_declared_families": 17,
+  "before_classifier_choices": 16,
+  "after_choices_cover_all17_declared_families": true,
+  "tool_family_question_version": 2,
+  "change": "Add delivery criterion for prepared local artifacts and bump question version for cache/head-label isolation.",
+  "regression_proofs": [
+    "Default classifier labels equal the typed family catalog",
+    "A delivery answer validates as a shadow prediction and never takes a fast path"
+  ],
+  "validation": {
+    "passed": 6406,
+    "warnings": 2,
+    "elapsed_s": 280.61,
+    "log_SHA256": "8c3446ca264c5723c6dec1f67a5e6e73bbbd4467983b98241c1aeb5f6ffe9062"
+  },
+  "red_regression_log_SHA256": "1c858e0e6a0ac9c6359edf21a813e2a0a01302997ead2e4492f6bb03a893888f",
+  "source_SHA256": {
+    "src/qwen_omni_adapters/decision-plane.yaml": "c160d859e2864e1539a5fdb16055c8e1e67c638ecc8864d04aab9fdcb8ed3e41",
+    "tests/test_decision_plane.py": "5664af6f69ef3a2a24fa9d730725720439e57e734c9e3747dd591fed6ca01f3e",
+    "docs/decision-plane.md": "8a25a64795917b9d91600d09f08e726950719b5bc3d59d859f89cd04c9f26496"
+  },
+  "new_weights_or_neural_jobs": false,
+  "real_classifier_accuracy_established": false,
+  "all_default_families_remain_uncalibrated": true,
+  "authorization_or_execution_policy_changed": false,
+  "running_audio_trial_sources_changed": false,
+  "trained_exact_trunk_heads_complete": false,
+  "release_qualified": false,
+  "publication": false
+}

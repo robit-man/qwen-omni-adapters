@@ -21,7 +21,12 @@ from qwen_omni_adapters.decision_plane import (
     authorize_action,
     load_decision_config,
 )
-from qwen_omni_adapters.decision_replay import load_traces, render_report, replay
+from qwen_omni_adapters.decision_replay import (
+    _calibration,
+    load_traces,
+    render_report,
+    replay,
+)
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from runtime.laya_server import LayaRuntime, ServerConfig
 
@@ -209,6 +214,37 @@ def test_shadow_mode_never_changes_behavior_even_at_high_confidence() -> None:
     assert decision.shadow is True
     assert decision.fast_path_taken is False
     assert decision.escalated is True
+
+
+def test_default_tool_family_choices_cover_the_declared_catalog() -> None:
+    value = load_decision_config()
+    definition = value["decisions"]["tool_family"]
+
+    assert set(definition["criteria"]) == set(value["tool_families"])
+    assert "delivery" in definition["criteria"]
+    assert definition["version"] == 2
+
+
+def test_default_tool_family_accepts_delivery_as_a_shadow_prediction() -> None:
+    value = load_decision_config()
+    value["trace"]["enabled"] = False
+    plane = DecisionPlane(
+        value,
+        backend=FakeBackend({"tool_family": "delivery"}, confidence=0.99),
+    )
+
+    result = plane.evaluate(
+        state=DecisionState(
+            user_request="Give me the completed report as a downloadable file.",
+            available_tool_families=("delivery",),
+        ),
+        decisions=["tool_family"],
+    ).results["tool_family"]
+
+    assert result.value == "delivery"
+    assert result.question_version == 2
+    assert result.shadow is True
+    assert result.fast_path_taken is False
 
 
 def test_authorization_policy_overrides_model_prediction() -> None:
@@ -402,6 +438,57 @@ def test_replay_compares_architectures_and_refuses_fixture_only_calibration() ->
         for item in result["calibration"].values()
     )
     assert "fixture-only" in report.lower()
+
+
+@pytest.mark.parametrize("accepted_samples", [1, 29, 30])
+def test_replay_calibration_requires_minimum_accepted_samples(
+    accepted_samples: int,
+) -> None:
+    low_confidence_error = {
+        "expected": "web",
+        "predicted": "shell",
+        "correct": False,
+        "confidence": 0.55,
+        "probabilities": {"web": 0.45, "shell": 0.55},
+    }
+    high_confidence_correct = {
+        "expected": "web",
+        "predicted": "web",
+        "correct": True,
+        "confidence": 0.99,
+        "probabilities": {"web": 0.99, "shell": 0.01},
+    }
+    samples = [dict(low_confidence_error) for _ in range(30 - accepted_samples)]
+    samples += [dict(high_confidence_correct) for _ in range(accepted_samples)]
+
+    result = _calibration(samples, max_fast_error=0.01, min_samples=30)
+
+    assert result["successful_samples"] == 30
+    assert result["calibration_sufficient"] is (accepted_samples == 30)
+    if accepted_samples < 30:
+        assert result["recommended_threshold"] is None
+        assert result["coverage_at_recommended_threshold"] == 0
+    else:
+        assert result["recommended_threshold"] is not None
+        assert result["coverage_at_recommended_threshold"] == 1
+
+
+def test_replay_report_shows_accepted_calibration_support() -> None:
+    sample = {
+        "expected": "web",
+        "predicted": "web",
+        "correct": True,
+        "confidence": 0.99,
+        "probabilities": {"web": 0.99, "shell": 0.01},
+    }
+    calibration = _calibration([dict(sample) for _ in range(30)], max_fast_error=0.01, min_samples=30)
+
+    report = render_report({"calibration": {"tool_family": calibration}})
+
+    assert calibration["accepted_samples_at_recommended_threshold"] == 30
+    assert calibration["minimum_accepted_samples"] == 30
+    assert "Accepted/min" in report
+    assert "| 30/30 |" in report
 
 
 def test_resident_server_preloads_and_warms_before_ready(monkeypatch: pytest.MonkeyPatch) -> None:

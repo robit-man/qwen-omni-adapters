@@ -60,6 +60,11 @@ worker submits action waves asynchronously in shadow mode. Concurrent overflow
 is rejected within the configured `max_wait_ms`; callers immediately retain the
 deliberative fallback instead of accumulating a model-inference queue.
 
+The `tool_family` question is version 2 and covers every family in the typed
+catalog, including delivery of a prepared local artifact. The question version
+and full criteria participate in cache keys. Prediction continues to expose a
+family only; authorization, exact tool arguments, and execution remain separate.
+
 ## Lifecycle and residency
 
 `runtime/laya_server.py` owns checkpoint download, device selection, preload,
@@ -130,6 +135,12 @@ It calculates accuracy, per-label precision/recall, confusion matrices, Brier
 score, ECE, threshold coverage/error, false fast paths, LLM calls avoided,
 task-success estimate, and p50/p95/p99 latency. Fixture-only data can exercise
 the machinery but cannot activate a fast path.
+
+The configured minimum calibration count applies to the samples accepted by
+the recommended threshold. Discarded low-confidence samples cannot supply that
+count. JSON threshold curves include `selected_samples`; the Markdown report
+shows accepted/minimum support. These are empirical replay measurements;
+production activation still requires real workload evidence and policy review.
 
 ### Current constrained-host result
 

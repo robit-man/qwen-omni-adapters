@@ -138,7 +138,7 @@ decisions:
 
   tool_family:
     category: LAYA_GATED
-    version: 1
+    version: 2
     type: choice
     instructions: >-
       Select only the broad capability family most likely to contain the next
@@ -146,6 +146,7 @@ decisions:
     criteria:
       none: no tool is needed
       filesystem: inspect, create, move, or edit local files
+      delivery: provide a prepared local artifact as a download for the user
       shell: run commands, programs, builds, tests, or local processes
       math: evaluate arithmetic or mathematical expressions
       browser: interact with a rendered web page, controls, or forms

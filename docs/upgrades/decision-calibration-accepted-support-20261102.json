@@ -1,0 +1,50 @@
+{
+  "schema": "robit.omni.decision-calibration-accepted-support.v1",
+  "problem": "Thirty total usable replay samples incorrectly permitted a recommendation accepting onlyone sample, despite minimum30.",
+  "synthetic_reproduction_only": true,
+  "before_recommended_threshold": 0.56,
+  "before_total_usable": 30,
+  "before_accepted_at_threshold": 1,
+  "before_calibration_sufficient": true,
+  "change": "Apply configured minimum to the accepted subset at the recommended threshold; preserve empirical error/coverage checks.",
+  "diagnostics": [
+    "Threshold curves expose selected_samples",
+    "JSON records minimum_accepted_samples and accepted_samples_at_recommended_threshold",
+    "Markdown reports accepted/minimum support and marks absent historical fields as not recorded"
+  ],
+  "regression_controls": {
+    "one_accepted_of30": "rejected",
+    "29_accepted_of30": "rejected",
+    "30_accepted_of30_correct": "accepted"
+  },
+  "before_validation": {
+    "passed": 6400,
+    "warnings": 2,
+    "elapsed_s": 279.12,
+    "log_SHA256": "2ba540c90c32d73a6610efb3652e3ddb9a878247dc6a13f9030a2d41dcbfe691"
+  },
+  "after_validation": {
+    "passed": 6404,
+    "warnings": 2,
+    "elapsed_s": 281.48,
+    "log_SHA256": "a76a885a01fc2c33962a817421bf66b7722302f449614eaa9ae422192d4cf965"
+  },
+  "red_regression_log_SHA256": "79b505758a355b97c95672fe3bf387996a6087e78850fb9d8a4b12221d74aea7",
+  "source_SHA256": {
+    "src/qwen_omni_adapters/decision_replay.py": "03f07f18f789fc16e9aa58b85d2f550b71849ea57252a4780879dd9c789f3dba",
+    "tests/test_decision_plane.py": "ec95a26824706e19aefa3afcdccf113ca63101d8439ac36741f4e75124f052d6",
+    "docs/decision-plane.md": "b353e676377baeb2d0baf76f221a3fba5f42b717fc113737b481c0726f033e1a"
+  },
+  "no_fast_path_or_head_activated": true,
+  "no_training_data_or_running_audio_trial_changes": true,
+  "new_neural_jobs_or_weights": false,
+  "classifier_accuracy_established": false,
+  "limits": [
+    "Synthetic regression verifies calibration bookkeeping, not learned classifier accuracy.",
+    "The existing28 labeled replay cases are fixtures, not a new training corpus or real workload calibration.",
+    "Empirical replay sufficiency does not authorize execution or replace real workload evidence and deterministic policy.",
+    "Exact-trunk decision/retrieval heads and continuous cognition remain pending."
+  ],
+  "release_qualified": false,
+  "publication": false
+}

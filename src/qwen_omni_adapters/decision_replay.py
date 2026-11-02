@@ -230,26 +230,34 @@ def render_report(result: Mapping[str, Any]) -> str:
         "",
         "## Per-decision calibration",
         "",
-        "| Decision | available/total | Accuracy | Brier | ECE | Safe threshold | Coverage |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| Decision | available/total | Accuracy | Brier | ECE | Threshold | Accepted/min | Coverage |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     calibration = result.get("calibration", {})
     if isinstance(calibration, Mapping):
         for name, raw in calibration.items():
             value = raw if isinstance(raw, Mapping) else {}
             threshold = value.get("recommended_threshold")
+            accepted = value.get("accepted_samples_at_recommended_threshold")
+            minimum = value.get("minimum_accepted_samples")
+            support = (
+                f"{accepted}/{minimum}"
+                if accepted is not None and minimum is not None
+                else "not recorded"
+            )
             lines.append(
                 f"| {name} | {value.get('successful_samples', 0)}/{value.get('samples', 0)} "
                 f"| {value.get('accuracy', 0):.3f} "
                 f"| {value.get('brier', 0):.3f} | {value.get('ece', 0):.3f} "
                 f"| {threshold if threshold is not None else 'not calibrated'} "
+                f"| {support} "
                 f"| {value.get('coverage_at_recommended_threshold', 0):.3f} |"
             )
     lines.extend(
         [
             "",
-            "Thresholds are recommendations only when the configured minimum sample count and",
-            "maximum false-fast-path error are both satisfied. Fixture-only results do not",
+            "Thresholds are recommendations only when their accepted samples meet the configured",
+            "minimum count and maximum false-fast-path error. Fixture-only results do not",
             "authorize production activation; real shadow traces must be added to the replay.",
             "",
         ]
@@ -311,6 +319,7 @@ def _calibration(
     thresholds: list[dict[str, Any]] = []
     recommended: float | None = None
     recommended_coverage = 0.0
+    recommended_samples = 0
     for step in range(50, 100):
         threshold = step / 100.0
         selected = [item for item in usable if float(item.get("confidence", 0.0)) >= threshold]
@@ -320,19 +329,21 @@ def _calibration(
         thresholds.append(
             {
                 "threshold": threshold,
+                "selected_samples": len(selected),
                 "coverage": coverage,
                 "error_rate": error_rate,
                 "false_fast_paths": errors,
             }
         )
         if (
-            count >= min_samples
+            len(selected) >= min_samples
             and selected
             and error_rate <= max_fast_error
             and coverage > recommended_coverage
         ):
             recommended = threshold
             recommended_coverage = coverage
+            recommended_samples = len(selected)
     return {
         "samples": total_count,
         "successful_samples": count,
@@ -343,6 +354,8 @@ def _calibration(
         "brier": sum(brier_values) / max(1, len(brier_values)),
         "ece": _ece(usable),
         "recommended_threshold": recommended,
+        "minimum_accepted_samples": min_samples,
+        "accepted_samples_at_recommended_threshold": recommended_samples,
         "coverage_at_recommended_threshold": recommended_coverage,
         "threshold_curve": thresholds,
         "calibration_sufficient": recommended is not None,
