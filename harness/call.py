@@ -449,6 +449,12 @@ class CallSession:
             return False
         logger.info("portal token changed; picking up the new one")
         self.config.token = token
+        if self.config.portal_session_id is None:
+            self.portal_session_id = hashlib.sha256(
+                b"omni-voice-session\0" + token.encode("utf-8")
+            ).hexdigest()
+            self._client.cookies.delete("omni_portal_session")
+            self._client.cookies.set("omni_portal_session", self.portal_session_id)
         return True
 
     def _state(self, state: State, detail: str = "") -> None:
@@ -777,6 +783,13 @@ class CallSession:
         return result
 
     def take_turn(self, samples: np.ndarray, segments: int = 1) -> TurnResult:
+        """Capture every decoded turn, including interrupted/error exits."""
+        submitted_at = time.time()
+        result = self._take_turn(samples, segments)
+        self._persist(result, occurred_at=submitted_at)
+        return result
+
+    def _take_turn(self, samples: np.ndarray, segments: int = 1) -> TurnResult:
         """Answer what was heard, with tools in the answer-producing pass.
 
         This is the same chain as the cloudflared browser: the portal exposes
@@ -898,9 +911,6 @@ class CallSession:
         self._note_spoken(result.reply, result.spoke_seconds)
         self._remember(result)
 
-        # Scheduling the daemon worker is the final operation. It can never
-        # overlap comprehension, tool use, TTS, or comprehension restoration.
-        self._persist(result)
         return result
 
     def _note_failure(
@@ -1264,8 +1274,8 @@ class CallSession:
         if reply:
             self._append_history("assistant", reply)
 
-    def _persist(self, result: TurnResult) -> None:
-        """Queue semantic storage after the whole turn, with no synchronous I/O."""
+    def _persist(self, result: TurnResult, *, occurred_at: float | None = None) -> None:
+        """Commit a bounded source event after the turn, then queue semantic work."""
 
         if self.memory is None:
             return
@@ -1273,12 +1283,19 @@ class CallSession:
         reply = " ".join(
             part for part in (result.reply.strip(), result.followup.strip()) if part
         )
+        if result.interrupted or result.error:
+            # Delivery is uncertain; retain the known user words without
+            # claiming that an unplayed generated reply was discussed.
+            reply = ""
         if transcript and reply:
-            self.memory.remember(f"{transcript} — {reply}", kind="exchange")
+            self.memory.remember(f"{transcript} — {reply}", kind="exchange",
+                                 source={"type": "voice_exchange", "user": transcript, "assistant": reply},
+                                 occurred_at=occurred_at)
         elif transcript:
-            self.memory.remember(transcript, kind="heard")
+            self.memory.remember(transcript, kind="heard", occurred_at=occurred_at,
+                                 source={"type": "voice_heard", "user": transcript})
         elif result.audio_observation:
-            self.memory.remember(result.audio_observation, kind="sound")
+            self.memory.remember(result.audio_observation, kind="sound", occurred_at=occurred_at)
 
     def announce(self, text: str) -> TurnResult:
         """Speak a background completion when the live conversation is idle."""

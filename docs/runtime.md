@@ -3,6 +3,15 @@
 The reference runtime presents one Ollama-compatible API while coordinating
 three independently executable graphs from one logical model tag.
 
+## Durable voice archive
+
+The local voice harness retains source exchanges independently of embedding
+availability. The owner-scoped `conversation_search` tool retrieves them by
+semantic topic and explicit calendar/elapsed time. See
+[durable voice memory](durable-voice-memory.md) for migration, timezone semantics,
+source attribution, isolation and research scope. Browser session memory remains
+separate.
+
 ## Bounded virtual context
 
 Compact audio-bridge profiles default to a 16,384-token physical context. The

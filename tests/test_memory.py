@@ -175,7 +175,7 @@ def test_age_alone_never_forgets_something_that_was_needed(tmp_path: Path) -> No
 # -- never load-bearing ---------------------------------------------------
 
 
-def test_an_unreachable_embedder_disables_memory_rather_than_the_call(tmp_path: Path) -> None:
+def test_an_unreachable_embedder_preserves_the_call_and_raw_source(tmp_path: Path) -> None:
     """A conversation must survive its memory being unavailable."""
 
     class Dead:
@@ -190,6 +190,7 @@ def test_an_unreachable_embedder_disables_memory_rather_than_the_call(tmp_path: 
     assert memory.remember("anything at all") is None
     assert memory.recall("anything at all") == []
     assert memory.stats()["memories"] == 0
+    assert len(memory.history.search()["results"]) == 1
     memory.close()
 
 

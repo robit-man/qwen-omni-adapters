@@ -569,3 +569,11 @@ The schema identifier is the compatibility boundary. Additive response fields
 may be introduced within v1. Any change to media encoding, task semantics,
 streaming framing, required fields, or tensor-view selection requires a new
 schema identifier. Runtimes MUST reject unknown explicit schema values.
+
+## Device-owner conversation archive tool
+
+The server-pinned `conversation_search` tool searches the local voice archive
+only for its authorized voice session. Its typed periods, timestamped evidence,
+source and assistant attribution, bounded pagination and degraded-mode behavior
+are defined in [durable voice memory](durable-voice-memory.md). It does not change
+the adapter request envelope or grant browser sessions access to device history.

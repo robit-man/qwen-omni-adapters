@@ -875,8 +875,9 @@ def test_constrained_host_finishes_text_before_swapping_to_speech() -> None:
     )
 
     class RecordingMemory:
-        def remember(self, _text: str, *, kind: str) -> None:
+        def remember(self, _text: str, *, kind: str, source=None, occurred_at=None) -> None:
             assert kind == "exchange"
+            assert source["type"] == "voice_exchange"
             order.append("memory")
 
     call.memory = RecordingMemory()  # type: ignore[assignment]
@@ -2018,3 +2019,50 @@ def test_engagement_follows_whether_egg_spoke_recently() -> None:
     assert call._build_payload(b"wav", 1, None)["omni"]["live_engaged"] is True
     later = call._last_spoken_at + call.config.engagement_window_s + 1
     assert call._engaged(now=later) is False
+
+
+def test_token_refresh_rebinds_default_voice_scope_without_stale_domain_cookie():
+    import hashlib
+
+    call = CallSession(CallConfig(token='before', model='m', token_reader=lambda: 'after'))
+    old = call.portal_session_id
+    call._client.cookies.set('omni_portal_session', old, domain='127.0.0.1', path='/')
+    assert call._refresh_token()
+    assert call.portal_session_id != old
+    assert call._client.cookies.get('omni_portal_session') == call.portal_session_id
+    assert call.portal_session_id == hashlib.sha256(b'omni-voice-session\0after').hexdigest()
+    call.close()
+
+
+def test_token_refresh_preserves_explicit_client_scope():
+    call = CallSession(CallConfig(token='before', model='m', token_reader=lambda: 'after',
+                                  portal_session_id='explicit-owner-session-1234567890'))
+    assert call._refresh_token()
+    assert call.portal_session_id == 'explicit-owner-session-1234567890'
+    assert call._client.cookies.get('omni_portal_session') == call.portal_session_id
+    call.close()
+
+
+@pytest.mark.parametrize('interrupted,error', [(True, ''), (False, 'speech delivery failed')])
+def test_decoded_user_words_survive_early_exit_without_unplayed_assistant_claims(interrupted,error):
+    import time
+
+    call = CallSession(CallConfig(token='t', model='m'))
+    records = []
+    class Recorder:
+        def remember(self, text, **fields):
+            records.append((text, fields))
+        def close(self):
+            pass
+    call.memory = Recorder()
+    call._take_turn = lambda *_args: TurnResult(transcript='Remember the violet telescope.',
+                                               reply='Unplayed proposed answer.',
+                                               interrupted=interrupted,error=error)
+    before = time.time()
+    call.take_turn(np.zeros(1600,dtype=np.float32))
+    assert len(records) == 1
+    assert records[0][0] == 'Remember the violet telescope.'
+    assert records[0][1]['kind'] == 'heard'
+    assert before <= records[0][1]['occurred_at'] <= time.time()
+    assert records[0][1]['source']['user'] == records[0][0]
+    call.close()

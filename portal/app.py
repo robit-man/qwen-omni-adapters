@@ -2846,6 +2846,10 @@ def create_app(
         ),
         file_deliveries=file_deliveries,
         workspace_root=runtime.tool_workspace_root or Path.home(),
+        conversation_history_path=Path(os.environ.get(
+            "OMNI_CALL_MEMORY", str(repository_root / "runtime-data/memory.sqlite3"))),
+        conversation_history_owner=hashlib.sha256(
+            b"omni-voice-session\0" + runtime.access_token.encode("utf-8")).hexdigest(),
     )
     app.config["MAX_CONTENT_LENGTH"] = runtime.max_body_bytes
 

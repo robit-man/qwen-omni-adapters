@@ -111,6 +111,17 @@ editing the controller during every difficult trajectory.
   an executor-observed before/after receipt for declared paths, and runtime
   changes remain unverified until a separate verification step succeeds.
 
+## Durable voice memory
+
+Voice source events must commit locally before embedding or admission-dependent
+work. Preserve event timestamps and speaker attribution; semantic cache merges,
+decay and rebuildable consolidation must never delete source events. The
+`conversation_search` archive is authorized only for its device-owner voice
+session. Browser memory and Trash/TTL remain isolated. Apply typed time windows
+before semantic ranking, using IANA zones across DST. Validate capture, retrieval
+and actual model answering separately, and disclose legacy timestamp uncertainty.
+See `docs/durable-voice-memory.md`.
+
 ## CUDA deployment policy
 
 This host uses the ollama-unify GPU lease broker. Before creating, starting,

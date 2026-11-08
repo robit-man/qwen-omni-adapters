@@ -60,7 +60,7 @@ tool_families:
   desktop: [gui_interact]
   web: [web_search, web_fetch, web_crawl]
   documents: [document_search, structured_read, ocr_pdf]
-  memory: [memory_read, memory_search, memory_write]
+  memory: [conversation_search, memory_read, memory_search, memory_write]
   system: [get_current_time, get_system_snapshot, get_user_location, get_portal_capabilities]
   camera: [request_camera_view]
   session: [session_search, working_notes, task_list]

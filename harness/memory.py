@@ -1,22 +1,9 @@
-"""Rolling memory: what was said and seen, kept so it can come back.
+"""Voice memory: durable source capture and asynchronous derived semantic state.
 
-The point is that recall happens because something is *relevant*, not because
-a rule fired. Every turn is embedded and stored; every new turn is embedded and
-compared against everything before it. What surfaces, surfaces on similarity
-alone -- there is no list of words that mean "remember", and asking about a
-conversation from last week works for the same reason asking about one from a
-minute ago does.
-
-Two properties make it behave like something that grows rather than a log:
-
-*Strength.* A memory that keeps being recalled is reinforced and ranks higher
-next time; one that is never recalled decays. Nothing is deleted for being old,
-only for being consistently irrelevant, so a thing mentioned once six months ago
-survives if it was the answer to something.
-
-*Consolidation.* Near-duplicate memories are merged rather than accumulated, so
-saying the same thing five times leaves one stronger memory instead of five
-competing ones.
+Every source event commits before model-dependent indexing. The old semantic
+cache may merge or fade while the source journal retains distinct occurrences.
+Historical recall uses the owner-scoped conversation_search tool and applies
+explicit time constraints before hybrid retrieval. See harness.history.
 """
 
 from __future__ import annotations
@@ -35,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+from harness.history import ConversationHistory
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +69,8 @@ class Memory:
         """
 
         moment = datetime.fromtimestamp(self.created_at).astimezone()
-        today = datetime.now().astimezone().date()
+        current = datetime.fromtimestamp(time.time() if now is None else now).astimezone()
+        today = current.date()
         days = (today - moment.date()).days
         clock = moment.strftime("%H:%M")
         if days <= 0:
@@ -89,7 +79,7 @@ class Memory:
             return f"yesterday at {clock}"
         if days < 7:
             return f"{moment.strftime('%A')} at {clock} ({days} days ago)"
-        if moment.year == datetime.now().year:
+        if moment.year == current.year:
             return moment.strftime(f"%-d %B at {clock}")
         return moment.strftime(f"%-d %B %Y at {clock}")
 
@@ -227,8 +217,10 @@ class MemoryStore:
         self._db = sqlite3.connect(str(self.path), check_same_thread=False)
         self._db.row_factory = sqlite3.Row
         self._prepare()
+        self.history = ConversationHistory(self.path)
 
     def close(self) -> None:
+        self.history.close()
         self._db.close()
         self.embedder.close()
 
@@ -254,17 +246,28 @@ class MemoryStore:
             "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)",
             (str(SCHEMA_VERSION),),
         )
+        if "decayed_at" not in {r[1] for r in self._db.execute("PRAGMA table_info(memories)")}:
+            self._db.execute("ALTER TABLE memories ADD COLUMN decayed_at REAL NOT NULL DEFAULT 0")
         self._db.commit()
 
     # -- writing ---------------------------------------------------------
 
     def remember(self, text: str, *, kind: str = "turn") -> int | None:
-        """Store something, or strengthen it if it is already known."""
+        """Commit a source event before attempting derived semantic indexing."""
+
+        if not str(text).strip():
+            return None
+        event_id = self.history.append(text, kind=kind)
+        return self.index_event(event_id, text, kind=kind)
+
+    def index_event(self, event_id: int, text: str, *, kind: str = "turn") -> int | None:
+        """Index an already durable event; an unavailable encoder loses no text."""
 
         text = " ".join((text or "").split())
-        if len(text) < 8:
+        if not text:
             return None
         vector = self.embedder(text)
+        self.history.vector(event_id, vector)
         if vector is None:
             return None
 
@@ -272,6 +275,11 @@ class MemoryStore:
         if existing and existing[0].similarity >= MERGE_SIMILARITY:
             # The same thing said again. One stronger memory beats two rivals.
             self._reinforce(existing[0].id, text=max(text, existing[0].text, key=len))
+            if len(text) >= len(existing[0].text):
+                self._db.execute("UPDATE memories SET vector=? WHERE id=?",
+                                 (json.dumps(vector).encode(), existing[0].id))
+                self._db.commit()
+            self.history.link(event_id, existing[0].id)
             return existing[0].id
 
         now = time.time()
@@ -281,7 +289,14 @@ class MemoryStore:
             (text, kind, json.dumps(vector).encode(), now, now),
         )
         self._db.commit()
-        return int(cursor.lastrowid)
+        memory_id = int(cursor.lastrowid)
+        self.history.link(event_id, memory_id)
+        return memory_id
+
+    def search_history(self, query: str = "", **options: Any) -> dict[str, Any]:
+        """Time-filtered hybrid search over source events, independent of decay."""
+        vector = self.embedder(query) if query.strip() else None
+        return self.history.search(query, vector=vector, **options)
 
     def _reinforce(self, memory_id: int, *, text: str | None = None) -> None:
         now = time.time()
@@ -363,7 +378,8 @@ class MemoryStore:
         now = time.time()
         removed = 0
         for row in self._rows():
-            idle_days = max(0.0, (now - float(row["last_used_at"])) / 86400.0)
+            baseline = max(float(row["last_used_at"]), float(row["decayed_at"]))
+            idle_days = max(0.0, (now - baseline) / 86400.0)
             if idle_days < 1.0:
                 continue
             strength = float(row["strength"]) * ((1.0 - DAILY_DECAY) ** idle_days)
@@ -372,8 +388,8 @@ class MemoryStore:
                 removed += 1
             else:
                 self._db.execute(
-                    "UPDATE memories SET strength = ? WHERE id = ?",
-                    (strength, row["id"]),
+                    "UPDATE memories SET strength = ?,decayed_at=? WHERE id = ?",
+                    (strength, now, row["id"]),
                 )
         self._db.commit()
         return removed
@@ -413,8 +429,9 @@ class PassiveMemory:
         max_pending: int = 64,
     ) -> None:
         self.path = Path(path)
+        self.history = ConversationHistory(self.path)
         self._store_factory = store_factory
-        self._jobs: queue.Queue[tuple[str, str]] = queue.Queue(maxsize=max_pending)
+        self._jobs: queue.Queue[tuple[int, str, str]] = queue.Queue(maxsize=max_pending)
         self._closed = threading.Event()
         self._warned_full = False
         self._admit: Callable[[float], bool] | None = None
@@ -429,21 +446,24 @@ class PassiveMemory:
     def _key(text: str) -> str:
         return " ".join((text or "").split())
 
-    def _submit(self, text: str, kind: str) -> None:
+    def _submit(self, event_id: int, text: str, kind: str) -> None:
         if self._closed.is_set() or not text:
             return
         try:
-            self._jobs.put_nowait((text, kind))
+            self._jobs.put_nowait((event_id, text, kind))
             self._warned_full = False
         except queue.Full:
             if not self._warned_full:
-                logger.warning("memory queue is full; dropping background work")
+                logger.warning("memory indexing queue is full; durable events will retry from SQLite")
                 self._warned_full = True
 
-    def remember(self, text: str, *, kind: str = "turn") -> None:
-        """Queue a write and return immediately."""
-
-        self._submit(self._key(text), kind)
+    def remember(self, text: str, *, kind: str = "turn", source: dict[str, Any] | None = None,
+                 occurred_at: float | None = None) -> None:
+        """Commit bounded local text, then queue optional model-dependent work."""
+        if self._closed.is_set() or not text.strip():
+            return
+        event_id = self.history.append(text, kind=kind, source=source, occurred_at=occurred_at)
+        self._submit(event_id, self._key(text), kind)
 
     def set_admission(self, callback: Callable[[float], bool] | None) -> None:
         """Gate encoder residency without ever blocking the conversation."""
@@ -469,9 +489,17 @@ class PassiveMemory:
             )
             while not (self._closed.is_set() and self._jobs.empty()):
                 try:
-                    text, kind = self._jobs.get(timeout=0.2)
+                    event_id, text, kind = self._jobs.get(timeout=0.2)
+                    queued = True
                 except queue.Empty:
-                    continue
+                    pending = (self.history.pending() if self._admit is not None
+                               and callable(getattr(store, "index_event", None))
+                               and not self._closed.is_set() else None)
+                    if pending is None:
+                        self.history.consolidate(2)
+                        continue
+                    event_id, text, kind = pending
+                    queued = False
                 try:
                     embedder = getattr(store, "embedder", None)
                     payload = getattr(embedder, "payload_gib", None)
@@ -486,11 +514,17 @@ class PassiveMemory:
                         self._closed.wait(0.25)
                     if self._closed.is_set():
                         continue
-                    store.remember(text, kind=kind)
+                    index_event = getattr(store, "index_event", None)
+                    if callable(index_event):
+                        index_event(event_id, text, kind=kind)
+                    else:
+                        store.remember(text, kind=kind)
+                    self.history.consolidate(2)
                 except Exception as error:  # noqa: BLE001 - strictly best effort
                     logger.warning("background memory write failed: %s", error)
                 finally:
-                    self._jobs.task_done()
+                    if queued:
+                        self._jobs.task_done()
         except Exception as error:  # noqa: BLE001 - memory cannot break the call
             logger.warning("memory is disabled: background startup failed (%s)", error)
         finally:
@@ -499,6 +533,7 @@ class PassiveMemory:
                     store.close()
                 except Exception:  # noqa: BLE001 - process teardown is best effort
                     logger.debug("could not close memory store", exc_info=True)
+            self.history.close()
 
 
 def memory_capacity_available(

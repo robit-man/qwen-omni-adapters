@@ -14,6 +14,7 @@ import ast
 import base64
 import binascii
 import hashlib
+import hmac
 import html
 import ipaddress
 import json
@@ -2383,8 +2384,12 @@ class PortalToolHarness:
         shell_evidence_root: Path | None = None,
         file_deliveries: SessionFileDeliveryStore | None = None,
         workspace_root: Path | None = None,
+        conversation_history_path: Path | None = None,
+        conversation_history_owner: str | None = None,
     ) -> None:
         self.documents = documents
+        self.conversation_history_path = conversation_history_path
+        self.conversation_history_owner = conversation_history_owner
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
         self.web = WebToolSuite(
             ttl_s=ttl_s,
@@ -2629,6 +2634,42 @@ class PortalToolHarness:
                 result = self.documents.structured_read(session_id, arguments.get("document_id"), arguments.get("path"), _bounded_integer(arguments.get("max_rows"), default=50, minimum=1, maximum=200))
             elif name == "ocr_pdf":
                 result = self.documents.ocr_pdf(session_id, arguments.get("document_id"), arguments.get("language"), _bounded_integer(arguments.get("max_pages"), default=20, minimum=1, maximum=50), arguments.get("force") is True)
+            elif name == "conversation_search":
+                if (not self.conversation_history_owner
+                        or not hmac.compare_digest(session_id, self.conversation_history_owner)
+                        or self.conversation_history_path is None
+                        or not self.conversation_history_path.is_file()):
+                    raise ToolInputError("Voice archive is available only to its local device-owner session")
+                from harness.memory import MemoryStore
+
+                query = str(arguments.get("query") or "").strip()
+                if len(query) > 500:
+                    raise ToolInputError("query exceeds 500 characters")
+                store = MemoryStore(self.conversation_history_path)
+                try:
+                    vector = None
+                    deferred = None
+                    if query:
+                        try:
+                            if self.memory_governor is not None:
+                                self.memory_governor.require_capacity(
+                                    "conversation semantic encoder", store.embedder.payload_gib() + 0.25)
+                            vector = store.embedder(query)
+                            if vector is None:
+                                deferred = "embedding_unavailable"
+                        except MemoryPressure:
+                            deferred = "resource_pressure"
+                    result = store.history.search(
+                        query, vector=vector, period=arguments.get("period", "all"),
+                        limit=_bounded_integer(arguments.get("max_results"), default=4, minimum=1, maximum=8),
+                        zone=arguments.get("timezone"), start_at=arguments.get("start_at"),
+                        end_at=arguments.get("end_at"), before_id=arguments.get("before_id"),
+                        kind=arguments.get("kind", "conversation"))
+                    result["semantic_deferred"] = deferred
+                except (ValueError, TypeError) as error:
+                    raise ToolInputError(str(error)) from error
+                finally:
+                    store.close()
             elif name == "memory_write":
                 result = self.memory.write(
                     session_id,

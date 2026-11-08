@@ -122,6 +122,7 @@ Camera-call turns send only the newest frame as current visual evidence.
 | Phone icon enabled | repeated/barge-in audio → comprehension → streamed Qwen3.8 text → TTS |
 | Fresh web information | structured `web_search` → `web_fetch` → sourced Qwen3.8 answer |
 | Temporary recall | session-only `memory_write` / `memory_read` / `memory_search` |
+| Voice archive recall | owner-only `conversation_search`, with time-filtered semantic/lexical retrieval; see [durable voice memory](../docs/durable-voice-memory.md) |
 
 Microphone capture is encoded in the browser as a complete 16 kHz mono PCM16
 WAV. `/api/chat/stream` is a portal extension that relays NDJSON stage events,
