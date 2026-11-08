@@ -2823,6 +2823,7 @@
               },
               "period": {
                 "type": "string",
+                "description": "Prefer symbolic periods so the runtime computes timezone and DST boundaries. Calendar weeks start Monday: last_week is the previous Monday through Sunday. last_7_days is the rolling previous 168 hours. hour_ago is 30-90 minutes before now; past_hour is the latest60minutes. Use range for explicit absolute dates or intervals without a symbolic period.",
                 "enum": [
                   "all",
                   "today",
