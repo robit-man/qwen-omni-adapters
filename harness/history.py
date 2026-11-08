@@ -131,6 +131,10 @@ class ConversationHistory:
                 source_sha256 TEXT, excerpt TEXT, updated_at REAL
             );
         """)
+        with self._db:
+            self._db.execute("BEGIN IMMEDIATE")
+            if "speech_addressee" not in {r[1] for r in self._db.execute("PRAGMA table_info(history_events)")}:
+                self._db.execute("ALTER TABLE history_events ADD COLUMN speech_addressee TEXT NOT NULL DEFAULT 'UNKNOWN'")
         os.chmod(self.path, 0o600)
         self._migrate_legacy()
 
@@ -179,6 +183,9 @@ class ConversationHistory:
         if not math.isfinite(stamp):
             raise ValueError("history timestamp must be finite")
         key = event_key or uuid.uuid4().hex
+        addressee = str((source or {}).get("speech_addressee") or "UNKNOWN").upper()
+        if addressee not in {"SELF", "OTHER", "AMBIGUOUS", "UNKNOWN"}:
+            raise ValueError("invalid speech addressee")
         with self._lock, self._db:
             self._db.execute("BEGIN IMMEDIATE")
             existing = self._db.execute("SELECT id,content_sha256 FROM history_events WHERE event_key=?",
@@ -190,8 +197,8 @@ class ConversationHistory:
                 return int(existing["id"])
             cursor = self._db.execute(
                 "INSERT INTO history_events(event_key,text,kind,occurred_at,recorded_at,"
-                "source_json,content_sha256) VALUES(?,?,?,?,?,?,?)",
-                (key, text, kind, stamp, time.time(), json.dumps(source or {"type": "voice_event"}), digest))
+                "source_json,content_sha256,speech_addressee) VALUES(?,?,?,?,?,?,?,?)",
+                (key, text, kind, stamp, time.time(), json.dumps(source or {"type": "voice_event"}), digest, addressee))
             self._buckets(stamp)
             return int(cursor.lastrowid)
 
@@ -256,12 +263,6 @@ class ConversationHistory:
             query = ""
         limit = max(1, min(20, int(limit)))
         where, args = ["occurred_at<?"], [window["end"]]
-        if kind == "conversation":
-            where.append("kind!='sound'")
-        elif kind == "sound":
-            where.append("kind='sound'")
-        elif kind != "all":
-            raise ValueError("kind must be conversation, sound or all")
         if window["start"] is not None:
             where.append("occurred_at>=?")
             args.append(window["start"])
@@ -273,8 +274,18 @@ class ConversationHistory:
                 raise ValueError("unknown history cursor")
             where.append("(occurred_at<? OR (occurred_at=? AND id<?))")
             args.extend([boundary[0], boundary[0], int(before_id)])
+        temporal_clause = " AND ".join(where)
+        if kind == "conversation":
+            where.append("kind!='sound' AND (kind!='heard' OR speech_addressee='SELF')")
+        elif kind == "sound":
+            where.append("kind='sound'")
+        elif kind != "all":
+            raise ValueError("kind must be conversation, sound or all")
         clause = " AND ".join(where)
         with self._lock:
+            unattributed = self._db.execute(
+                f"SELECT count(*) FROM history_events WHERE {temporal_clause} "
+                "AND kind='heard' AND speech_addressee!='SELF'", args).fetchone()[0]
             total = self._db.execute(f"SELECT count(*) FROM history_events WHERE {clause}", args).fetchone()[0]
             rows = list(self._db.execute(f"SELECT * FROM history_events WHERE {clause} "
                                         "ORDER BY occurred_at DESC,id DESC LIMIT 4096", args))
@@ -306,6 +317,8 @@ class ConversationHistory:
                 sections.append({"date": day, "source_events": len(events),
                                  "excerpts": [{"event_id": events[i]["id"],
                                                "text": events[i]["text"][:220],
+                                               "kind": events[i]["kind"],
+                                               "speech_addressee": events[i]["speech_addressee"],
                                                "content_sha256": events[i]["content_sha256"],
                                                "timestamp_uncertain": bool(json.loads(
                                                    events[i]["source_json"]).get("timestamp_uncertain"))}
@@ -336,12 +349,14 @@ class ConversationHistory:
             item[0]["occurred_at"], item[0]["id"]), reverse=True)
         chosen = ranked[:limit]
         results = [{"event_id": r["id"], "text": r["text"][:2000], "kind": r["kind"],
+                    "speech_addressee": r["speech_addressee"],
                     "occurred_at": datetime.fromtimestamp(r["occurred_at"], timezone.utc).isoformat(),
                     "local_time": datetime.fromtimestamp(r["occurred_at"], ZoneInfo(window["timezone"])).isoformat(),
                     "content_sha256": r["content_sha256"],
                     "source": {k: (v[:1000] if isinstance(v, str) else v)
                                for k,v in json.loads(r["source_json"]).items()
-                               if k in {"type", "legacy_id", "timestamp_uncertain", "user", "assistant"}},
+                               if k in {"type", "legacy_id", "timestamp_uncertain", "user", "assistant",
+                                        "speech_addressee", "speaker_attribution", "transcript"}},
                     "semantic_similarity": round(s, 4), "text_truncated": len(r["text"]) > 2000}
                    for r,s in chosen]
         while len(json.dumps(results, ensure_ascii=False)) + len(json.dumps(overview, ensure_ascii=False)) > 12000 and len(results) > 1:
@@ -351,10 +366,11 @@ class ConversationHistory:
                 "kind": kind, "view": view, "overview": overview,
                 "retrieval_complete": total <= 4096,
                 "events_in_window": total, "results": results,
+                "unattributed_speech_in_window": unattributed,
                 "semantic_query_available": vector is not None,
                 "vector_scan_truncated": total > 4096,
                 "next_before_id": (results[-1]["event_id"] if view == "search" and not query
                                    and len(ranked) > len(results) else None),
                 "results_truncated": len(ranked) > len(results),
                 "source_is_current_visual_evidence": False,
-                "legacy_limit": "Legacy cache timestamps may precede later merged text; lost source events cannot be reconstructed."}
+                "legacy_limit": "Retained events remain searchable. Imported timestamps may precede later merged text; only source events already overwritten/deleted before migration are unrecoverable."}

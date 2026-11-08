@@ -327,3 +327,32 @@ def test_overview_does_not_load_semantic_encoder_and_lookup_still_does(tmp_path,
     tools.execute('owner-session', 'conversation_search',
                    {'query': 'What is my puppy called?', 'period': 'today', 'view': 'search'})
     assert calls == ['What is my puppy called?']
+
+
+def test_prior_history_upgrade_preserves_unknown_heard_speech_without_user_attribution(tmp_path):
+    import sqlite3
+    p = tmp_path / 'archive.db'
+    h = ConversationHistory(p)
+    old = h.append('Calibration mentioned by an unidentified nearby speaker.', kind='heard',
+                   source={'type': 'legacy_cache', 'timestamp_uncertain': True})
+    h.vector(old, [1.0, 0.0])
+    original = tuple(h._db.execute('SELECT text,occurred_at,vector,content_sha256 FROM history_events WHERE id=?', (old,)).fetchone())
+    h.close()
+    c = sqlite3.connect(p)
+    c.execute('ALTER TABLE history_events DROP COLUMN speech_addressee')
+    c.commit()
+    c.close()
+    h = ConversationHistory(p)
+    assert tuple(h._db.execute('SELECT text,occurred_at,vector,content_sha256 FROM history_events WHERE id=?', (old,)).fetchone()) == original
+    addressed = h.append('Calibration question directed to the agent.', kind='heard',
+                         source={'type': 'voice_heard', 'speech_addressee': 'SELF'})
+    other = h.append('Calibration television dialogue.', kind='heard',
+                     source={'type': 'voice_heard', 'speech_addressee': 'OTHER'})
+    h.vector(other, [1.0, 0.0])
+    exchanged = h.append('We discussed the calibration schedule.', kind='exchange')
+    r = h.search('calibration', vector=[1.0, 0.0])
+    assert {s['event_id'] for s in r['results']} == {addressed, exchanged}
+    assert r['unattributed_speech_in_window'] == 2
+    assert h.search(kind='all')['events_in_window'] == 4
+    assert h.search(kind='all')['results'][-1]['speech_addressee'] == 'UNKNOWN'
+    h.close()

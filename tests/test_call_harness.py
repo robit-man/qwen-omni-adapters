@@ -2064,5 +2064,34 @@ def test_decoded_user_words_survive_early_exit_without_unplayed_assistant_claims
     assert records[0][0] == 'Remember the violet telescope.'
     assert records[0][1]['kind'] == 'heard'
     assert before <= records[0][1]['occurred_at'] <= time.time()
-    assert records[0][1]['source']['user'] == records[0][0]
+    assert records[0][1]['source']['transcript'] == records[0][0]
+    assert records[0][1]['source']['speech_addressee'] == 'UNKNOWN'
+    assert 'user' not in records[0][1]['source']
+    call.close()
+
+
+@pytest.mark.parametrize('addressee', ['self', 'other', 'ambiguous', None])
+def test_heard_speech_preserves_route_without_claiming_unknown_speaker_is_user(addressee):
+    call = session()
+    call._events = lambda _payload: iter([
+        {'type': 'observation', 'transcript': 'A calibration reference was mentioned.'},
+        {'type': 'final', 'response': {'message': {'content': ''},
+                                      'adapter': {'speech_addressee': addressee}}},
+    ])
+    result = call._run({'messages': []})
+    expected = addressee.upper() if addressee else 'UNKNOWN'
+    assert result.speech_addressee == expected
+    records = []
+    class Recorder:
+        def remember(self, text, **fields):
+            records.append((text, fields))
+        def close(self):
+            pass
+    call.memory = Recorder()
+    call._persist(result)
+    text, fields = records[0]
+    assert fields['kind'] == 'heard'
+    assert fields['source']['transcript'] == text
+    assert fields['source']['speech_addressee'] == expected
+    assert ('user' in fields['source']) is (expected == 'SELF')
     call.close()

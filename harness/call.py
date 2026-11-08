@@ -220,6 +220,7 @@ class TurnResult:
     error: str = ""
     first_audio_ms: float | None = None
     total_ms: float = 0.0
+    speech_addressee: str = "UNKNOWN"
 
 
 @dataclass
@@ -1142,6 +1143,11 @@ class CallSession:
                 elif kind == "final":
                     response = event.get("response")
                     if isinstance(response, dict):
+                        adapter = response.get("adapter")
+                        if isinstance(adapter, dict):
+                            addressee = str(adapter.get("speech_addressee") or "UNKNOWN").upper()
+                            if addressee in {"SELF", "OTHER", "AMBIGUOUS"}:
+                                result.speech_addressee = addressee
                         message = response.get("message")
                         if isinstance(message, dict) and message.get("content"):
                             result.reply = str(message["content"])
@@ -1287,13 +1293,19 @@ class CallSession:
             # Delivery is uncertain; retain the known user words without
             # claiming that an unplayed generated reply was discussed.
             reply = ""
-        if transcript and reply:
+        if transcript and reply and result.speech_addressee != "OTHER":
             self.memory.remember(f"{transcript} — {reply}", kind="exchange",
-                                 source={"type": "voice_exchange", "user": transcript, "assistant": reply},
+                                 source={"type": "voice_exchange", "user": transcript, "assistant": reply,
+                                         "speech_addressee": result.speech_addressee},
                                  occurred_at=occurred_at)
         elif transcript:
+            source = {"type": "voice_heard", "transcript": transcript,
+                      "speech_addressee": result.speech_addressee,
+                      "speaker_attribution": "unverified"}
+            if result.speech_addressee == "SELF":
+                source["user"] = transcript
             self.memory.remember(transcript, kind="heard", occurred_at=occurred_at,
-                                 source={"type": "voice_heard", "user": transcript})
+                                 source=source)
         elif result.audio_observation:
             self.memory.remember(result.audio_observation, kind="sound", occurred_at=occurred_at)
 

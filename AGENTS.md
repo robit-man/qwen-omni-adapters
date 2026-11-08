@@ -124,6 +124,9 @@ Honor the model's typed `after_retrieval` plan: successful complete `answer`
 lookups enter an answer pass; `continue`, errors and incomplete scans retain
 tool chaining. Never infer that transition from question keywords.
 Preserve this phase through active virtual-context repacking.
+Retain unattributed heard speech, but include it in conversation recaps only
+when the recorded route addressed the agent. Never label ambient dialogue as
+the device owner's words; `kind=all` keeps the full raw archive searchable.
 See `docs/durable-voice-memory.md`.
 
 ## CUDA deployment policy

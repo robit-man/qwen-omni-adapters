@@ -46,8 +46,14 @@ each day, with source IDs/hashes and complete-period-index metadata. It avoids
 repeated semantic refinement to assemble a broad recap. `retrieval_complete`
 means the bounded candidate search has finished; a result limit is not a search
 failure. Overview excerpts remain samples, not a claim to cover every fact. The typed `kind`
-defaults to `conversation`, keeping ambient acoustic observations out of spoken
-recaps; `sound` and `all` explicitly include those sources. Time filtering
+defaults to `conversation`, keeping ambient acoustic observations and
+unattributed `heard` fragments out of conversation recaps. Completed exchanges
+and `heard` records explicitly routed to `SELF` remain eligible. `SELF` means
+addressed to the agent, not a verified human identity. `sound` and `all`
+explicitly include non-speech and all retained sources respectively. The result
+reports excluded unattributed speech counts, so an empty conversation window
+does not assert that nobody spoke. All original records remain searchable with
+`kind=all`. Time filtering
 precedes both semantic candidate selection and SQLite FTS5 ranking; reciprocal
 rank fusion combines those independent retrieval routes. If the encoder is
 unavailable or lacks memory headroom, lexical and chronological retrieval remain
