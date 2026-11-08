@@ -73,6 +73,10 @@ Ambiguous or other-directed recorded exchanges do not establish the current
 speaker's identity; relative words in old sources retain their original date.
 The answer phase uses standard `tool_choice=none` and retains its policy when
 active virtual context rebuilds the prompt from the admission contract.
+The portal enforces that closed phase before dispatch, including structured and
+textual proposals. One invalid proposal may trigger one answer-only retry with
+the completed evidence retained and original audio omitted. A second invalid
+proposal returns an error; it never executes another tool or loops indefinitely.
 
 | Period | Meaning |
 | --- | --- |

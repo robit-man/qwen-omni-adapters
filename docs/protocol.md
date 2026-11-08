@@ -581,6 +581,9 @@ The model declares `after_retrieval=answer` for a finite lookup followed by a
 reply, or `continue` when retrieval feeds comparison, paging or further actions.
 Only a successful complete lookup honors the answer handoff; errors and
 incomplete scans preserve the tool chain. Omitted fields retain `continue`.
+An explicit `tool_choice=none` phase cannot dispatch a structured or textual
+tool proposal. Before audio output, the existing format-recovery budget permits
+one answer-only retry that retains completed evidence without replaying media.
 Default conversation recall excludes unattributed `heard` fragments and explicitly
 ambiguous/other-directed completed exchanges; its result reports their count.
 Legacy exchanges of unknown attribution remain eligible with their uncertainty.

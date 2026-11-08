@@ -556,6 +556,10 @@ class _MalformedStructuredToolBatch(PortalError):
     """A proposed structured batch failed validation before any dispatch."""
 
 
+class _ClosedToolPhaseProposal(_MalformedStructuredToolBatch):
+    """An explicit final-answer phase cannot dispatch another proposal."""
+
+
 class PortalRequestError(ValueError):
     """A safe client request validation failure."""
 
@@ -1202,11 +1206,17 @@ def _text_tool_call(payload: str, index: int) -> dict[str, Any] | None:
     }
 
 
-def _response_tool_calls(response: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+def _response_tool_calls(
+    response: Mapping[str, Any], *, tool_choice: Any = None,
+) -> list[Mapping[str, Any]]:
     message = response.get("message")
     if not isinstance(message, Mapping):
         return []
     structured = message.get("tool_calls")
+    content = message.get("content")
+    if tool_choice == "none" and (structured or (
+            isinstance(content, str) and "<tool_call" in content.lower())):
+        raise _ClosedToolPhaseProposal("model proposed a tool call after its tool phase closed")
     if structured is not None and not isinstance(structured, list):
         raise _MalformedStructuredToolBatch("model emitted a structured tool call batch that is not a list")
     if isinstance(structured, list) and structured:
@@ -1217,7 +1227,6 @@ def _response_tool_calls(response: Mapping[str, Any]) -> list[Mapping[str, Any]]
             # tool, or carrying the assistant call into a follow-up prompt.
             _tool_arguments(call)
         return structured
-    content = message.get("content")
     if not isinstance(content, str) or "<tool_call" not in content.lower():
         return []
     matches = list(_TEXT_TOOL_CALL_PATTERN.finditer(content))
@@ -1314,6 +1323,11 @@ def _response_has_audio(response: Mapping[str, Any]) -> bool:
     )
 
 
+def _malformed_tool_retry_directive(payload: Mapping[str, Any]) -> str:
+    return context_text("directives", "final_answer_retry" if payload.get("tool_choice") == "none"
+                        else "foreground_malformed_tool_call")
+
+
 def _malformed_tool_retry_payload(
     payload: Mapping[str, Any], response: Mapping[str, Any]
 ) -> dict[str, Any] | None:
@@ -1327,6 +1341,11 @@ def _malformed_tool_retry_payload(
     omni = followup.get("omni")
     has_audio = any(isinstance(message, Mapping) and message.get("audios") for message in messages)
     speech_required = isinstance(omni, Mapping) and omni.get("require_speech") is True
+    # A completed spoken tool round already replaced audio with its transcript.
+    # Retrying the final answer must not require or replay the original media.
+    if followup.get("tool_choice") == "none" and not has_audio and isinstance(omni, dict):
+        omni["require_speech"] = False
+        speech_required = False
     if has_audio or speech_required:
         adapter = response.get("adapter")
         transcript = adapter.get("input_transcript") if isinstance(adapter, Mapping) else None
@@ -1339,7 +1358,7 @@ def _malformed_tool_retry_payload(
         if isinstance(omni, dict):
             omni["require_speech"] = False
     messages = _without_media(messages)
-    directive = context_text("directives", "foreground_malformed_tool_call")
+    directive = _malformed_tool_retry_directive(followup)
     if messages and isinstance(messages[0], Mapping) and messages[0].get("role") == "system":
         messages[0] = {**messages[0], "content": f"{messages[0].get('content') or ''}\n\n{directive}"}
     else:
@@ -1602,7 +1621,7 @@ def _tool_followup(
     message = response.get("message")
     if not isinstance(message, Mapping):
         return None, [], False
-    calls = _response_tool_calls(response)
+    calls = _response_tool_calls(response, tool_choice=payload.get("tool_choice"))
     if not calls:
         return None, [], False
 
@@ -3857,7 +3876,7 @@ def create_app(
                     break
                 audio_started = audio_started or _response_has_audio(data)
                 try:
-                    calls = _response_tool_calls(data)
+                    calls = _response_tool_calls(data, tool_choice=current_payload.get("tool_choice"))
                 except _MalformedStructuredToolBatch:
                     followup = (
                         _malformed_tool_retry_payload(current_payload, data)
@@ -3871,9 +3890,7 @@ def create_app(
                         current_payload,
                         session_id,
                         query=virtual_query,
-                        system_contract=virtual_contract + "\n\n" + context_text(
-                            "directives", "foreground_malformed_tool_call"
-                        ),
+                        system_contract=virtual_contract + "\n\n" + _malformed_tool_retry_directive(current_payload),
                         internal_background=internal_background,
                         virtual_session_id=virtual_session_id,
                     )
@@ -4388,7 +4405,7 @@ def create_app(
                         _made_progress = False
                     else:
                         try:
-                            calls = _response_tool_calls(final_response)
+                            calls = _response_tool_calls(final_response, tool_choice=current_payload.get("tool_choice"))
                         except _MalformedStructuredToolBatch as exc:
                             followup = (
                                 _malformed_tool_retry_payload(current_payload, final_response)
@@ -4508,9 +4525,8 @@ def create_app(
                         current_payload,
                         session_id,
                         query=virtual_query,
-                        system_contract=(virtual_contract + "\n\n" + context_text(
-                            "directives", "foreground_malformed_tool_call"
-                        ) if format_retry else virtual_contract),
+                        system_contract=(virtual_contract + "\n\n" + _malformed_tool_retry_directive(current_payload)
+                                         if format_retry else virtual_contract),
                         internal_background=internal_background,
                         virtual_session_id=virtual_session_id,
                     )

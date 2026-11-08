@@ -124,6 +124,8 @@ Honor the model's typed `after_retrieval` plan: successful complete `answer`
 lookups enter an answer pass; `continue`, errors and incomplete scans retain
 tool chaining. Never infer that transition from question keywords.
 Preserve this phase through active virtual-context repacking.
+Enforce a closed `tool_choice=none` phase before any tool dispatch. Format
+recovery may retry its answer once with retained evidence, never another action.
 Retain unattributed heard speech, but include it in conversation recaps only
 when the recorded route addressed the agent. Never label ambient dialogue as
 the device owner's words; `kind=all` keeps the full raw archive searchable.

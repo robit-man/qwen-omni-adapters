@@ -313,3 +313,81 @@ def test_capability_discovery_reports_only_applied_scope(tmp_path, stream):
     assert response.status_code == 200
     trace = _result(response, stream)["portal"]["safe_tools_executed"]
     assert set(json.loads(trace[0]["result"])["safe_tools"]) == {"native_ui", "get_portal_capabilities", "tool_search"}
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("virtual_mode", ["off", "active"])
+@pytest.mark.parametrize("proposal", ["structured", "text_json", "text_xml"])
+@pytest.mark.parametrize("fails_again", [False, True])
+def test_closed_spoken_archive_phase_never_dispatches_and_retries_answer_only_once(
+    tmp_path, monkeypatch, stream, virtual_mode, proposal, fails_again,
+):
+    from dataclasses import replace
+
+    from harness.history import ConversationHistory
+
+    path = tmp_path / "archive.sqlite3"
+    ConversationHistory(path).close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(path))
+    requests, executions = [], []
+    original_execute = PortalToolHarness.execute
+
+    def execute(self, session, name, arguments):
+        executions.append(name)
+        assert name == "conversation_search", "A closed phase dispatched another tool"
+        return original_execute(self, session, name, arguments)
+
+    monkeypatch.setattr(PortalToolHarness, "execute", execute)
+    marker = "discard-this-invalid-proposal"
+    bad_arguments = {"topic": "test", "key": "forbidden", "value": marker}
+
+    def invalid():
+        if proposal == "structured":
+            return _answer(stream, [("memory_write", bad_arguments)])
+        text = ("<tool_call>" + json.dumps({"name": "memory_write", "arguments": bad_arguments})
+                + "</tool_call>" if proposal == "text_json" else
+                f"<tool_call><function=memory_write><parameter=value>{marker}</parameter></function></tool_call>")
+        return _answer(stream, message={"role": "assistant", "content": text})
+
+    def upstream(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return _answer(stream, [("conversation_search", {"query": "", "period": "hour_ago",
+                           "view": "overview", "after_retrieval": "answer"})],
+                           adapter={"input_transcript": "Egg, recall our earlier conversation."})
+        assert not body.get("tools") and body["tool_choice"] == "none"
+        assert len(requests) <= 3
+        if len(requests) == 2:
+            return invalid()
+        assert body["omni"]["require_speech"] is False
+        assert "<final_answer_retry>" in str(body["messages"])
+        assert "foreground_malformed_tool_call" not in str(body["messages"])
+        assert "Egg, recall our earlier conversation." in str(body["messages"])
+        assert "robit.omni.conversation-history.v1" in str(body["messages"])
+        assert marker not in str(body["messages"])
+        assert not any(m.get("audios") for m in body["messages"])
+        return invalid() if fails_again else _answer(stream)
+
+    config = replace(_config(tmp_path), virtual_context_mode=virtual_mode,
+                     virtual_context_root=tmp_path / "virtual")
+    app = create_app(config, httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    client.set_cookie("omni_portal_session", hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest())
+    payload = _request(stream, media=True)
+    payload["omni"]["require_speech"] = True
+    response = client.post("/api/chat/stream" if stream else "/api/chat", headers=HEADERS, json=payload)
+    _ = response.data  # Consume the stream before checking dispatch or retry counts.
+    assert executions == ["conversation_search"] and len(requests) == 3
+    if fails_again:
+        if stream:
+            events = [json.loads(line) for line in response.data.splitlines()]
+            assert len([e for e in events if e.get("type") == "reset"]) == 1
+            assert events[-1]["type"] == "error"
+        else:
+            assert response.status_code == 502
+    else:
+        assert response.status_code == 200
+        result = _result(response, stream)
+        assert result["message"]["content"] == "Complete."
+        assert len(result["portal"]["safe_tools_executed"]) == 1
