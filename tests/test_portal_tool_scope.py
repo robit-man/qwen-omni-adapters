@@ -117,6 +117,66 @@ def test_owner_archive_is_directly_available_without_forcing_ordinary_turns(
     assert _result(response, stream)["portal"]["safe_tools_executed"] == []
 
 
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("mode,owner,incomplete,closes", [
+    ("answer", True, False, True), ("continue", True, False, False),
+    (None, True, False, False), ("invalid", True, False, False),
+    ("answer", False, False, False), ("answer", True, True, False),
+])
+def test_archive_reply_handoff_honors_typed_plan_and_preserves_chains(
+    tmp_path, monkeypatch, stream, mode, owner, incomplete, closes,
+):
+    from harness.history import ConversationHistory
+
+    path = tmp_path / "archive.sqlite3"
+    history = ConversationHistory(path)
+    history.append("A retained voice exchange.")
+    history.close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(path))
+    requests = []
+    if incomplete:
+        original_search = ConversationHistory.search
+        def search(self, *args, **kwargs):
+            result = original_search(self, *args, **kwargs)
+            result["retrieval_complete"] = False
+            return result
+        monkeypatch.setattr(ConversationHistory, "search", search)
+    arguments = {"query": "", "period": "today", "view": "overview"}
+    if mode is not None:
+        arguments["after_retrieval"] = mode
+
+    def upstream(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return _answer(stream, [("conversation_search", arguments)])
+        if mode == "continue" and len(requests) == 2:
+            assert body.get("tools") and "<conversation_reply_ready>" not in str(body["messages"])
+            return _answer(stream, [("conversation_search", {**arguments, "period": "last_week",
+                                                              "after_retrieval": "answer"})])
+        final_closes = closes or mode == "continue"
+        assert len(requests) == (3 if mode == "continue" else 2)
+        assert bool(body.get("tools")) is (not final_closes)
+        assert ("<conversation_reply_ready>" in str(body["messages"])) is final_closes
+        return _answer(stream)
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    identity = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
+    client.set_cookie("omni_portal_session", identity if owner else "another-browser-session-12345")
+    response = client.post("/api/chat/stream" if stream else "/api/chat", headers=HEADERS,
+                           json=_request(stream))
+    assert response.status_code == 200
+    result = _result(response, stream)
+    assert result["message"]["content"] == "Complete."
+    receipt = json.loads(result["portal"]["safe_tools_executed"][0]["result"])
+    assert (receipt.get("after_retrieval") == "answer") is (mode == "answer" and owner)
+    if incomplete:
+        assert receipt["retrieval_complete"] is False
+    if not owner:
+        assert receipt["error"] == "ToolInputError" and "results" not in receipt
+
+
 @pytest.mark.parametrize("stream,detached", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("media", [False, True])
 def test_scope_survives_all_generations_and_filters_discovery_and_forged_calls(

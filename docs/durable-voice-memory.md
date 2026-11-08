@@ -53,6 +53,14 @@ rank fusion combines those independent retrieval routes. If the encoder is
 unavailable or lacks memory headroom, lexical and chronological retrieval remain
 available and the result reports the semantic limitation.
 
+The model also declares `after_retrieval=answer` when this lookup should produce
+the reply. After one successful, complete archive lookup, the runtime honors
+that plan with an answer pass without tools; it cannot keep refining the same
+recap indefinitely. Choose `continue` when comparing periods, paging, or using
+retrieved information in another tool action. Missing fields retain the legacy
+`continue` behavior; failed or incomplete lookups keep their tool chain open.
+The reply must identify limited/empty evidence and legacy date uncertainty.
+
 | Period | Meaning |
 | --- | --- |
 | `today` | Local midnight through now |

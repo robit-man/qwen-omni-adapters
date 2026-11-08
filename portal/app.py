@@ -1921,6 +1921,25 @@ def _tool_followup(
         # adapter owns the standard one-retry enforcement when a backend
         # ignores a required tool choice.
         followup["tool_choice"] = "required"
+    if len(executed) == 1:
+        completed = executed[0]
+        if (completed["name"] == "conversation_search" and completed["ok"]
+                and completed["arguments"].get("after_retrieval") == "answer"):
+            receipt = json.loads(completed["result"])
+            if (isinstance(receipt, Mapping)
+                    and receipt.get("schema") == "robit.omni.conversation-history.v1"
+                    and receipt.get("retrieval_complete") is True
+                    and receipt.get("after_retrieval") == "answer"):
+                # Honor the model's explicit finite lookup -> answer plan.
+                # A comparison, pagination, or external action uses continue;
+                # failed/incomplete retrieval never closes its tool chain.
+                followup.pop("tools", None)
+                followup.pop("tool_choice", None)
+                directive = context_text("directives", "conversation_reply_ready")
+                if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
+                    messages[0]["content"] = str(messages[0].get("content") or "") + "\n\n" + directive
+                else:
+                    messages.insert(0, {"role": "system", "content": directive})
     return followup, executed, made_progress
 
 

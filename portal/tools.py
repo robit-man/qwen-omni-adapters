@@ -2650,6 +2650,9 @@ class PortalToolHarness:
                 if len(query) > 500:
                     raise ToolInputError("query exceeds 500 characters")
                 view = arguments.get("view", "search" if query else "overview")
+                after_retrieval = arguments.get("after_retrieval", "continue")
+                if after_retrieval not in {"answer", "continue"}:
+                    raise ToolInputError("after_retrieval must be answer or continue")
                 store = MemoryStore(self.conversation_history_path)
                 try:
                     vector = None
@@ -2671,6 +2674,7 @@ class PortalToolHarness:
                         end_at=arguments.get("end_at"), before_id=arguments.get("before_id"),
                         kind=arguments.get("kind", "conversation"), view=view)
                     result["semantic_deferred"] = deferred
+                    result["after_retrieval"] = after_retrieval
                 except (ValueError, TypeError) as error:
                     raise ToolInputError(str(error)) from error
                 finally:

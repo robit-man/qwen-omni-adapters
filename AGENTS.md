@@ -120,6 +120,9 @@ decay and rebuildable consolidation must never delete source events. The
 session. Browser memory and Trash/TTL remain isolated. Apply typed time windows
 before semantic ranking, using IANA zones across DST. Validate capture, retrieval
 and actual model answering separately, and disclose legacy timestamp uncertainty.
+Honor the model's typed `after_retrieval` plan: successful complete `answer`
+lookups enter an answer pass; `continue`, errors and incomplete scans retain
+tool chaining. Never infer that transition from question keywords.
 See `docs/durable-voice-memory.md`.
 
 ## CUDA deployment policy

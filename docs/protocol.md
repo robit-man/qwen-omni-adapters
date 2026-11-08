@@ -577,3 +577,7 @@ only for its authorized voice session. Its typed periods, timestamped evidence,
 source and assistant attribution, bounded pagination and degraded-mode behavior
 are defined in [durable voice memory](durable-voice-memory.md). It does not change
 the adapter request envelope or grant browser sessions access to device history.
+The model declares `after_retrieval=answer` for a finite lookup followed by a
+reply, or `continue` when retrieval feeds comparison, paging or further actions.
+Only a successful complete lookup honors the answer handoff; errors and
+incomplete scans preserve the tool chain. Omitted fields retain `continue`.
