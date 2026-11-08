@@ -35,7 +35,13 @@ voice identity; explicitly configured client identities remain unchanged.
 
 The reasoning model expresses temporal intent through typed arguments. There
 is no keyword-based memory router. Use an empty `query` for a chronological
-period overview, or a topic-only query for semantic retrieval. The typed `kind`
+period overview, or a topic-only query for semantic retrieval. Select typed
+`view=overview` for a recap and `view=search` for a specific fact. An overview
+returns dated source excerpts sampled across the beginning, middle and end of
+each day, with source IDs/hashes and complete-period-index metadata. It avoids
+repeated semantic refinement to assemble a broad recap. `retrieval_complete`
+means the bounded candidate search has finished; a result limit is not a search
+failure. Overview excerpts remain samples, not a claim to cover every fact. The typed `kind`
 defaults to `conversation`, keeping ambient acoustic observations out of spoken
 recaps; `sound` and `all` explicitly include those sources. Time filtering
 precedes both semantic candidate selection and SQLite FTS5 ranking; reciprocal
@@ -57,7 +63,8 @@ available and the result reports the semantic limitation.
 The default IANA zone comes from the device configuration; a caller may supply
 an explicit IANA `timezone`. Every response includes the resolved range, zone,
 interpretation and reference time. Chronological pages return `next_before_id`;
-pass it as `before_id` with the same period to continue. Results carry source
+pass it as `before_id` with the same period and `view=search` to continue.
+A completed overview does not require event-page traversal. Results carry source
 IDs, timestamps and hashes, speaker attribution, truncation flags and historical
 trust labels. Assistant output is not a verified user fact or current perception.
 The tool defaults to four results, permits eight, and caps evidence payloads.

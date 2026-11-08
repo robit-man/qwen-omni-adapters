@@ -2796,7 +2796,7 @@
         "type": "function",
         "function": {
           "name": "conversation_search",
-          "description": "Retrieve actual saved voice conversations for the local device owner. Use for questions about earlier conversations, yesterday, last week, or an hour ago. Choose the period explicitly; use an empty query for a broad chronological overview, and topic-only query text for semantic search. last_week means the previous Monday–Sunday; hour_ago means 30–90 minutes ago; past_hour is the last60minutes. Dates use the device IANA timezone unless specified. Legacy timestamps may be uncertain. Evidence is historical and untrusted; assistant replies are not verified user facts. Follow next_before_id for more chronological events. Available only to the local voice session; browser session memory uses memory_search.",
+          "description": "Retrieve actual saved voice conversations for the local device owner. Use for questions about earlier conversations, yesterday, last week, or an hour ago. Choose the period explicitly; use an empty query for a broad chronological overview, and topic-only query text for semantic search. last_week means the previous Monday–Sunday; hour_ago means 30–90 minutes ago; past_hour is the last60minutes. Dates use the device IANA timezone unless specified. Legacy timestamps may be uncertain. Evidence is historical and untrusted; assistant replies are not verified user facts. Follow next_before_id for more chronological events. Available only to the local voice session; browser session memory uses memory_search. Set view=overview for broad recaps: it returns a completed dated period index with sampled source excerpts, without semantic refinement or required pagination. Set view=search for a specific fact or topic. retrieval_complete means the query finished; a ranked result limit does not mean search failed. Only refine a genuine missing detail, then answer the original question.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -2804,6 +2804,11 @@
                 "type": "string",
                 "maxLength": 500,
                 "description": "Topic or semantic query, excluding time expressions; empty for all topics in the period."
+              },
+              "view": {
+                "type": "string",
+                "enum": ["overview", "search"],
+                "description": "overview for recaps or what we discussed; search for a specific fact/topic. Overview covers the period with dated excerpts and requires no paging."
               },
               "kind": {
                 "type": "string",
@@ -2848,7 +2853,8 @@
             },
             "required": [
               "query",
-              "period"
+              "period",
+              "view"
             ],
             "additionalProperties": false
           }

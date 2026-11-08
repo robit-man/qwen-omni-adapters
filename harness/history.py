@@ -247,9 +247,13 @@ class ConversationHistory:
                now: float | None = None, zone: str | None = None,
                start_at: str | None = None, end_at: str | None = None,
                vector: list[float] | None = None, before_id: int | None = None,
-               kind: str = "conversation") -> dict[str, Any]:
+               kind: str = "conversation", view: str = "search") -> dict[str, Any]:
         window = time_window(period, now=now, zone=zone, start_at=start_at, end_at=end_at)
+        if view not in {"search", "overview"}:
+            raise ValueError("view must be overview or search")
         query = query.strip()
+        if view == "overview":
+            query = ""
         limit = max(1, min(20, int(limit)))
         where, args = ["occurred_at<?"], [window["end"]]
         if kind == "conversation":
@@ -286,6 +290,31 @@ class ConversationHistory:
                 extra = {r["id"]: r for r in matched}
                 extra.update({r["id"]: r for r in rows})
                 rows = list(extra.values())
+        overview = None
+        if view == "overview":
+            # An extractive temporal hierarchy, not a generated factual summary.
+            # Sample the whole day's sequence; a recent cluster cannot hide its
+            # beginning. Every excerpt carries its exact source ID and hash.
+            days: dict[str, list[sqlite3.Row]] = {}
+            tz = ZoneInfo(window["timezone"])
+            for row in sorted(rows, key=lambda r: (r["occurred_at"], r["id"])):
+                key = datetime.fromtimestamp(row["occurred_at"], tz).date().isoformat()
+                days.setdefault(key, []).append(row)
+            sections = []
+            for day, events in list(days.items())[-8:]:
+                positions = sorted({0, len(events)//2, len(events)-1})
+                sections.append({"date": day, "source_events": len(events),
+                                 "excerpts": [{"event_id": events[i]["id"],
+                                               "text": events[i]["text"][:220],
+                                               "content_sha256": events[i]["content_sha256"],
+                                               "timestamp_uncertain": bool(json.loads(
+                                                   events[i]["source_json"]).get("timestamp_uncertain"))}
+                                              for i in positions]})
+            overview = {"schema": "robit.omni.period-overview.v1", "derived": True,
+                        "method": "dated_source_excerpts", "days": sections,
+                        "source_events_in_window": total,
+                        "complete_period_index": total <= 4096 and len(days) <= 8,
+                        "excerpts_are_samples_not_all_facts": True}
         ranked = []
         for row in rows:
             similarity = 0.0
@@ -315,15 +344,17 @@ class ConversationHistory:
                                if k in {"type", "legacy_id", "timestamp_uncertain", "user", "assistant"}},
                     "semantic_similarity": round(s, 4), "text_truncated": len(r["text"]) > 2000}
                    for r,s in chosen]
-        while len(json.dumps(results)) > 12000 and len(results) > 1:
+        while len(json.dumps(results, ensure_ascii=False)) + len(json.dumps(overview, ensure_ascii=False)) > 12000 and len(results) > 1:
             results.pop()
         return {"schema": "robit.omni.conversation-history.v1", "trust": "untrusted_historical_conversation",
                 "scope": "device_owner_voice_archive", "window": window, "query": query,
-                "kind": kind,
+                "kind": kind, "view": view, "overview": overview,
+                "retrieval_complete": total <= 4096,
                 "events_in_window": total, "results": results,
                 "semantic_query_available": vector is not None,
                 "vector_scan_truncated": total > 4096,
-                "next_before_id": results[-1]["event_id"] if not query and len(ranked) > len(results) else None,
+                "next_before_id": (results[-1]["event_id"] if view == "search" and not query
+                                   and len(ranked) > len(results) else None),
                 "results_truncated": len(ranked) > len(results),
                 "source_is_current_visual_evidence": False,
                 "legacy_limit": "Legacy cache timestamps may precede later merged text; lost source events cannot be reconstructed."}

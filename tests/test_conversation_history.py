@@ -282,3 +282,48 @@ def test_concurrent_open_and_replayed_event_key_commit_one_source(tmp_path):
     assert len(set(ids)) == 1
     assert h._db.execute('SELECT count(*) FROM history_events').fetchone()[0] == 1
     h.close()
+
+
+def test_period_overview_covers_beginning_middle_and_end_with_source_hashes(tmp_path):
+    h = ConversationHistory(tmp_path / 'archive.db')
+    now = stamp('2026-11-08T12:00:00-08:00')
+    window = time_window('yesterday', now=now, zone=ZONE)
+    ids = []
+    for i in range(22):
+        ids.append(h.append(f'Conversation topic {i}: source facts.',
+                            occurred_at=window['start'] + 10 + i * 2000))
+    h.append('Outside requested time.', occurred_at=window['end'] + 1)
+    result = h.search('recap request text', view='overview', period='yesterday',
+                      now=now, zone=ZONE, limit=4)
+    assert result['query'] == '' and result['retrieval_complete']
+    assert result['overview']['complete_period_index']
+    assert result['overview']['source_events_in_window'] == 22
+    excerpts = result['overview']['days'][0]['excerpts']
+    assert [x['event_id'] for x in excerpts] == [ids[0], ids[11], ids[21]]
+    for item in excerpts:
+        raw = h._db.execute('SELECT content_sha256 FROM history_events WHERE id=?',
+                            (item['event_id'],)).fetchone()[0]
+        assert item['content_sha256'] == raw
+    assert result['next_before_id'] is None
+    h.close()
+
+
+def test_overview_does_not_load_semantic_encoder_and_lookup_still_does(tmp_path, monkeypatch):
+    p = tmp_path / 'archive.db'
+    h = ConversationHistory(p)
+    h.append('Our pet is Biscuit.')
+    h.close()
+    calls = []
+    class Spy(Encoder):
+        def __call__(self, query):
+            calls.append(query)
+            return super().__call__(query)
+    monkeypatch.setattr('harness.memory.Embedder', Spy)
+    tools = PortalToolHarness(SessionDocumentStore(), conversation_history_path=p,
+                              conversation_history_owner='owner-session')
+    overview = tools.execute('owner-session', 'conversation_search',
+                              {'query': 'recap our conversation', 'period': 'today', 'view': 'overview'})
+    assert overview['retrieval_complete'] and calls == []
+    tools.execute('owner-session', 'conversation_search',
+                   {'query': 'What is my puppy called?', 'period': 'today', 'view': 'search'})
+    assert calls == ['What is my puppy called?']

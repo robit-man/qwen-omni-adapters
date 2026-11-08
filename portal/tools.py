@@ -2645,11 +2645,12 @@ class PortalToolHarness:
                 query = str(arguments.get("query") or "").strip()
                 if len(query) > 500:
                     raise ToolInputError("query exceeds 500 characters")
+                view = arguments.get("view", "search" if query else "overview")
                 store = MemoryStore(self.conversation_history_path)
                 try:
                     vector = None
                     deferred = None
-                    if query:
+                    if query and view != "overview":
                         try:
                             if self.memory_governor is not None:
                                 self.memory_governor.require_capacity(
@@ -2664,7 +2665,7 @@ class PortalToolHarness:
                         limit=_bounded_integer(arguments.get("max_results"), default=4, minimum=1, maximum=8),
                         zone=arguments.get("timezone"), start_at=arguments.get("start_at"),
                         end_at=arguments.get("end_at"), before_id=arguments.get("before_id"),
-                        kind=arguments.get("kind", "conversation"))
+                        kind=arguments.get("kind", "conversation"), view=view)
                     result["semantic_deferred"] = deferred
                 except (ValueError, TypeError) as error:
                     raise ToolInputError(str(error)) from error
