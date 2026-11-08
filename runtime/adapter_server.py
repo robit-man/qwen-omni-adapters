@@ -1865,7 +1865,10 @@ def build_language_payload(
             # that exact bridge beside the bounded discovery gateways. If it
             # is discarded here, the language model sees no camera schema and
             # can only answer that the live conversation has no camera tool.
-            request_bridges = supplied & {"request_camera_view"}
+            # The portal exposes the durable archive only to its authorized
+            # voice owner. Keep that optional evidence tool through audio
+            # routing; the model may answer ordinary turns without calling it.
+            request_bridges = supplied & {"request_camera_view", "conversation_search"}
             selected: set[str]
             if decision_tool_names:
                 selected = {

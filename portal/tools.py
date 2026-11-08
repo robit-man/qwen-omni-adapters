@@ -2426,6 +2426,13 @@ class PortalToolHarness:
         ) if policy_url else None
         self.computer_use = ComputerUseStore(self.browser, ttl_s=ttl_s, provider=policy)
 
+    def can_read_conversation_history(self, session_id: str) -> bool:
+        """Use the same owner boundary for schema exposure and execution."""
+        return bool(self.conversation_history_owner
+                    and hmac.compare_digest(session_id, self.conversation_history_owner)
+                    and self.conversation_history_path is not None
+                    and self.conversation_history_path.is_file())
+
     def clear(self, session_id: str) -> None:
         self.memory.clear(session_id)
         self.web.clear(session_id)
@@ -2635,10 +2642,7 @@ class PortalToolHarness:
             elif name == "ocr_pdf":
                 result = self.documents.ocr_pdf(session_id, arguments.get("document_id"), arguments.get("language"), _bounded_integer(arguments.get("max_pages"), default=20, minimum=1, maximum=50), arguments.get("force") is True)
             elif name == "conversation_search":
-                if (not self.conversation_history_owner
-                        or not hmac.compare_digest(session_id, self.conversation_history_owner)
-                        or self.conversation_history_path is None
-                        or not self.conversation_history_path.is_file()):
+                if not self.can_read_conversation_history(session_id):
                     raise ToolInputError("Voice archive is available only to its local device-owner session")
                 from harness.memory import MemoryStore
 

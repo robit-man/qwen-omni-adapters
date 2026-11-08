@@ -30,6 +30,10 @@ remain session scoped. Device-owner voice history is a separate durable store.
 A daemon token change rebinds the local voice session without changing the
 archive file. Explicit alternate voice-session identities do not acquire archive
 access automatically.
+The authorized owner receives the archive schema on the first reasoning pass,
+including after audio comprehension, without having to discover a capability
+family. Exposure does not require a lookup on ordinary turns, and explicit tool
+allowlists still apply. Other sessions do not receive this archive shortcut.
 On bearer-token refresh the default harness cookie is rebound to the current
 voice identity; explicitly configured client identities remain unchanged.
 

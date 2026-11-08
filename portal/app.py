@@ -2348,6 +2348,7 @@ def create_app(
             fields.get(name) is True
             for name in ("has_audio_input", "has_image_input", "has_video_input")
         )
+        owner_archive = tool_harness.can_read_conversation_history(session_id)
         if deferred:
             omni = payload.get("omni")
             if not isinstance(omni, dict):
@@ -2360,6 +2361,8 @@ def create_app(
                 excluded.add("request_camera_view")
             if not background_bridge:
                 excluded.add("background_task")
+            if not owner_archive:
+                excluded.add("conversation_search")
             # Shell remains a visible semantic candidate even when this live
             # profile delegates host execution. Deterministic policy below
             # rejects the call and returns the background-task transition;
@@ -2386,6 +2389,7 @@ def create_app(
                     ["shell", "system_applications"] if shell_bridge else []
                 ),
                 *tool_schemas(routed),
+                *tool_schemas(["conversation_search"] if owner_archive else []),
             ]
         return planner_tool_schemas(list(
             {

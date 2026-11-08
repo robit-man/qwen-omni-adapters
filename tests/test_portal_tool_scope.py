@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import wave
@@ -76,6 +77,44 @@ def test_scope_is_immutable_and_always_retains_discovery():
     assert payload == {}
     assert _pop_tool_allowlist({"portal_tool_allowlist": []}) == frozenset({"tool_search"})
     assert _pop_tool_allowlist({}) is None
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("media", [False, True])
+@pytest.mark.parametrize("owner,opted_in,allowlisted", [
+    (True, True, True), (False, True, True),
+    (True, False, True), (True, True, False),
+])
+def test_owner_archive_is_directly_available_without_forcing_ordinary_turns(
+    tmp_path, monkeypatch, stream, media, owner, opted_in, allowlisted,
+):
+    from harness.history import ConversationHistory
+
+    path = tmp_path / "archive.sqlite3"
+    history = ConversationHistory(path)
+    history.append("A retained voice exchange.")
+    history.close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(path))
+    requests = []
+
+    def upstream(request):
+        requests.append(json.loads(request.content))
+        return _answer(stream)
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    identity = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
+    client.set_cookie("omni_portal_session", identity if owner else "another-browser-session-12345")
+    payload = _request(stream, media=media, portal_auto_tools=opted_in)
+    if not allowlisted:
+        payload["portal_tool_allowlist"] = []
+    response = client.post("/api/chat/stream" if stream else "/api/chat", headers=HEADERS, json=payload)
+    assert response.status_code == 200
+    assert _result(response, stream)["message"]["content"] == "Complete."
+    names = {item["function"]["name"] for item in requests[0].get("tools", [])}
+    assert ("conversation_search" in names) is (owner and opted_in and allowlisted)
+    assert requests[0].get("tool_choice") != "required"
+    assert _result(response, stream)["portal"]["safe_tools_executed"] == []
 
 
 @pytest.mark.parametrize("stream,detached", [(False, False), (True, False), (True, True)])

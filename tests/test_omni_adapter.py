@@ -1790,6 +1790,7 @@ def test_ordinary_live_speech_keeps_the_request_scoped_camera_bridge() -> None:
 
     assert {item["function"]["name"] for item in payload["tools"]} == {
         "tool_search",
+        "conversation_search",
         "request_camera_view",
         "shell",
         "system_applications",
@@ -2566,6 +2567,7 @@ def test_relevant_tool_routing_uses_recovered_speech_and_narrows_to_leaf_tools()
 
     assert names == {
         "tool_search",
+        "conversation_search",
         "request_camera_view",
         "shell",
         "system_applications",
@@ -2626,6 +2628,7 @@ def test_live_camera_request_exposes_a_required_relevant_tool_contract() -> None
         item["function"]["name"] for item in payload["tools"]
     } == {
         "tool_search",
+        "conversation_search",
         "request_camera_view",
         "shell",
         "system_applications",
