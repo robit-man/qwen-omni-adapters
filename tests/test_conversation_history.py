@@ -338,6 +338,7 @@ def test_prior_history_upgrade_preserves_unknown_heard_speech_without_user_attri
     h.vector(old, [1.0, 0.0])
     original = tuple(h._db.execute('SELECT text,occurred_at,vector,content_sha256 FROM history_events WHERE id=?', (old,)).fetchone())
     h.close()
+
     c = sqlite3.connect(p)
     c.execute('ALTER TABLE history_events DROP COLUMN speech_addressee')
     c.commit()
@@ -355,4 +356,31 @@ def test_prior_history_upgrade_preserves_unknown_heard_speech_without_user_attri
     assert r['unattributed_speech_in_window'] == 2
     assert h.search(kind='all')['events_in_window'] == 4
     assert h.search(kind='all')['results'][-1]['speech_addressee'] == 'UNKNOWN'
+    h.close()
+
+
+@pytest.mark.parametrize('view', ['search', 'overview'])
+def test_ambiguous_completed_exchanges_are_retained_without_entering_conversation_recaps(tmp_path, view):
+    h = ConversationHistory(tmp_path / 'archive.db')
+    now = stamp('2026-11-08T12:00:00-08:00')
+    retained = []
+    for addressee in ['SELF', 'UNKNOWN', 'AMBIGUOUS', 'OTHER']:
+        event = h.append('The calibration reference is violet quartz.', kind='exchange',
+                         occurred_at=now - (86400 if addressee in {'SELF', 'UNKNOWN'} else 1800),
+                         source={'type': 'voice_exchange', 'speech_addressee': addressee})
+        h.vector(event, [1.0, 0.0])
+        retained.append(event)
+    before = [tuple(r) for r in h._db.execute('SELECT * FROM history_events ORDER BY id')]
+    result = h.search('calibration', vector=[1.0, 0.0], view=view, now=now, zone=ZONE)
+    assert {r['event_id'] for r in result['results']} == set(retained[:2])
+    assert result['events_in_window'] == 2 and result['unattributed_speech_in_window'] == 2
+    if view == 'overview':
+        assert {r['event_id'] for day in result['overview']['days'] for r in day['excerpts']} == set(retained[:2])
+    recent = h.search(view=view, period='past_hour', now=now, zone=ZONE)
+    assert recent['results'] == [] and recent['events_in_window'] == 0
+    assert recent['unattributed_speech_in_window'] == 2
+    all_records = h.search('calibration', vector=[1.0, 0.0], kind='all', view=view,
+                           now=now, zone=ZONE)
+    assert {r['event_id'] for r in all_records['results']} == set(retained)
+    assert [tuple(r) for r in h._db.execute('SELECT * FROM history_events ORDER BY id')] == before
     h.close()

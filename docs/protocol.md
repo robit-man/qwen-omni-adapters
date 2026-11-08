@@ -581,8 +581,10 @@ The model declares `after_retrieval=answer` for a finite lookup followed by a
 reply, or `continue` when retrieval feeds comparison, paging or further actions.
 Only a successful complete lookup honors the answer handoff; errors and
 incomplete scans preserve the tool chain. Omitted fields retain `continue`.
-Default conversation recall excludes unattributed `heard` fragments; its result
-reports their count. `kind=all` retains access without asserting those speakers
+Default conversation recall excludes unattributed `heard` fragments and explicitly
+ambiguous/other-directed completed exchanges; its result reports their count.
+Legacy exchanges of unknown attribution remain eligible with their uncertainty.
+`kind=all` retains access without asserting those speakers
 were the user. The recorded addressee is a routing decision, not an identity.
 
 Required structured-tool decision passes default to temperature zero. Explicit

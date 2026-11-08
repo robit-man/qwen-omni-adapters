@@ -276,7 +276,8 @@ class ConversationHistory:
             args.extend([boundary[0], boundary[0], int(before_id)])
         temporal_clause = " AND ".join(where)
         if kind == "conversation":
-            where.append("kind!='sound' AND (kind!='heard' OR speech_addressee='SELF')")
+            where.append("kind!='sound' AND (speech_addressee='SELF' OR "
+                         "(speech_addressee='UNKNOWN' AND kind!='heard'))")
         elif kind == "sound":
             where.append("kind='sound'")
         elif kind != "all":
@@ -285,7 +286,8 @@ class ConversationHistory:
         with self._lock:
             unattributed = self._db.execute(
                 f"SELECT count(*) FROM history_events WHERE {temporal_clause} "
-                "AND kind='heard' AND speech_addressee!='SELF'", args).fetchone()[0]
+                "AND kind!='sound' AND (speech_addressee IN ('AMBIGUOUS','OTHER') OR "
+                "(kind='heard' AND speech_addressee='UNKNOWN'))", args).fetchone()[0]
             total = self._db.execute(f"SELECT count(*) FROM history_events WHERE {clause}", args).fetchone()[0]
             rows = list(self._db.execute(f"SELECT * FROM history_events WHERE {clause} "
                                         "ORDER BY occurred_at DESC,id DESC LIMIT 4096", args))

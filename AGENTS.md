@@ -127,6 +127,8 @@ Preserve this phase through active virtual-context repacking.
 Retain unattributed heard speech, but include it in conversation recaps only
 when the recorded route addressed the agent. Never label ambient dialogue as
 the device owner's words; `kind=all` keeps the full raw archive searchable.
+Explicitly `AMBIGUOUS`/`OTHER` exchanges also stay out of default recaps:
+generating a reply did not establish the speaker's identity or addressee.
 See `docs/durable-voice-memory.md`.
 
 ## CUDA deployment policy

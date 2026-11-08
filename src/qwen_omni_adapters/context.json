@@ -2819,7 +2819,7 @@
               "kind": {
                 "type": "string",
                 "enum": ["conversation", "sound", "all"],
-                "description": "Default conversation: exchanges and speech explicitly addressed to the agent. Ambient/unattributed heard fragments stay available with all; sound selects non-speech observations. An empty conversation window can still contain unattributed speech."
+                "description": "Default conversation: speech addressed to the agent and legacy exchanges of unknown attribution. Explicitly ambiguous/other-directed exchanges and ambient/unattributed heard fragments are excluded from recaps and remain available with all; sound selects non-speech observations. An empty conversation window can still contain unattributed speech."
               },
               "period": {
                 "type": "string",

@@ -47,9 +47,12 @@ repeated semantic refinement to assemble a broad recap. `retrieval_complete`
 means the bounded candidate search has finished; a result limit is not a search
 failure. Overview excerpts remain samples, not a claim to cover every fact. The typed `kind`
 defaults to `conversation`, keeping ambient acoustic observations and
-unattributed `heard` fragments out of conversation recaps. Completed exchanges
-and `heard` records explicitly routed to `SELF` remain eligible. `SELF` means
-addressed to the agent, not a verified human identity. `sound` and `all`
+unattributed `heard` fragments out of conversation recaps. Records explicitly routed to `SELF` and legacy exchanges of unknown
+attribution remain eligible. Completed exchanges explicitly routed to
+`AMBIGUOUS` or `OTHER` are excluded too: generating a reply did not establish
+who addressed the agent. They remain available with `kind=all` and contribute
+to `unattributed_speech_in_window`; filtering never changes the source journal.
+`SELF` means addressed to the agent, not a verified human identity. `sound` and `all`
 explicitly include non-speech and all retained sources respectively. The result
 reports excluded unattributed speech counts, so an empty conversation window
 does not assert that nobody spoke. All original records remain searchable with
