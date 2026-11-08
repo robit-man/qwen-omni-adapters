@@ -246,3 +246,6 @@ obsolete tag with `ollama rm <exact-tag>` after verifying it is no longer used.
 
 Keep source revisions, manifests, digests, Modelfiles, licenses, test reports,
 and compact release evidence.
+
+Required structured tool decisions default to deterministic sampling; preserve
+explicit client sampling controls and ordinary answer sampling defaults.

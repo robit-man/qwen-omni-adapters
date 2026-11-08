@@ -1931,6 +1931,15 @@ def build_language_payload(
                             + directive
                         )
                         break
+    if payload.get("tool_choice") == "required":
+        # Capability selection has already committed this pass to structured
+        # arguments. Sample those deterministically by default: stochastic
+        # decoding confused calendar weeks with rolling ranges on live voice
+        # recall. Explicit caller sampling controls remain authoritative.
+        if language_api == "openai":
+            payload.setdefault("temperature", 0.0)
+        else:
+            payload["options"].setdefault("temperature", 0.0)
     # Sized here rather than at each call site: the non-streaming
     # route did not do it, and that is the one the portal uses, so a
     # tool-using turn failed with "request (4179 tokens) exceeds the

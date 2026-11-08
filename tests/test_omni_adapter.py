@@ -3359,3 +3359,19 @@ def test_live_engaged_defaults_on_and_must_be_boolean() -> None:
         parse_adapter_request(
             _base_request(messages=message, omni={**base, "live_engaged": "no"})
         )
+
+
+@pytest.mark.parametrize('language_api', ['openai', 'ollama'])
+@pytest.mark.parametrize('choice', ['required', 'auto', 'none'])
+@pytest.mark.parametrize('temperature', [None, 0.42])
+def test_required_structured_decisions_default_to_greedy_without_overriding_clients(language_api,choice,temperature):
+    fields = {'tool_choice': choice,
+              'tools': [entry['schema'] for entry in configured_tools()
+                        if entry['schema']['function']['name'] == 'conversation_search']}
+    if temperature is not None:
+        fields['options'] = {'temperature': temperature}
+    parsed = parse_adapter_request(_base_request(**fields))
+    payload = build_language_payload(parsed, None, 'local', language_api)
+    observed = payload.get('temperature') if language_api == 'openai' else payload['options'].get('temperature')
+    expected = temperature if temperature is not None else 0.0 if choice == 'required' else None
+    assert observed == expected
