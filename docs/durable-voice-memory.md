@@ -60,6 +60,8 @@ recap indefinitely. Choose `continue` when comparing periods, paging, or using
 retrieved information in another tool action. Missing fields retain the legacy
 `continue` behavior; failed or incomplete lookups keep their tool chain open.
 The reply must identify limited/empty evidence and legacy date uncertainty.
+The answer phase uses standard `tool_choice=none` and retains its policy when
+active virtual context rebuilds the prompt from the admission contract.
 
 | Period | Meaning |
 | --- | --- |

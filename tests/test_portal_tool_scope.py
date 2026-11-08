@@ -118,13 +118,14 @@ def test_owner_archive_is_directly_available_without_forcing_ordinary_turns(
 
 
 @pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("virtual_mode", ["off", "active"])
 @pytest.mark.parametrize("mode,owner,incomplete,closes", [
     ("answer", True, False, True), ("continue", True, False, False),
     (None, True, False, False), ("invalid", True, False, False),
     ("answer", False, False, False), ("answer", True, True, False),
 ])
 def test_archive_reply_handoff_honors_typed_plan_and_preserves_chains(
-    tmp_path, monkeypatch, stream, mode, owner, incomplete, closes,
+    tmp_path, monkeypatch, stream, virtual_mode, mode, owner, incomplete, closes,
 ):
     from harness.history import ConversationHistory
 
@@ -157,10 +158,14 @@ def test_archive_reply_handoff_honors_typed_plan_and_preserves_chains(
         final_closes = closes or mode == "continue"
         assert len(requests) == (3 if mode == "continue" else 2)
         assert bool(body.get("tools")) is (not final_closes)
+        assert (body.get("tool_choice") == "none") is final_closes
         assert ("<conversation_reply_ready>" in str(body["messages"])) is final_closes
         return _answer(stream)
 
-    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    from dataclasses import replace
+    config = replace(_config(tmp_path), virtual_context_mode=virtual_mode,
+                     virtual_context_root=tmp_path / "virtual")
+    app = create_app(config, httpx.Client(transport=httpx.MockTransport(upstream)))
     client = app.test_client()
     identity = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
     client.set_cookie("omni_portal_session", identity if owner else "another-browser-session-12345")

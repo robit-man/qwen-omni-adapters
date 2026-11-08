@@ -123,6 +123,7 @@ and actual model answering separately, and disclose legacy timestamp uncertainty
 Honor the model's typed `after_retrieval` plan: successful complete `answer`
 lookups enter an answer pass; `continue`, errors and incomplete scans retain
 tool chaining. Never infer that transition from question keywords.
+Preserve this phase through active virtual-context repacking.
 See `docs/durable-voice-memory.md`.
 
 ## CUDA deployment policy

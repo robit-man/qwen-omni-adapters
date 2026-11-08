@@ -1934,10 +1934,10 @@ def _tool_followup(
                 # A comparison, pagination, or external action uses continue;
                 # failed/incomplete retrieval never closes its tool chain.
                 followup.pop("tools", None)
-                followup.pop("tool_choice", None)
+                followup["tool_choice"] = "none"
                 directive = context_text("directives", "conversation_reply_ready")
                 if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
-                    messages[0]["content"] = str(messages[0].get("content") or "") + "\n\n" + directive
+                    messages[0]["content"] = directive + "\n\n" + str(messages[0].get("content") or "")
                 else:
                     messages.insert(0, {"role": "system", "content": directive})
     return followup, executed, made_progress
@@ -3178,6 +3178,11 @@ def create_app(
     ):
         if not virtual_context.enabled or not query or not system_contract:
             return None, {}
+        if not internal_background and payload.get("tool_choice") == "none":
+            # _tool_followup sets this standard field only after the model's
+            # completed archive -> answer handoff. Repacking starts from the
+            # admission contract and would otherwise erase the new phase.
+            system_contract = context_text("directives", "conversation_reply_ready") + "\n\n" + system_contract
         try:
             prepared = virtual_context.repack_followup(
                 virtual_session_id or session_id,
