@@ -26,7 +26,7 @@ dependencies = [
 dev = [
   "jsonschema>=4,<5",
   "pytest>=8,<10",
-  "ruff>=0.8",
+  "ruff>=0.13",
 ]
 
 [project.scripts]

@@ -55,7 +55,7 @@ raise SystemExit(owned._main())
 
 
 @pytest.mark.parametrize("operation,request_code", [("snapshot", 3), ("select", 2), ("events", 2)])
-def test_actual_xvfb_error_survives_main_pipe_and_parent(private_display, operation, request_code):
+def test_actual_xvfb_error_survives_main_pipe_and_parent(private_display, operation, request_code):  # noqa: F811  # imported fixture
     process = subprocess.Popen(
         [sys.executable, "-B", "-u", "-c", X_MAIN_SERVER, operation],
         cwd=Path(__file__).resolve().parents[1], env=private_display,
