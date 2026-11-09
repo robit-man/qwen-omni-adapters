@@ -83,7 +83,9 @@ def private_text_widget(tmp_path_factory):
         while state() is None and time.monotonic() < deadline and widget.poll() is None:
             time.sleep(.01)
         ready = state()
-        assert ready is not None, "Private widget startup deadline"
+        if ready is None:
+            log_tail = (folder / "widget.log").read_bytes()[-4000:].decode(errors="replace")
+            pytest.fail(f"Private widget startup deadline (exit={widget.poll()!r}):\n{log_tail}")
         subprocess.run(["xdotool", "windowfocus", "--sync", str(ready["xid"])],
             env=env, capture_output=True, check=True, timeout=3)
         state.directory = folder

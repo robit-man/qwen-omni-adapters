@@ -66,7 +66,7 @@ def test_fresh_host_installs_missing_prerequisites_before_bootstrap(tmp_path: Pa
     fresh_bin.mkdir()
     for directory in (Path("/usr/bin"), Path("/bin")):
         for tool in directory.iterdir():
-            if tool.name in {"cloudflared", "ffmpeg", "node", "ollama"} or (fresh_bin / tool.name).exists():
+            if tool.name in {"cloudflared", "ffmpeg", "node", "ollama"} or os.path.lexists(fresh_bin / tool.name):
                 continue
             (fresh_bin / tool.name).symlink_to(tool)
     completed = subprocess.run(
