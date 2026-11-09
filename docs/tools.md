@@ -49,6 +49,12 @@ owns the schemas and implementations.
 | `subagent_forget` | Delete one stored helper result | Current browser session only |
 
 The portal publishes the exact JSON schemas as `safe_tools` from `/api/status`.
+The generic `peripherals` and `terminal` families additionally expose passive
+all-class/bus device inventory, serial sessions, Bluetooth GATT, Wi-Fi and local
+network I/O, and dedicated shell/SSH PTYs. See
+[device and terminal access](peripherals-and-terminals.md) for schemas, ownership,
+resource limits, evidence requirements and setup. These tools add no device-name
+recognition rules and retain the existing one-shot shell tool.
 It also advertises `tool_execution.client_opt_in=true` and
 `default_enabled=false`. The phone UI sends the schemas only while the wrench
 is enabled, while the server replaces them with its authoritative copy whenever

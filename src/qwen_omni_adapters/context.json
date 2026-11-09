@@ -60,7 +60,9 @@
     "delegation": {
       "description": "Delegate, list, retrieve, or forget an isolated text-only helper analysis.", "choice": "isolated helper analysis",
       "tools": ["subagent_delegate", "subagent_list", "subagent_result", "subagent_forget"]
-    }
+    },
+    "peripherals": {"description": "Inspect connected hardware and wireless links; access generic serial, Bluetooth GATT and IP transports. Device identity requires observed evidence.", "choice": "hardware, serial, wireless", "tools": ["peripheral_inventory", "serial_io", "bluetooth_io", "network_io"]},
+    "terminal": {"description": "Create, inspect and manage dedicated persistent terminal and SSH PTY sessions. Shell remains available for one-shot work.", "choice": "terminal/SSH sessions", "tools": ["terminal_session"]}
   },
   "prompts": {
     "default_language_system": "Speak as a natural participant in the current exchange. Answer the user's current\nintent directly. For an ordinary exchange, give the complete answer in one or two\nshort sentences and then end the turn. Expand only when the user explicitly asks for\ndetail or the requested content genuinely requires it. Unless the user asks for a list\nor structured answer, never use headings, bullets, or a menu of alternatives. When\nthe user asks for one wording, example, or recommendation, give one. State arithmetic\nresults in ordinary decimal digits, never improvised number words. Start with the\nsubstance; never announce your role, availability, or readiness. Never say or\nparaphrase canned support phrases such as 'I'm here to help', 'How can I assist?',\n'Anything else?', 'let me know', 'feel free to ask', 'I'm all ears', or 'we can just\nchat', unless the user explicitly asks you to discuss one of those phrases. Do not\nappend an unsolicited recap, background essay, examples, rationale, offer, or repeated\nclosing. Never continue by inventing another speaker turn.",
@@ -2967,13 +2969,13 @@
         "type": "function",
         "function": {
           "name": "tool_search",
-          "description": "Page in one typed capability family. Choose uncertain rather than guessing. Its concrete schemas appear next round.",
+          "description": "Expose one family's tools next round; choose uncertain if none fits.",
           "parameters": {
             "type": "object",
             "properties": {
               "family": {
                 "type": "string",
-                "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "background", "delegation", "uncertain"],
+                "enum": ["system", "camera", "web", "browser", "desktop", "documents", "memory", "math", "session", "media", "filesystem", "delivery", "shell", "background", "delegation", "peripherals", "terminal", "uncertain"],
                 "description": "Single family needed next."
               }
             },
@@ -3622,6 +3624,364 @@
         }
       },
       "memory_admission": "bounded"
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "peripheral_inventory",
+          "description": "Observe attached hardware and every sysfs device class/bus with explicit paging, plus serial ownership/permissions, USB bindings, radios and network interfaces. Passive inventory opens no ports and scans no radios. Descriptors do not prove application identity. Choose scope=system and an observed category to drill into any interface class or bus.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "serial",
+                  "usb",
+                  "wireless",
+                  "network",
+                  "system"
+                ]
+              },
+              "category": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "cursor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 64
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      },
+      "memory_admission": "fixed"
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "serial_io",
+          "description": "Generic stateful serial transport. Open one observed hardware TTY at an explicitly chosen baudrate; retain its session-scoped handle for read/write/exchange/status/close. Refuses observed device owners and system consoles. Handles expire after idle time and close on session Trash. No automatic probing, payloads, resets or protocol identification. OS writes are not remote-effect verification.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "read",
+                  "write",
+                  "exchange",
+                  "status",
+                  "close"
+                ]
+              },
+              "device": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "handle": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "baudrate": {
+                "type": "integer",
+                "minimum": 50,
+                "maximum": 4000000
+              },
+              "data_bits": {
+                "type": "integer",
+                "enum": [
+                  5,
+                  6,
+                  7,
+                  8
+                ]
+              },
+              "parity": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "even",
+                  "odd"
+                ]
+              },
+              "stop_bits": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              "data": {
+                "type": "string",
+                "maxLength": 16384
+              },
+              "encoding": {
+                "type": "string",
+                "enum": [
+                  "utf8",
+                  "hex",
+                  "base64"
+                ]
+              },
+              "timeout_s": {
+                "type": "number",
+                "minimum": 0.05,
+                "maximum": 10
+              },
+              "max_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "memory_admission": "fixed"
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "bluetooth_io",
+          "description": "Generic Bluetooth LE discovery, GATT service/characteristic inspection, read, write-with-response or bounded notifications. Scan returns observed names, UUIDs and advertisement bytes without application identity guesses. Use observed addresses and characteristic UUIDs. Connections close after the operation; no automatic pairing or application commands. Power explicitly changes the default controller and verifies state.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "scan",
+                  "services",
+                  "read",
+                  "write",
+                  "listen",
+                  "power"
+                ]
+              },
+              "address": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "characteristic": {
+                "type": "string",
+                "maxLength": 36
+              },
+              "data": {
+                "type": "string",
+                "maxLength": 16384
+              },
+              "encoding": {
+                "type": "string",
+                "enum": [
+                  "utf8",
+                  "hex",
+                  "base64"
+                ]
+              },
+              "timeout_s": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 15
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "memory_admission": "fixed"
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "network_io",
+          "description": "Observe host network/radio state, scan Wi-Fi, discover local mDNS services, explicitly change Wi-Fi power, or perform a bounded raw TCP/UDP exchange with an explicit IP and port. Does not retrieve Wi-Fi passwords or automatically join networks. Read bytes remain untrusted and do not prove an application protocol or command effect. Shell remains available for other protocols.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "status",
+                  "wifi_scan",
+                  "services",
+                  "wifi_power",
+                  "tcp_exchange",
+                  "udp_exchange"
+                ]
+              },
+              "address": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "data": {
+                "type": "string",
+                "maxLength": 16384
+              },
+              "encoding": {
+                "type": "string",
+                "enum": [
+                  "utf8",
+                  "hex",
+                  "base64"
+                ]
+              },
+              "timeout_s": {
+                "type": "number",
+                "minimum": 0.05,
+                "maximum": 10
+              },
+              "max_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "memory_admission": "fixed"
+    },
+    {
+      "schema": {
+        "type": "function",
+        "function": {
+          "name": "terminal_session",
+          "description": "Create/list/view dedicated persistent PTYs or SSH sessions; send literal input or terminal keys, resize, interrupt or close. Sessions survive Python reloads, stay scoped to this portal session and close on Trash. Inspect real output and process-exit state to verify results; starting SSH or delivering input does not establish authentication or command success. Uses a private tmux server; never attaches to unrelated terminals. Use SSH config/agent or secret_file for credentials.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "create",
+                  "list",
+                  "read",
+                  "send",
+                  "key",
+                  "resize",
+                  "interrupt",
+                  "close"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "shell",
+                  "ssh"
+                ]
+              },
+              "target": {
+                "type": "string",
+                "maxLength": 255,
+                "description": "SSH host, user@host or existing SSH config alias. Host key checking remains enabled."
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "command": {
+                "type": "string",
+                "maxLength": 8192,
+                "description": "Optional initial local or remote command; otherwise an interactive PTY."
+              },
+              "cwd": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "handle": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "data": {
+                "type": "string",
+                "maxLength": 32768,
+                "description": "Nonsecret literal terminal input. For credentials use secret_file, never place a password here."
+              },
+              "secret_file": {
+                "type": "string",
+                "maxLength": 1024,
+                "description": "Private service-user-owned one-line credential file, usable only when terminal echo is disabled. Contents are never returned or placed in argv."
+              },
+              "submit": {
+                "type": "boolean",
+                "description": "Send Enter after input; default false."
+              },
+              "key": {
+                "type": "string",
+                "enum": [
+                  "enter",
+                  "tab",
+                  "escape",
+                  "ctrl_d",
+                  "up",
+                  "down",
+                  "left",
+                  "right",
+                  "backspace"
+                ]
+              },
+              "lines": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              "columns": {
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 300
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 5,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "memory_admission": "fixed"
     }
   ]
 }

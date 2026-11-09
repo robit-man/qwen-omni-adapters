@@ -63,6 +63,8 @@ try:
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
     from portal.native_ui import NativeUiUnavailable
+    from portal.peripherals import PeripheralError, PeripheralStore
+    from portal.terminals import TerminalError, TerminalStore
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
     from browser import (
@@ -77,6 +79,8 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
     from native_ui import NativeUiUnavailable
+    from peripherals import PeripheralError, PeripheralStore
+    from terminals import TerminalError, TerminalStore
 
 MAX_SEARCH_RESULTS = 8
 MAX_SEARCH_QUERY_CHARS = 500
@@ -2388,6 +2392,8 @@ class PortalToolHarness:
         conversation_history_owner: str | None = None,
     ) -> None:
         self.documents = documents
+        self.peripherals = PeripheralStore()
+        self.terminals = TerminalStore()
         self.conversation_history_path = conversation_history_path
         self.conversation_history_owner = conversation_history_owner
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
@@ -2434,6 +2440,8 @@ class PortalToolHarness:
                     and self.conversation_history_path.is_file())
 
     def clear(self, session_id: str) -> None:
+        self.peripherals.clear(session_id)
+        self.terminals.clear(session_id)
         self.memory.clear(session_id)
         self.web.clear(session_id)
         self.workspace.clear(session_id)
@@ -2523,6 +2531,18 @@ class PortalToolHarness:
                 }
             elif name == "get_system_snapshot":
                 result = runtime_environment_snapshot()
+            elif name == "peripheral_inventory":
+                result = self.peripherals.inventory(arguments.get("scope", "all"),
+                    category=arguments.get("category"), cursor=arguments.get("cursor",0),
+                    limit=arguments.get("limit",32))
+            elif name == "serial_io":
+                result = self.peripherals.serial(session_id, dict(arguments))
+            elif name == "bluetooth_io":
+                result = self.peripherals.bluetooth(dict(arguments))
+            elif name == "network_io":
+                result = self.peripherals.network(dict(arguments))
+            elif name == "terminal_session":
+                result = self.terminals.execute(session_id, dict(arguments))
             elif name == "get_user_location":
                 result = self.location.get(session_id)
             elif name == "get_portal_capabilities":
@@ -2912,7 +2932,7 @@ class PortalToolHarness:
                 "disposition": "change_capability",
                 "alternative_tools": ["native_ui"],
             }
-        except ToolInputError as exc:
+        except (ToolInputError, PeripheralError, TerminalError) as exc:
             result = {"error": type(exc).__name__, "message": str(exc)[:500]}
             if name == "web_fetch":
                 # A guessed, stale, blocked, or non-renderable URL does not
@@ -2936,6 +2956,11 @@ class PortalToolHarness:
                 )
         except NativeUiUnavailable as exc:
             result = {"error": exc.code, "message": str(exc)[:500], "failure_scope": "capability"}
+        except OSError as exc:
+            if name not in {"peripheral_inventory", "serial_io", "bluetooth_io", "network_io", "terminal_session"}:
+                raise
+            result = {"error": "peripheral_os_error", "errno": exc.errno,
+                      "message": str(exc)[:500], "operation_verified": False}
         except (
             ComputerUseError,
             BrowserAutomationError,
@@ -2944,6 +2969,11 @@ class PortalToolHarness:
             httpx.HTTPError,
         ) as exc:
             result = {"error": type(exc).__name__, "message": str(exc)[:500]}
+        if name in {"peripheral_inventory", "serial_io", "bluetooth_io", "network_io", "terminal_session"}:
+            result.setdefault('observed_at',time.time())
+            result.setdefault('provenance',{'producing_tool':name,'authority':'runtime_host_tool',
+                'evidence_type':'terminal_observation' if name=='terminal_session' else 'peripheral_observation',
+                'current_visual_input':False,'external_content_trust':'untrusted'})
         return result
 
 

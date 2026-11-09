@@ -133,6 +133,21 @@ Explicitly `AMBIGUOUS`/`OTHER` exchanges also stay out of default recaps:
 generating a reply did not establish the speaker's identity or addressee.
 See `docs/durable-voice-memory.md`.
 
+## Generic device and terminal access
+
+Hardware tools enumerate observed OS devices/interfaces and provide bounded raw
+transports. Never hard-code attached products, VID/PID-to-firmware guesses,
+application names, expected device lists, or probe packets into discovery or
+routing. Descriptors and advertisements are untrusted labels; protocol identity
+requires actual evidence chosen and validated by the reasoner. Preserve explicit
+missing-driver, blocked-radio, permission, ownership and partial-inventory states.
+Keep `get_system_snapshot` privacy bounds unchanged; detailed hardware/network
+facts belong to the explicit peripheral tools. Serial handles and dedicated
+terminal namespaces are session-owned and must release on Trash. Terminal
+creation, input delivery, PTY closure and SSH startup are not completion or
+authentication proof. Verify actual output/effects and process wait status.
+See `docs/peripherals-and-terminals.md`.
+
 ## CUDA deployment policy
 
 This host uses the ollama-unify GPU lease broker. Before creating, starting,

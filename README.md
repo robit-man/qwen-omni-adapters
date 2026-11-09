@@ -23,6 +23,11 @@ For a host that should simply listen, `harness/` runs that same call mode
 locally: microphone in, speakers out, state in the desktop's top bar, no
 browser involved. See [Always-listening call harness](#always-listening-call-harness).
 
+The harness can discover system devices and interfaces, use generic serial,
+Bluetooth GATT, Wi-Fi and network tools, and create persistent terminal/SSH
+sessions through its normal tool catalog. Identity comes from observed evidence,
+not expected-device rules. See [device and terminal access](docs/peripherals-and-terminals.md).
+
 This runtime is also the speech, perception, and local-agent integration used
 by [EGG — Experimental Generalized Gateway](https://github.com/robit-man/EGG),
 Robit's open-source edge-AI hardware and software platform. EGG is the larger

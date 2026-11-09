@@ -67,6 +67,8 @@ tool_families:
   media: [audio_analyze, video_scan]
   background: [background_task]
   delegation: [subagent_delegate, subagent_list, subagent_result, subagent_forget]
+  peripherals: [peripheral_inventory, serial_io, bluetooth_io, network_io]
+  terminal: [terminal_session]
   other: []
   none: []
 
@@ -147,6 +149,7 @@ decisions:
       none: no tool is needed
       filesystem: inspect, create, move, or edit local files
       shell: run commands, programs, builds, tests, or local processes
+      terminal: manage persistent interactive terminal or SSH sessions and inspect their output
       math: evaluate arithmetic or mathematical expressions
       browser: interact with a rendered web page, controls, or forms
       desktop: operate visible desktop applications or windows outside page-level browser controls
@@ -155,6 +158,7 @@ decisions:
       memory: store or retrieve durable conversational memory
       system: inspect current host/runtime state, time, or capabilities
       camera: obtain current physical visual evidence
+      peripherals: inspect attached hardware, serial ports, Bluetooth GATT, Wi-Fi or local peripheral links
       session: search session material or maintain working notes and task-list state
       media: technically analyze an attached audio or video asset
       background: sustained multi-step work should continue durably

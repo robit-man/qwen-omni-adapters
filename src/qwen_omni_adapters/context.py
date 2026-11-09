@@ -214,10 +214,11 @@ def _describe_family_choices(
     family = function.get("parameters", {}).get("properties", {}).get("family")
     if not isinstance(family, dict):
         return
-    choices = "; ".join(
+    choices = ";".join(
         f"{name}={definition['choice']}" for name, definition in families.items()
     )
-    family["description"] = f"Family needed next: {choices}; uncertain=none fits."
+    family["enum"] = [*families, "uncertain"]
+    family["description"] = f"Next: {choices};uncertain=none fits."
 
 
 def configured_tool_families() -> dict[str, dict[str, Any]]:

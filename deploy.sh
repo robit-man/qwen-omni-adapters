@@ -328,7 +328,7 @@ node_is_current() {
 
 missing_deploy_prerequisites() {
   local python_command=${PYTHON:-python3}
-  local required=(cmake curl ffmpeg git ollama openssl sudo systemctl "$python_command")
+  local required=(cmake curl ffmpeg git ollama openssl sudo systemctl tmux "$python_command")
   local dependency
   for dependency in "${required[@]}"; do
     command -v "$dependency" >/dev/null 2>&1 || printf '%s\n' "$dependency"
@@ -374,7 +374,7 @@ install_deploy_prerequisites() {
   for dependency in "${missing[@]}"; do
     case $dependency in
       cmake) packages+=(cmake build-essential) ;;
-      curl|ffmpeg|git|openssl) packages+=("$dependency") ;;
+      curl|ffmpeg|git|openssl|tmux) packages+=("$dependency") ;;
       v4l2-ctl) packages+=(v4l-utils) ;;
       python3|python3-venv|"${PYTHON:-python3}") packages+=(python3 python3-venv python3-pip) ;;
     esac
