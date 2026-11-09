@@ -69,8 +69,11 @@ def private_text_widget(tmp_path_factory):
         assert select.select([read_fd], [], [], 5)[0], "Private display startup deadline"
         display = ":" + os.read(read_fd, 64).decode().strip()
         assert display[1:].isdigit()
-        env = {**os.environ, "DISPLAY": display, "NO_AT_BRIDGE": "1"}
-        env.pop("DBUS_SESSION_BUS_ADDRESS", None)
+        # Pin GTK to the private Xvfb: an inherited Wayland session would
+        # otherwise win backend selection and bypass the isolated display.
+        env = {**os.environ, "DISPLAY": display, "NO_AT_BRIDGE": "1", "GDK_BACKEND": "x11"}
+        for name in ("DBUS_SESSION_BUS_ADDRESS", "WAYLAND_DISPLAY", "WAYLAND_SOCKET"):
+            env.pop(name, None)
         with (folder / "widget.log").open("wb") as log:
             widget = subprocess.Popen(["dbus-run-session", "--", "/usr/bin/python3", str(script), str(folder)],
                 env=env, stdout=log, stderr=log)
