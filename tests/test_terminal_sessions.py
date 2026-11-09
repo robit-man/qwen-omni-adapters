@@ -96,6 +96,22 @@ def test_interrupt_does_not_claim_command_success(terminals):
     assert result["session"]["exited"]
 
 
+def test_older_tmux_signal_exit_requires_independent_process_absence(terminals, monkeypatch):
+    row = "term-" + "a" * 24 + "\t%0\t12345\t1\t\t\t\tbash\t/dev/pts/3\tshell\t\t"
+    monkeypatch.setattr(terminals, "_run", lambda *a, **kw: row)
+    monkeypatch.setattr(os, "kill", lambda pid, sig: None)
+    assert not terminals._list(Path("unused"), refresh=False)[0]["exited"]
+
+    def missing(pid, sig):
+        assert pid == 12345 and sig == 0
+        raise ProcessLookupError
+
+    monkeypatch.setattr(os, "kill", missing)
+    result = terminals._list(Path("unused"), refresh=False)[0]
+    assert result["exited"] and result["exit_status"] is None and result["exit_signal"] is None
+    assert result["exit_evidence"] == "process_absent_after_pty_close"
+
+
 def test_ssh_target_and_port_are_not_shell_options_or_commands(terminals, monkeypatch, tmp_path):
     binary = tmp_path / "bin"
     binary.mkdir()

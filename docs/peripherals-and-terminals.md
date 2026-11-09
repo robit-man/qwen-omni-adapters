@@ -96,6 +96,8 @@ Reads return fresh bounded screen/history snapshots, a digest, process IDs,
 PTY state, observed exit status or signal, and the requested SSH destination.
 PTY closure alone does not establish process exit. When necessary the manager
 asks its own tmux server to refresh child status before returning wait results.
+Older tmux versions omit signal-exit fields; independently observed process
+absence then establishes exit, while the unavailable exit code/signal stays unknown.
 No prompt, command name or input-delivery acknowledgement verifies task success.
 SSH startup is distinct from successful authentication or verified remote identity.
 

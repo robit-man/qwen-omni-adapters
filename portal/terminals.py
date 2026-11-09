@@ -154,6 +154,18 @@ class TerminalStore:
             except ProcessLookupError:
                 return sessions
             return self._list(folder, refresh=False)
+        for session in sessions:
+            if session["pty_closed"] and not session["exited"]:
+                # tmux 3.2 lacks pane_dead_signal/time and reports no status
+                # for signal exits. A missing process independently establishes
+                # exit, but cannot recover its unavailable wait status/signal.
+                try:
+                    os.kill(session["pid"], 0)
+                except ProcessLookupError:
+                    session["exited"] = True
+                    session["exit_evidence"] = "process_absent_after_pty_close"
+                except PermissionError:
+                    pass
         return sessions
 
     def clear(self, owner: str) -> None:
