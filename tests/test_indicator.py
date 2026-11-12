@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,6 +16,7 @@ from harness.indicator import (
     MAX_MENU_WIDTH_CHARS,
     MAX_VISIBLE_TASKS,
     IndicatorUnavailable,
+    _tray_clipboard,
     build_indicator,
     model_views,
     task_views,
@@ -251,3 +253,44 @@ def test_dashboard_url_targets_local_observatory_with_fragment_auth() -> None:
     assert url == (
         "http://127.0.0.1:8920/observatory#access=token+with+punctuation%2F%2B%3F"
     )
+
+
+@pytest.mark.parametrize("backend", ["GdkX11Display", "GdkWaylandDisplay"])
+def test_tray_clipboard_uses_desktop_x11_selection_for_wayland_dbus_actions(backend):
+    default = SimpleNamespace(__gtype__=SimpleNamespace(name=backend))
+    x11 = SimpleNamespace(__gtype__=SimpleNamespace(name="GdkX11Display"))
+    opened = []
+    selected = []
+    clipboard = object()
+    gdk = SimpleNamespace(
+        Display=SimpleNamespace(get_default=lambda: default,
+                                open=lambda name: opened.append(name) or x11),
+        SELECTION_CLIPBOARD="clipboard",
+    )
+    gtk = SimpleNamespace(Clipboard=SimpleNamespace(
+        get_for_display=lambda display, selection: selected.append((display, selection)) or clipboard,
+    ))
+    assert _tray_clipboard(gtk, gdk, environment={"DISPLAY": ":7"}) is clipboard
+    if backend == "GdkWaylandDisplay":
+        assert opened == [":7"]
+        assert selected == [(x11, "clipboard")]
+    else:
+        assert opened == []
+        assert selected == [(default, "clipboard")]
+
+
+def test_tray_clipboard_reports_unavailable_selection_instead_of_false_success():
+    wayland = SimpleNamespace(__gtype__=SimpleNamespace(name="GdkWaylandDisplay"))
+    gdk = SimpleNamespace(Display=SimpleNamespace(get_default=lambda: wayland, open=lambda _name: None))
+    with pytest.raises(IndicatorUnavailable, match="cannot acquire"):
+        _tray_clipboard(SimpleNamespace(), gdk, environment={"DISPLAY": ":7"})
+    with pytest.raises(IndicatorUnavailable, match="cannot acquire"):
+        _tray_clipboard(SimpleNamespace(), gdk, environment={})
+
+
+def test_copy_public_link_failure_never_logs_the_access_url():
+    source = inspect.getsource(build_indicator)
+    copy_action = source.split("def _copy_endpoint(self) -> None:", 1)[1].split("def _quit", 1)[0]
+    assert 'self._status_item.set_label("Could not copy public link")' in copy_action
+    assert 'logger.info("public link: %s' not in copy_action
+    assert "type(error).__name__" in copy_action

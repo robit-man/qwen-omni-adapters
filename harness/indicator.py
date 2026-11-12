@@ -14,6 +14,7 @@ never silently active.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from collections.abc import Callable, Mapping
 from datetime import datetime
@@ -72,6 +73,27 @@ TOOLTIPS: dict[str, str] = {
 
 class IndicatorUnavailable(RuntimeError):
     """Raised when a deployment promised a desktop indicator but cannot host one."""
+
+
+def _tray_clipboard(gtk, gdk, *, environment: Mapping[str, str] | None = None):
+    """Use the desktop selection even without a Wayland input-event serial.
+
+    AppIndicator actions arrive over D-Bus from the shell, not through a GTK
+    window. Wayland can silently reject set_text in that background process.
+    The desktop's Xwayland bridge accepts selection ownership without focus.
+    Keep the returned clipboard alive so its display continues serving data.
+    """
+
+    environment = os.environ if environment is None else environment
+    display = gdk.Display.get_default()
+    if display is None:
+        raise IndicatorUnavailable("No desktop clipboard display")
+    if display.__gtype__.name == "GdkWaylandDisplay":
+        x11_name = environment.get("DISPLAY", "").strip()
+        display = gdk.Display.open(x11_name) if x11_name else None
+        if display is None or display.__gtype__.name != "GdkX11Display":
+            raise IndicatorUnavailable("Tray clipboard cannot acquire the desktop selection")
+    return gtk.Clipboard.get_for_display(display, gdk.SELECTION_CLIPBOARD)
 
 
 def _indicator_modules():
@@ -372,6 +394,7 @@ def build_indicator(
             self._muted = False
             self._service_busy = False
             self._gtk = Gtk
+            self._clipboard = None
             self._task_widgets: list[Any] = []
             self._task_signature: object = None
             self._tasks = tasks
@@ -557,7 +580,9 @@ def build_indicator(
             try:
                 from gi.repository import Gdk
 
-                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                if self._clipboard is None:
+                    self._clipboard = _tray_clipboard(Gtk, Gdk)
+                clipboard = self._clipboard
                 clipboard.set_text(url, -1)
                 clipboard.store()
                 self._status_item.set_label("Dashboard link copied; browser did not open")
@@ -577,12 +602,15 @@ def build_indicator(
             try:
                 from gi.repository import Gdk
 
-                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                if self._clipboard is None:
+                    self._clipboard = _tray_clipboard(Gtk, Gdk)
+                clipboard = self._clipboard
                 clipboard.set_text(url, -1)
                 clipboard.store()
                 self._status_item.set_label("Public link copied")
             except Exception as error:  # noqa: BLE001 - clipboard is a nicety
-                logger.info("public link: %s (clipboard unavailable: %s)", url, error)
+                logger.warning("public link could not be copied (%s)", type(error).__name__)
+                self._status_item.set_label("Could not copy public link")
 
         def _quit(self) -> None:
             on_quit()

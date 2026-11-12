@@ -59,7 +59,7 @@ try:
     from portal.computer_use import ComputerUseStore, SystemOneUiProvider
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.desktop import desktop_subprocess_environment
-    from portal.documents import DocumentError, SessionDocumentStore
+    from portal.documents import DocumentError, DocumentFormatError, SessionDocumentStore
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
     from portal.native_ui import NativeUiUnavailable
@@ -75,7 +75,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from computer_use import ComputerUseStore, SystemOneUiProvider
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from desktop import desktop_subprocess_environment
-    from documents import DocumentError, SessionDocumentStore
+    from documents import DocumentError, DocumentFormatError, SessionDocumentStore
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
     from native_ui import NativeUiUnavailable
@@ -2658,7 +2658,12 @@ class PortalToolHarness:
                     ),
                 }
             elif name == "structured_read":
-                result = self.documents.structured_read(session_id, arguments.get("document_id"), arguments.get("path"), _bounded_integer(arguments.get("max_rows"), default=50, minimum=1, maximum=200))
+                result = self.documents.structured_read(
+                    session_id, arguments.get("document_id"), arguments.get("path"),
+                    _bounded_integer(arguments.get("max_rows"), default=50, minimum=1, maximum=200),
+                    _bounded_integer(arguments.get("start_page"), default=1, minimum=1, maximum=100_000),
+                    _bounded_integer(arguments.get("max_pages"), default=2, minimum=1, maximum=5),
+                )
             elif name == "ocr_pdf":
                 result = self.documents.ocr_pdf(session_id, arguments.get("document_id"), arguments.get("language"), _bounded_integer(arguments.get("max_pages"), default=20, minimum=1, maximum=50), arguments.get("force") is True)
             elif name == "conversation_search":
@@ -2954,6 +2959,14 @@ class PortalToolHarness:
                         ),
                     }
                 )
+        except DocumentFormatError as exc:
+            result = {
+                "error": "unsupported_document_format", "message": str(exc)[:500],
+                "document_id": exc.document.document_id, "document": exc.document.name,
+                "supported_formats": exc.formats, "failure_scope": "arguments",
+                "task_blocked": False, "disposition": "change_capability",
+                "alternative_tools": ["document_search"],
+            }
         except NativeUiUnavailable as exc:
             result = {"error": exc.code, "message": str(exc)[:500], "failure_scope": "capability"}
         except OSError as exc:

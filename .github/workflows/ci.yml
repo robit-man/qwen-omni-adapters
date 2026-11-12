@@ -20,6 +20,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+      - name: Install media, PDF, OCR, and X11 test prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y cmake ffmpeg poppler-utils tesseract-ocr x11-utils
       - name: Install source-only environment
         run: ./scripts/bootstrap.sh --skip-llama --skip-models
       - name: Validate Python, schemas, shell, and VAD

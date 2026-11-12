@@ -31,7 +31,7 @@ owns the schemas and implementations.
 | `tool_search` | Page in one model-selected typed capability family; `uncertain` lists families without guessing a leaf | Read-only runtime metadata |
 | `background_task` | Hand an executable outcome to the persistent worker, which discovers and invokes the required allowlisted tools | Current voice session and durable local task store |
 | `safe_math_eval` | Evaluate bounded arithmetic and common math functions with an AST interpreter | Pure computation; no code execution |
-| `structured_read` | Read/query attached JSON, JSONL, CSV, TSV, or YAML | Current browser-session attachments only |
+| `structured_read` | Read/query attached PDF pages, JSON, JSONL, CSV, TSV, or YAML | Current browser-session attachments only |
 | `web_crawl` | Fetch a bounded same-origin page graph | Public HTTP(S), 8 pages and depth 2 maximum |
 | `ocr_pdf` | OCR an attached scanned PDF and index the recognized text | Current browser-session attachments only |
 | `session_search` | Federated recall over dialogue, memory, notes, tasks, documents, and fetched pages | Current browser session only |
@@ -370,8 +370,43 @@ PDF/DOCX/text retrieval. Raw attachment bytes are retained in process for five
 idle minutes, bounded to 48 MiB per session, solely so `structured_read` and
 `ocr_pdf` can operate without host paths. `ocr_pdf` uses `pdftoppm` and
 `tesseract`, processes at most 50 pages, then adds recognized text to the same
-session index. `structured_read` uses safe JSON/YAML parsers and bounded CSV/TSV
-rows; it never evaluates document content.
+session index. OCR results and subsequent search excerpts carry
+`text_source:ocr_unverified`. An existing text layer does not rule out scanned
+pages: inspect with `structured_read`, then explicitly set `ocr_pdf.force=true`
+to process a mixed document. OCR covers only the requested first pages (at most
+50); it does not establish whole-document coverage or verify small print,
+tables, or chart values.
+
+`structured_read` uses safe JSON/YAML parsers and bounded CSV/TSV rows. For PDFs
+it uses local CPU `pdfplumber` in a disposable subprocess, with a 30-second
+default timeout (`OMNI_PDF_TIMEOUT_S`, capped at 60 seconds), a bounded JSON
+output, and POSIX address-space/file-size limits. It never evaluates content,
+fetches annotation URLs, downloads model weights, or invokes CUDA.
+
+PDF calls accept `start_page` (one-based, default 1), `max_pages` (default 2,
+maximum 5), and `max_rows` (default 50, maximum 200 per detected table). Results
+contain page numbers, layout-preserving text, separate ruled-table rows and
+bounding boxes, actual hyperlink annotations, and page-level text/image/OCR
+status. `path`, such as `pages[0].tables`, selects within that returned window.
+Attachment lookup precedes format validation: an existing unsupported attachment
+returns `unsupported_document_format` and `document_search` as an alternative,
+rather than claiming that the file is missing.
+
+`coverage` reports the total page count, returned range, `next_start_page`, and
+explicit truncation. Selecting a path cannot assert that all pages were returned.
+`quality` and `claim_limits` distinguish extracted evidence from verified
+comprehension: reading order, merged or borderless tables, images and chart
+numbers remain unverified. A text-bearing page can still contain unread image
+regions. Empty output is not evidence of an empty source. Cite the attachment
+and page, follow the coverage cursor when more pages matter, and never describe
+bounded retrieval as a complete review.
+
+The implementation follows the failure distinctions illustrated in
+[Brosse's parser comparison](https://nbrosse.github.io/posts/pdf-parsing/pdf-parsing.html)
+and the [document-parsing survey](https://arxiv.org/abs/2410.21169), using
+[pdfplumber's documented geometry, table and annotation APIs](https://github.com/jsvine/pdfplumber).
+This is a bounded local evidence path, not a claim to match model-based layout
+reconstruction or to guarantee correct interpretation of arbitrary PDFs.
 
 `working_notes`, `task_list`, observed-media metadata, and conversation recall
 share the same opaque session boundary and Trash/TTL cleanup. `audio_analyze`

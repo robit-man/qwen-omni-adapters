@@ -3053,7 +3053,7 @@
         "type": "function",
         "function": {
           "name": "structured_read",
-          "description": "Read attached session-local JSON, JSONL, CSV, TSV, or YAML as structured data. Never reads an arbitrary host path.",
+          "description": "Read attached session-local PDF, JSON, JSONL, CSV, TSV, or YAML as structured data. PDFs return bounded pages, separate ruled tables, annotation links, OCR needs and explicit coverage/quality limits. Follow next_start_page for further pages; extraction does not verify reading order or chart values. Use document_search for targeted text, ocr_pdf for missing text (force=true on mixed scanned PDFs). Never reads an arbitrary host path.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -3063,12 +3063,24 @@
               },
               "path": {
                 "type": "string",
-                "description": "Optional path such as users[0].name."
+                "description": "Optional path such as users[0].name or pages[0].tables. PDF page indexes refer to the returned page window."
               },
               "max_rows": {
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 200
+              },
+              "start_page": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000,
+                "description": "PDF only: first page to read, one-based; default 1."
+              },
+              "max_pages": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "description": "PDF only: bounded page window; default 2."
               }
             },
             "additionalProperties": false
@@ -3128,7 +3140,7 @@
         "type": "function",
         "function": {
           "name": "ocr_pdf",
-          "description": "OCR a PDF already attached in this browser session and add recognized text to session document search. Never accepts a host filesystem path.",
+          "description": "OCR the bounded first pages of an attached session PDF and index unverified recognized text. Set force=true when structured_read reports scanned/image regions in a PDF that also has extracted text. OCR can misread small type and does not verify tables, chart values or full-document coverage. Never accepts a host filesystem path.",
           "parameters": {
             "type": "object",
             "properties": {

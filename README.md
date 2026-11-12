@@ -715,7 +715,10 @@ GNOME top bar (`Omni ●` listening, `◉` hearing, `◍` thinking, `▶` speaki
 The indicator's menu mutes the microphone, toggles tools, reasoning and
 cameras, copies the public link when the portal is published through a tunnel,
 opens a loopback-only live view of every camera stitched left-to-right, and
-cleanly reloads the voice service. It polls `origin/main` in the background and
+cleanly reloads the voice service. On Wayland, tray copy actions use the desktop's
+Xwayland clipboard bridge because a D-Bus menu activation carries no GTK input
+serial. A failed copy shows an error and never logs the capability URL.
+It polls `origin/main` in the background and
 shows an **Update available — install and restart** action when a verified
 fast-forward exists. Clicking it preserves untracked local files, refuses
 tracked edits or diverged history, refreshes the runtime environment without
