@@ -148,6 +148,26 @@ creation, input delivery, PTY closure and SSH startup are not completion or
 authentication proof. Verify actual output/effects and process wait status.
 See `docs/peripherals-and-terminals.md`.
 
+## Host audio repair
+
+Treat microphone capture and speaker playback as one acceptance criterion.
+Play a known speech clip through the physical speakers, record it through the
+physical microphone, and verify the captured words before accepting a change.
+Also verify the ordinary desktop/default-device path. A monitor source, an
+enumerated device, volume meters, command success, or one matching tone is not
+proof that both physical directions work.
+
+Preserve and inspect existing amplifier initialization, controller reset,
+driver selection, runtime-power policy, and desktop defaults together. Do not
+switch to a microphone-capable driver while dropping its speaker repair or
+resetting through the wrong driver. Back up the working state, guard a live
+handoff with rollback, and disarm the guard once joint verification passes so
+it cannot silently revert a successful repair during follow-up checks.
+
+The local Razer workstation's verified repair and recovery notes are in
+`docs/local-audio-duplex.md`. These are observed host-specific instructions,
+not portable discovery rules or settings to apply to other machines.
+
 ## CUDA deployment policy
 
 This host uses the ollama-unify GPU lease broker. Before creating, starting,
