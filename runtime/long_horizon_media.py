@@ -90,6 +90,9 @@ def _media_tool(name: str) -> str:
         bundled = Path(__file__).resolve().parents[1] / 'vendor' / 'ffmpeg' / 'bin' / name
         if bundled.is_file() and os.access(bundled, os.X_OK):
             return str(bundled)
+        found = shutil.which(name)
+        if found is not None:
+            return str(Path(found).resolve(strict=True))
     return name
 
 

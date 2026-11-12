@@ -238,6 +238,7 @@ def test_unavailable_bundled_tool_uses_path_without_hiding_explicit_failure(port
         else:
             (bundled / name).chmod(0o600)
         assert media._tool(name)['path'] == str(path_bin / name)
+        assert media._media_tool(name) == str((path_bin / name).resolve())
     missing = explicit / 'missing-ffmpeg'
     assert media._media_tool(str(missing)) == str(missing)
     with pytest.raises(ValueError, match='Missing CPU media tool'):
