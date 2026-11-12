@@ -101,3 +101,25 @@ speaker-only legacy mode and removes the digital microphone again.
 Any future rollback must be explicit about that loss of input, preserve the
 current accepted state first, and verify actual speaker playback afterward.
 Do not reload GPU/model services to repair these host audio routes.
+
+## Follow-up: microphone heard, conversational reply absent
+
+After the hardware repair, the public browser call was also checked through
+the full comprehension → language → TTS path. A controlled spoken arithmetic
+question returned “Four.” with ordered audio events and both
+`speech_synthesized=true` and `audio_streamed=true`. The same question played
+through the physical speakers and recorded from the default digital microphone
+also completed that route. The capture had no clipped samples. A browser call
+then independently completed all three stages, and the user confirmed that
+the agent responded. No model weights, audio drivers, or running services were
+changed during this follow-up.
+
+Do not infer a missing language model from an HTTP 200 or an absent reply.
+Inspect the final adapter metadata: `route`, `input_transcript`,
+`speech_addressee`, `tts_skipped_reason`, and the streamed-audio flags. Sound-only
+input and speech confidently addressed elsewhere can intentionally stop before
+language/TTS. Also inspect request timing and the queue: one observed browser
+turn spent approximately 116 seconds processing while another request waited.
+The cause of the earlier intermittent silence was not established by the
+successful probes; do not describe it as a repaired weight or routing defect.
+Preserve the working duplex configuration when investigating a recurrence.
