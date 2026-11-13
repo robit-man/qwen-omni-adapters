@@ -5,6 +5,14 @@
   const MAX_UPLOAD_MIB = Number(document.body.dataset.maxUploadMib || 96);
   const SCHEMA = "robit.ollama.omni-adapter.v1";
   const MAX_RECORD_MS = 60_000;
+  // Browser AGC can change the shared OS microphone gain. Speaker playback
+  // then suppresses subsequent human speech even in other recording clients.
+  const MICROPHONE_CONSTRAINTS = Object.freeze({
+    channelCount: 1,
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: false,
+  });
   const MIN_MIC_HOLD_MS = 250;
   const MAX_VOICE_REFERENCE_MS = 10_000;
   const MAX_VOICE_REFERENCE_BYTES = 10 * 1024 * 1024;
@@ -2539,7 +2547,7 @@
     }
     setComposerStatus("Requesting microphone…");
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      audio: { ...MICROPHONE_CONSTRAINTS },
       video: false,
     });
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -2751,7 +2759,7 @@
       throw new Error("Voice reference recording requires HTTPS and microphone access");
     }
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      audio: { ...MICROPHONE_CONSTRAINTS },
       video: false,
     });
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -3143,7 +3151,7 @@
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video,
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: { ...MICROPHONE_CONSTRAINTS },
       });
     } catch (_error) {
       stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
@@ -3792,12 +3800,7 @@
     const localCameraStream = state.camera?.stream;
     const reuseCameraAudio = Boolean(localCameraStream?.getAudioTracks().length);
     const stream = reuseCameraAudio ? localCameraStream : await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: { ...MICROPHONE_CONSTRAINTS },
         video: false,
       });
     const AudioContext = window.AudioContext || window.webkitAudioContext;

@@ -32,6 +32,18 @@ browser prompt values from the catalog into the page, and JavaScript fails
 closed if either is absent. This keeps browser calls and the local microphone
 harness aligned.
 
+Before a live transcript is published, the semantic turn gate also validates
+its source. Its exact `INVALID_SPEECH` control rejects encoder diagnostics
+mistakenly placed inside a speech tag, such as an explanation that the supplied
+recording contains no intelligible words. The adapter empties that transcript
+before emitting the observation or constructing browser history, then uses the
+existing `required_speech_not_found` result. It never generates a conversational
+answer or TTS from the rejected diagnostic. Unknown decisions retain the
+candidate speech. Real questions about audio, quoted diagnostics, ambiguous
+addressees, and ordinary speech remain eligible for a reply; there is no lexical
+diagnostic list in this decision. The contrastive evaluation cases are in
+`tests/fixtures/live_speech_evidence.json`.
+
 Live speech is also protected at the completed-answer boundary. The catalog
 instructs the language trunk to speak as a participant rather than announce an
 assistant role, availability, readiness, or a generic offer. Before a live

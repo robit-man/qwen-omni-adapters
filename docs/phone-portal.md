@@ -82,6 +82,11 @@ call remote ASR. A comprehension result with no speech transcript becomes a
 dim **Audio context** entry and stops before language generation or TTS. Up to
 six bounded non-speech observations are retained as environmental evidence and
 consumed with the next real spoken turn; they never form an inference queue.
+All portal microphone paths request mono audio with echo cancellation and noise
+suppression, and explicitly disable automatic gain control. Browser AGC can
+change the shared OS microphone gain: loud speaker playback can leave ordinary
+speech too quiet for the next turn. Reload the page and start a new call to
+apply changed capture constraints to an already-open microphone stream.
 The green waveform is translucent while inactive and opaque
 only during confirmed activity. The microphone remains active while inference
 or playback runs, but call cognition is single-flight: consecutive segments are

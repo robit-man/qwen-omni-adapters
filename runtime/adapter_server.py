@@ -469,7 +469,14 @@ _LIVE_TOOL_FAMILY_CHOICES = "; ".join(
 )
 _LIVE_ADDRESSEE_SYSTEM = (
     "You route live ASR turns for the agent named {agent_name}. Output exactly "
-    "ADDRESSEE|FAMILY and nothing else. ADDRESSEE is SELF, OTHER, or AMBIGUOUS. "
+    "ADDRESSEE|FAMILY and nothing else, except for the INVALID_SPEECH control below. "
+    "First validate the candidate transcript: if it is encoder commentary describing "
+    "missing, inaudible, or unintelligible speech rather than words a person said, "
+    "output exactly INVALID_SPEECH. Do not invent an utterance from that diagnostic. "
+    "Actual conversational statements, requests about audio problems, quoted examples, "
+    "and people discussing transcripts remain speech, even when they mention silence "
+    "or missing audio. When uncertain, retain the speech and classify it normally. "
+    "ADDRESSEE is SELF, OTHER, or AMBIGUOUS. "
     "OTHER only for grammatical "
     "direct address to a different human. SELF only for direct address to "
     "{agent_name}. A name used as a subject or object, a topic, product, "
@@ -492,6 +499,12 @@ _LIVE_ADDRESSEE_EXAMPLES = (
     ("What can you see through the camera?", "AMBIGUOUS|CAMERA"),
     ("Open the rendered browser and click the first result.", "AMBIGUOUS|BROWSER"),
     ("What is two plus three?", "AMBIGUOUS|NONE"),
+    ("Empty transcript: no intelligible speech was present in the supplied audio.", "INVALID_SPEECH"),
+    ("The recording contains background hiss without discernible spoken words.", "INVALID_SPEECH"),
+    ("No audio was supplied for transcription.", "INVALID_SPEECH"),
+    ("My microphone is silent. Can you help fix it?", "AMBIGUOUS|NONE"),
+    ("What does 'no intelligible speech detected' mean?", "AMBIGUOUS|NONE"),
+    ("I heard nothing. What happened?", "AMBIGUOUS|NONE"),
 )
 _LIVE_ADDRESSEE_VALUES = {"SELF", "OTHER", "AMBIGUOUS"}
 
@@ -500,6 +513,7 @@ _LIVE_ADDRESSEE_VALUES = {"SELF", "OTHER", "AMBIGUOUS"}
 class _LiveTurnRoute:
     addressee: str = "AMBIGUOUS"
     tool_family: str = "none"
+    speech_valid: bool = True
 
     @property
     def tool_names(self) -> tuple[str, ...] | None:
@@ -546,6 +560,8 @@ def _parse_live_turn_route(value: object) -> _LiveTurnRoute:
     """Parse one closed semantic route, accepting legacy addressee-only output."""
 
     raw = str(value or "").strip()
+    if raw == "INVALID_SPEECH":
+        return _LiveTurnRoute(speech_valid=False)
     addressee_text, separator, family_text = raw.partition("|")
     addressee = addressee_text.strip().upper()
     if addressee not in _LIVE_ADDRESSEE_VALUES:
@@ -617,7 +633,32 @@ def _classify_live_addressee(
     """Compatibility wrapper for callers that need only turn ownership."""
 
     route = _classify_live_turn(transcript, parsed, config, client)
-    return route.addressee if route is not None else None
+    return route.addressee if route is not None and route.speech_valid else None
+
+
+def _validated_live_observation(
+    observation: str | None,
+    parsed: ParsedAdapterRequest,
+    config: Config,
+    client: httpx.Client,
+) -> tuple[str | None, _LiveTurnRoute | None]:
+    """Validate ASR before publishing it as user speech or routing a reply.
+
+    The existing semantic gate owns this decision; no diagnostic phrase list
+    guesses whether words are speech. Unknown or malformed decisions fail open.
+    A typed rejection removes the falsely tagged words from every consumer,
+    including the browser history and the final adapter evidence.
+    """
+
+    transcript = _observation_transcript(observation)
+    route = (
+        _classify_live_turn(transcript, parsed, config, client)
+        if _is_live_spoken_turn(parsed) and transcript
+        else None
+    )
+    if route is not None and not route.speech_valid:
+        return SPEECH_TRANSCRIPT_BLOCK.sub("<speech_transcript></speech_transcript>", observation or ""), None
+    return observation, route
 
 
 def _not_your_turn_reason(speech_addressee: str | None) -> str | None:
@@ -2331,6 +2372,7 @@ def execute(
         observation = _comprehend(parsed, config, client)
         executed.append("comprehension")
 
+    observation, live_route = _validated_live_observation(observation, parsed, config, client)
     if parsed.require_speech and observation is not None and not _observation_transcript(observation):
         result = _direct_response(parsed.model, "")
         return _finish_response(
@@ -2343,12 +2385,6 @@ def execute(
             suppress_tts=True,
         )
 
-    transcript = _observation_transcript(observation)
-    live_route = (
-        _classify_live_turn(transcript, parsed, config, client)
-        if _is_live_spoken_turn(parsed) and transcript
-        else None
-    )
     speech_addressee = live_route.addressee if live_route is not None else None
     not_your_turn = _not_your_turn_reason(speech_addressee)
     if not_your_turn is not None:
@@ -2455,6 +2491,7 @@ def execute_stream(
         yield _stream_event("stage", stage="comprehension")
         observation = _comprehend(parsed, config, client)
         executed.append("comprehension")
+        observation, live_route = _validated_live_observation(observation, parsed, config, client)
         transcript = _observation_transcript(observation)
         values: dict[str, Any] = {"content": observation}
         if transcript:
@@ -2481,11 +2518,6 @@ def execute_stream(
             yield _stream_event("final", response=result)
             return
 
-        live_route = (
-            _classify_live_turn(transcript, parsed, config, client)
-            if _is_live_spoken_turn(parsed) and transcript
-            else None
-        )
         if live_route is not None:
             speech_addressee = live_route.addressee
         not_your_turn = _not_your_turn_reason(speech_addressee)

@@ -123,3 +123,45 @@ turn spent approximately 116 seconds processing while another request waited.
 The cause of the earlier intermittent silence was not established by the
 successful probes; do not describe it as a repaired weight or routing defect.
 Preserve the working duplex configuration when investigating a recurrence.
+
+## Later recurrence: capture gain and invalid speech evidence
+
+Subsequent live evidence established additional failures that the earlier
+successful playback test did not resolve. The digital microphone was at 25%,
+which PulseAudio reports as **−36.12 dB**, while loud speaker playback still
+registered. After restoring 100% / 0 dB, its volume later changed to 60% /
+−13.33 dB. The portal requested browser automatic gain control. All four portal
+microphone paths now explicitly disable AGC while retaining echo cancellation
+and noise suppression. An existing browser stream needs a page reload and a new
+call to acquire the updated constraints. Keep the speaker settings independent.
+
+One live turn contained the purported transcript “Empty transcript: no
+intelligible speech was present in the supplied audio.” The old semantic gate
+accepted this as an utterance, and the conversational model repeated “Four.”
+from previous history. The gate now has a typed `INVALID_SPEECH` result that
+removes the false speech evidence before either browser history or reply
+generation. The resident language model passed all 26 contrastive evaluation
+cases, including genuine microphone questions, quoted diagnostics, ambiguous
+speech, names used as subjects, and speech addressed elsewhere. This does not
+prove every future ASR result will be correct.
+
+Use an isolated test session and exclude the open browser call from controlled
+speaker tests; otherwise the test utterance becomes real conversation history.
+Restore each temporarily muted recording stream afterward. A newly opened
+`parecord` can inherit the existing recorder's muted stream state: explicitly
+check the new stream's mute before treating all-zero samples as hardware
+failure. The corrected normal-level check captured 8.24 seconds at −24.26 dBFS,
+peak 0.612, with zero clipping and recognizable reference speech. Speaker master
+and Firefox playback remained at 100%.
+
+The working AGX Orin was inspected read-only. At comparison time it ran the
+same `c37b5f9` source and `ornith15` audio-bridge model tag; its comprehension
+context was 65,536 tokens versus 16,384 here. This is configuration evidence,
+not proof that the earlier false routing decision was caused by context size.
+
+After the local adapter/portal reload, two spoken requests sent through the
+public portal, each with the old arithmetic exchange in its history, returned
+“Paris.” and “Seven.” with comprehension → language → TTS and nonempty ordered
+PCM. Unamplified TTS measured −16.38 dBFS RMS, peak 0.798, with zero clipping.
+The reload preserved the resident comprehension/TTS worker PIDs and tunnel URL;
+no audio driver or service on the Orin was restarted.
