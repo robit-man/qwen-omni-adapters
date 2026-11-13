@@ -32,6 +32,22 @@ const remoteRequests = levels => run(levels).filter(event => event.event === "ut
 assert.equal(remoteRequests([...calibratedNoise, ...frames(2500, 0.007)]), 0);
 assert.equal(remoteRequests([...calibratedNoise, ...frames(40, 0.18), ...trailingSilence]), 0);
 assert.equal(remoteRequests([...frames(1300, 0.025), ...frames(2500, 0.026)]), 0);
+// A loud initial room must establish a baseline, not escape calibration as
+// speech and hold the recorder open forever. Actual mic levels exposed this
+// above the old 0.030 escape threshold.
+assert.equal(remoteRequests([...frames(1300, 0.045), ...frames(2500, 0.046)]), 0);
+assert.equal(remoteRequests([
+  ...frames(1300, 0.045),
+  ...frames(720, 0.18),
+  ...frames(900, 0.045),
+]), 1);
+assert.equal(remoteRequests([
+  ...frames(1300, 0.045),
+  ...frames(720, 0.18),
+  ...frames(900, 0.045),
+  ...frames(720, 0.18),
+  ...frames(900, 0.045),
+]), 2);
 assert.equal(remoteRequests([...calibratedNoise, ...frames(720, 0.085), ...trailingSilence]), 1);
 assert.equal(remoteRequests([...calibratedNoise, ...frames(680, 0.065), ...trailingSilence]), 1);
 assert.equal(remoteRequests([...calibratedNoise, ...frames(500, 0.018), ...trailingSilence]), 1);

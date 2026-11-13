@@ -32,6 +32,15 @@ browser prompt values from the catalog into the page, and JavaScript fails
 closed if either is absent. This keeps browser calls and the local microphone
 harness aligned.
 
+The existing typed `omni.live_engaged` state selects the response control.
+Browser calls explicitly set it true and receive active-conversation context:
+greetings, statements and connection checks are conversational turns. The adapter
+also upgrades the catalog-owned room control in older open browser tabs when
+the request reports active engagement. The local harness retains room control
+before engagement and supplies its actual engagement-window state. Validation
+of speech and exclusion of speech addressed elsewhere still run first. No
+phrase matching chooses between these contexts.
+
 Before a live transcript is published, the semantic turn gate also validates
 its source. Its exact `INVALID_SPEECH` control rejects encoder diagnostics
 mistakenly placed inside a speech tag, such as an explanation that the supplied

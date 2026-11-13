@@ -84,7 +84,7 @@ misrouted assistant answer during perception.
 | `omni.task` | No | `chat`, `transcribe`, `describe`, or `synthesize`; default `chat` |
 | `omni.include_audio_from_video` | No | Whether video decoding exposes its audio track; default `true` |
 | `omni.require_speech` | No | When `true`, a comprehension result without a tagged speech transcript finalizes before language/TTS; default `false` |
-| `omni.live_engaged` | No | Compatibility hint describing whether a `require_speech` client is in an active exchange; ambiguity alone never discards intelligible speech; default `true` |
+| `omni.live_engaged` | No | Whether a `require_speech` client is in an active exchange; active turns receive conversational response context, while `false` preserves room observation policy; speech explicitly addressed elsewhere is still excluded; default `true` |
 | `omni.tool_routing` | No | `client` preserves the supplied tool array; `relevant` retains configured gateways plus a bounded request-relevant subset after current-media comprehension; default `client` |
 | `response_modalities` | No | Non-empty subset of `text`, `audio`; default `text` |
 | `speech_mode` | No | `auto`, `always`, or `never`; default `auto` |
@@ -110,11 +110,17 @@ resolves direct-address evidence before answer generation or tools and records
 `adapter.speech_addressee=self|other|ambiguous`. A different human addressee
 reports `adapter.tts_skipped_reason=speech_addressed_elsewhere`. Ambiguous speech
 always reaches the language stage instead of being discarded by the preflight.
-The model may answer it or return `<observe_only/>`; that control is removed and
+With `live_engaged=false`, the model may answer it or return `<observe_only/>`; that control is removed and
 reported as `empty_assistant_response`. In either case clients should retain the
 user transcript for continuity without rendering an assistant bubble or audio
 failure. This differs from sound-only `require_speech`, which stops before the
 language stage and reports `required_speech_not_found`.
+An active exchange uses conversational response context instead of the room
+silence control, including for greetings and connection checks. Final live
+responses expose the applied client state in `adapter.live_engaged`; this is
+not evidence of speaker identity. The Python chat client accepts
+`--require-speech` and `--[no-]live-engaged`; the JavaScript client accepts
+`OMNI_REQUIRE_SPEECH=true` and `OMNI_LIVE_ENGAGED=true|false`.
 
 The streaming `observation` event and authoritative final adapter metadata MAY
 expose `input_transcript`, `audio_observation`, and `visual_observation` as

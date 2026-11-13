@@ -1750,6 +1750,23 @@ def _language_messages(
             0,
             {"role": "system", "content": DEFAULT_LANGUAGE_SYSTEM_PROMPT},
         )
+    if _is_live_spoken_turn(parsed) and parsed.live_engaged:
+        # The client already supplies typed exchange state. Replace only our
+        # catalog-owned room control, never classify speech from its wording.
+        # Older open browser tabs may still carry the room prompt verbatim.
+        room_control = context_text("directives", "live_response_control")
+        engaged_control = context_text("directives", "live_engaged_response_control")
+        supplied = False
+        for item in result:
+            if item.get("role") != "system":
+                continue
+            item["content"] = str(item.get("content") or "").replace(
+                room_control, engaged_control
+            )
+            supplied = supplied or engaged_control in item["content"]
+        if not supplied:
+            system_message = next(item for item in result if item.get("role") == "system")
+            system_message["content"] += "\n\n" + engaged_control
     locale = str(parsed.speech.get("locale") or "").strip()
     if parsed.synthesize and "-" in locale:
         instruction = (
@@ -2352,6 +2369,8 @@ def _finish_response(
         result["adapter"]["tts_skipped_reason"] = tts_skipped_reason
     if speech_addressee:
         result["adapter"]["speech_addressee"] = speech_addressee.casefold()
+    if _is_live_spoken_turn(parsed):
+        result["adapter"]["live_engaged"] = parsed.live_engaged
     return result
 
 

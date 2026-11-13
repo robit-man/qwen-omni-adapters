@@ -15,6 +15,13 @@ const endpoint = process.env.OMNI_ADAPTER_URL ?? "http://127.0.0.1:11435/api/cha
 const model = process.env.OMNI_MODEL ?? "robit/qwen3.8-omni:latest";
 const toolRouting = process.env.OMNI_TOOL_ROUTING ?? "client";
 const speechLocale = process.env.OMNI_SPEECH_LOCALE?.trim();
+const requireSpeech = process.env.OMNI_REQUIRE_SPEECH === "true";
+const liveEngaged = process.env.OMNI_LIVE_ENGAGED !== "false";
+for (const name of ["OMNI_REQUIRE_SPEECH", "OMNI_LIVE_ENGAGED"]) {
+  if (process.env[name] !== undefined && !["true", "false"].includes(process.env[name])) {
+    throw new Error(`${name} must be true or false`);
+  }
+}
 if (!["client", "relevant"].includes(toolRouting)) {
   throw new Error("OMNI_TOOL_ROUTING must be client or relevant");
 }
@@ -37,6 +44,7 @@ const response = await fetch(endpoint, {
       schema: "robit.ollama.omni-adapter.v1",
       task: "chat",
       tool_routing: toolRouting,
+      ...(requireSpeech ? { require_speech: true, live_engaged: liveEngaged } : {}),
     },
     response_modalities: ["text", "audio"],
     speech_mode: "always",

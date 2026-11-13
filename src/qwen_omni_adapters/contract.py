@@ -165,8 +165,9 @@ def adapter_contract() -> dict[str, Any]:
                     "optional boolean; stop after comprehension when no speech transcript is found"
                 ),
                 "live_engaged": (
-                    "optional compatibility hint, default true, describing whether the "
-                    "client is in an active exchange; ambiguity alone never discards speech"
+                    "optional boolean, default true; an active exchange uses conversational "
+                    "response context, while false retains room observation policy; "
+                    "speech explicitly addressed elsewhere is still excluded"
                 ),
                 "tool_routing": (
                     "client | relevant; relevant keeps routing gateways plus a bounded "
@@ -255,6 +256,7 @@ def adapter_contract() -> dict[str, Any]:
                 ),
                 "speech_locale": "normalized BCP 47 locale when supplied",
                 "speech_addressee": "self | other | ambiguous when the live gate ran",
+                "live_engaged": "boolean client engagement state for live spoken turns",
                 "tts_skipped_reason": (
                     "required_speech_not_found | speech_addressed_elsewhere | "
                     "unresolved_tool_calls | empty_assistant_response"

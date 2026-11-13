@@ -54,6 +54,7 @@
         "input_transcript": {"type": "string"},
         "audio_observation": {"type": "string"},
         "visual_observation": {"type": "string"},
+        "live_engaged": {"type": "boolean", "description": "Client engagement state used for live spoken response context."},
         "speech_addressee": {
           "type": "string",
           "enum": ["self", "other", "ambiguous"]

@@ -75,9 +75,9 @@ explicit `omni.task="transcribe"` outside the composer when a
 transcription-only response is required.
 The speaker icon switches between text-only and text-plus-TTS replies. The
 waveform button opens Qwen3-TTS voice cloning and sampling controls. The phone
-icon starts automatic voice turns. Local VAD calibrates ambient noise for 1,200
-ms, requires 260 ms of sustained activity and 520 ms of confirmed activity, and
-closes after 700 ms of silence. Quiet, clicks, and elevated steady noise do not
+icon starts automatic voice turns. Local VAD calibrates ambient noise for 800
+ms, requires 200 ms of sustained activity and 400 ms of confirmed activity, and
+closes after 760 ms of silence. Quiet, clicks, and elevated steady noise do not
 call remote ASR. A comprehension result with no speech transcript becomes a
 dim **Audio context** entry and stops before language generation or TTS. Up to
 six bounded non-speech observations are retained as environmental evidence and
@@ -87,6 +87,11 @@ suppression, and explicitly disable automatic gain control. Browser AGC can
 change the shared OS microphone gain: loud speaker playback can leave ordinary
 speech too quiet for the next turn. Reload the page and start a new call to
 apply changed capture constraints to an already-open microphone stream.
+VAD calibration establishes an observed room baseline before its early-speech
+escape check. A loud first frame alone is not evidence that speech began;
+otherwise room noise above the fixed escape threshold can hold recording open
+without submitting a turn. Active browser calls explicitly report
+`omni.live_engaged=true` so recognized greetings and checks receive a response.
 The green waveform is translucent while inactive and opaque
 only during confirmed activity. The microphone remains active while inference
 or playback runs, but call cognition is single-flight: consecutive segments are

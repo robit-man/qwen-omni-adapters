@@ -27,6 +27,7 @@
       config,
       readyAt: startedAt + config.calibrationMs,
       noiseFloor: config.initialNoiseFloor,
+      calibrationFloor: Infinity,
       preRoll: [],
       candidateFrames: [],
       candidateStartedAt: null,
@@ -39,6 +40,7 @@
 
   function resetState(state, now = 0, { calibrate = false } = {}) {
     state.readyAt = now + (calibrate ? state.config.calibrationMs : 0);
+    state.calibrationFloor = Infinity;
     state.preRoll = [];
     state.candidateFrames = [];
     state.candidateStartedAt = null;
@@ -58,6 +60,11 @@
   function processFrame(state, { level, samples, now, frameMs }) {
     const config = state.config;
     if (now < state.readyAt) {
+      // A loud first frame is an unknown room level, not evidence of onset.
+      // Establish a measured baseline before allowing speech to escape the
+      // calibration window; otherwise steady room noise latches recording.
+      state.calibrationFloor = Math.min(state.calibrationFloor, level);
+      state.noiseFloor = Math.max(0.0005, state.calibrationFloor);
       const calibrationEscapeThreshold = Math.max(
         config.calibrationEscapeThreshold,
         state.noiseFloor * config.calibrationEscapeMultiplier,
@@ -65,7 +72,6 @@
       if (level >= calibrationEscapeThreshold) {
         state.readyAt = now;
       } else {
-        updateNoiseFloor(state, level, 0.12);
         state.preRoll = [];
         return {
           event: "calibrating",

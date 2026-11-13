@@ -165,3 +165,35 @@ public portal, each with the old arithmetic exchange in its history, returned
 PCM. Unamplified TTS measured −16.38 dBFS RMS, peak 0.798, with zero clipping.
 The reload preserved the resident comprehension/TTS worker PIDs and tunnel URL;
 no audio driver or service on the Orin was restarted.
+
+## Recognized speech was still being deliberately silenced
+
+A later browser turn correctly transcribed “Hello there. Testing.” Its semantic
+route was `AMBIGUOUS`, with valid speech, but the language model returned exactly
+`<observe_only/>`; the adapter correctly converted that control into silence.
+Replaying the recognized words reproduced the failure. Text requests did not
+use that room-response control and answered normally. The earlier successful
+arithmetic probes did not establish that greetings or connection checks worked.
+
+`omni.live_engaged` already existed and was parsed but never supplied to the
+response policy. It now selects positive active-conversation context instead of
+the catalog-owned room-silence control. Browser calls explicitly set it true;
+older open tabs are upgraded at the adapter when they report engagement. The
+local harness keeps its actual engagement-window state, and speech explicitly
+addressed elsewhere still stops before reply generation. Final live metadata
+includes `adapter.live_engaged` for diagnosis; this never establishes speaker
+identity. The public endpoint now returned spoken replies for the exact greeting
+and “Can you hear me?” with `live_engaged=true`, including with old arithmetic
+dialogue in the request history.
+
+A separate capture stall was reproduced from microphone frame levels: the
+old VAD escaped calibration on its first loud frame, retained a noise floor
+of 0.003, and held 12.2 seconds of audio without submitting a turn. All observed
+frame RMS values were above 0.0409. Calibration now establishes an observed
+baseline before its early-onset check. The same levels no longer falsely open
+a recording. Loud steady-room fixtures submit zero requests; speech separated
+by pauses in that room submits one and then two requests. Existing quiet,
+click, speech, alarm and early-speech fixtures still pass. Both the shared VAD
+and its browser fallback carry this calibration rule. A page reload is needed
+to update an already-running capture graph; restarting model weights cannot
+change JavaScript already loaded in a tab.

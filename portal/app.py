@@ -174,6 +174,11 @@ DIAGNOSTIC_NUMERIC_FIELDS = {
     "tool_round",
     "decision_latency_ms",
     "decision_confidence",
+    "call_sequence",
+    "call_inflight",
+    "vad_level",
+    "vad_noise_floor",
+    "barge_noise_floor",
 }
 DIAGNOSTIC_BOOLEAN_FIELDS = {
     "audio_requested",
@@ -187,6 +192,10 @@ DIAGNOSTIC_BOOLEAN_FIELDS = {
     "decision_shadow",
     "decision_escalated",
     "decision_fast_path",
+    "vad_active",
+    "reply_discarded",
+    "playback_running",
+    "pcm_started",
 }
 DIAGNOSTIC_STRING_FIELDS = {
     "request_id",
@@ -3289,7 +3298,7 @@ def create_app(
                     f"robit-omni-browser-cache:{browser_session}".encode()
                 ).hexdigest(),
                 browser_context={
-                    "live_call_system": live_call_system_prompt(),
+                    "live_call_system": live_call_system_prompt(engaged=True),
                     "media_conversation_system": context_text(
                         "prompts", "media_conversation_system"
                     ),

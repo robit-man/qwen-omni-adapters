@@ -81,6 +81,7 @@
     });
     const resetState = (vad, now = 0, { calibrate = false } = {}) => {
       vad.readyAt = now + (calibrate ? vad.config.calibrationMs : 0);
+      vad.calibrationFloor = Infinity;
       vad.preRoll = [];
       vad.candidateFrames = [];
       vad.candidateStartedAt = null;
@@ -106,6 +107,8 @@
     const processFrame = (vad, { level, samples, now, frameMs }) => {
       const config = vad.config;
       if (now < vad.readyAt) {
+        vad.calibrationFloor = Math.min(vad.calibrationFloor, level);
+        vad.noiseFloor = Math.max(0.0005, vad.calibrationFloor);
         const calibrationEscapeThreshold = Math.max(
           config.calibrationEscapeThreshold,
           vad.noiseFloor * config.calibrationEscapeMultiplier,
@@ -113,7 +116,6 @@
         if (level >= calibrationEscapeThreshold) {
           vad.readyAt = now;
         } else {
-          updateNoiseFloor(vad, level, 0.12);
           vad.preRoll = [];
           return {
             event: "calibrating",
@@ -426,6 +428,21 @@
       body: JSON.stringify({ event, ...fields }),
       keepalive: true,
     }).catch(() => {});
+  }
+
+  function reportCallState(call, outcome, turn = null, pcm = null, level = 0) {
+    reportDiagnostic("client_stream_timing", {
+      outcome,
+      call_sequence: call.nextSequence,
+      call_inflight: call.inflight,
+      vad_active: Boolean(call.vadActive),
+      vad_level: level,
+      vad_noise_floor: call.vad.noiseFloor,
+      barge_noise_floor: call.bargeVad.noiseFloor,
+      reply_discarded: Boolean(turn?.discardReply),
+      playback_running: state.playbackContext?.state === "running",
+      pcm_started: Boolean(pcm?.started),
+    });
   }
 
   function clearSessionDiagnostics() {
@@ -3581,6 +3598,7 @@
             task: "chat",
             include_audio_from_video: true,
             require_speech: true,
+            live_engaged: true,
           },
           response_modalities: ["text", "audio"],
           speech_mode: "always",
@@ -3653,6 +3671,7 @@
             } else if (event.type === "audio_start") {
               turn.languageSettled = true;
               if (!callPlayback.canStart(call, turn)) turn.discardReply = true;
+              reportCallState(call, "call_audio_start", turn, pcmController);
               if (!turn.discardReply) {
                 if (call.playbackTurn && call.playbackTurn !== turn) {
                   call.playbackTurn.discardReply = true;
@@ -3678,6 +3697,7 @@
       );
       const reply = data.message || {};
       if (!callPlayback.canStart(call, turn)) turn.discardReply = true;
+      reportCallState(call, "call_final", turn, pcmController);
       applyCallAudioEvidence(
         (data.adapter || {}).input_transcript,
         (data.adapter || {}).audio_observation,
@@ -3839,14 +3859,20 @@
       audioContexts: [],
       playbackTurn: null,
       animationFrame: null,
+      lastDiagnosticAt: 0,
     };
     processor.onaudioprocess = event => {
       if (state.call !== call) return;
       const now = performance.now();
       const samples = new Float32Array(event.inputBuffer.getChannelData(0));
+      const level = rms(samples);
+      if (now - call.lastDiagnosticAt >= 5000) {
+        call.lastDiagnosticAt = now;
+        reportCallState(call, "call_capture", call.playbackTurn, state.streamController, level);
+      }
       const detector = call.captureVad || (call.playbackTurn ? call.bargeVad : call.vad);
       const detection = callVad.processFrame(detector, {
-        level: rms(samples),
+        level,
         samples,
         now,
         frameMs: samples.length / call.context.sampleRate * 1000,
@@ -3858,6 +3884,7 @@
         clearPendingCallFlush(call);
         setVadActive(call, true);
         const superseded = supersedeCallAudio(call, call.nextSequence);
+        reportCallState(call, "call_vad_start", [...call.turns][0], state.streamController, level);
         if (superseded) {
           setComposerStatus("Call · interruption heard · consolidating speech…");
         } else {

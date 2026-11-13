@@ -68,6 +68,7 @@ def test_typed_invalid_speech_never_reaches_reply_tts_or_transcript(streaming, c
     # One semantic validation call is permitted; conversational generation is not.
     assert hosts == ["comprehension", "language"]
     assert result["adapter"]["route"] == ["comprehension"]
+    assert result["adapter"]["live_engaged"] is True
     assert result["adapter"]["tts_skipped_reason"] == "required_speech_not_found"
     assert "input_transcript" not in result["adapter"]
     assert candidate not in result["adapter"]["observation"]
@@ -79,3 +80,41 @@ def test_typed_invalid_speech_never_reaches_reply_tts_or_transcript(streaming, c
 @pytest.mark.parametrize("verdict", ["", "uncertain", "INVALID_SPEECH|NONE", "<think>INVALID_SPEECH</think>"])
 def test_unknown_verdict_cannot_discard_a_real_spoken_turn(verdict):
     assert _parse_live_turn_route(verdict).speech_valid is True
+
+
+@pytest.mark.parametrize("language_api", ["openai", "ollama"])
+@pytest.mark.parametrize("engaged", [False, True])
+def test_active_exchange_replaces_room_silence_control_and_preserves_speech(language_api, engaged):
+    import dataclasses
+
+    from qwen_omni_adapters.context import context_text, live_call_system_prompt
+    from qwen_omni_adapters.contract import AdapterMessage
+    from runtime.adapter_server import build_language_payload
+
+    parsed = dataclasses.replace(
+        _request(),
+        live_engaged=engaged,
+        messages=(AdapterMessage(role="system", content=live_call_system_prompt()),
+                  *_request().messages),
+    )
+    observed = "<speech_transcript>Hello there. Testing.</speech_transcript>"
+    payload = build_language_payload(parsed, observed, language_api=language_api)
+    systems = "\n".join(item["content"] for item in payload["messages"] if item["role"] == "system")
+    assert (context_text("directives", "live_engaged_response_control") in systems) is engaged
+    assert (context_text("directives", "live_response_control") in systems) is not engaged
+    assert payload["messages"][-1]["content"] == "Hello there. Testing."
+    assert payload["cache_prompt"] is False
+
+
+@pytest.mark.parametrize("engaged", [False, True])
+def test_python_client_preserves_explicit_live_exchange_state(engaged):
+    from clients.python_client import _parser, build_request
+
+    args = _parser().parse_args([
+        "chat", "--prompt", "Hello there. Testing.", "--require-speech",
+        "--live-engaged" if engaged else "--no-live-engaged",
+    ])
+    request = build_request(args)
+    assert request["omni"]["require_speech"] is True
+    assert request["omni"]["live_engaged"] is engaged
+    assert parse_adapter_request(request).live_engaged is engaged

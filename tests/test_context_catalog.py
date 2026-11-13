@@ -20,6 +20,7 @@ from qwen_omni_adapters.context import (
     CONTEXT_SCHEMA,
     ContextConfigError,
     context_catalog,
+    live_call_system_prompt,
     load_context,
     retained_tool_names,
     runtime_agent_name,
@@ -218,7 +219,7 @@ def test_browser_receives_prompts_from_the_same_catalog(
     browser_context = json.loads(html[start:end])
 
     assert browser_context == {
-        "live_call_system": LIVE_CALL_SYSTEM_PROMPT,
+        "live_call_system": live_call_system_prompt(engaged=True),
         "media_conversation_system": context_catalog()["prompts"][
             "media_conversation_system"
         ],

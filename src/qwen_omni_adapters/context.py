@@ -136,13 +136,16 @@ def context_text(section: str, name: str) -> str:
     return text.strip()
 
 
-def live_call_system_prompt() -> str:
+def live_call_system_prompt(*, engaged: bool = False) -> str:
     """Compose the spoken-turn policy with its machine-only response control."""
 
     return "\n\n".join(
         (
             context_text("prompts", "live_call_system"),
-            context_text("directives", "live_response_control"),
+            context_text(
+                "directives",
+                "live_engaged_response_control" if engaged else "live_response_control",
+            ),
         )
     )
 

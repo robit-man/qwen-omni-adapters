@@ -94,6 +94,10 @@ def build_request(args: argparse.Namespace) -> dict[str, Any]:
             "task": adapter_task,
             "include_audio_from_video": getattr(args, "include_audio", True),
             "tool_routing": args.tool_routing,
+            **({
+                "require_speech": True,
+                "live_engaged": getattr(args, "live_engaged", True),
+            } if getattr(args, "require_speech", False) else {}),
         },
         "response_modalities": response_modalities,
         "speech_mode": speech_mode,
@@ -167,6 +171,9 @@ def _parser() -> argparse.ArgumentParser:
     chat.add_argument("--max-frames", type=int, default=32)
     chat.add_argument("--include-audio", action=argparse.BooleanOptionalAction, default=True)
     chat.add_argument("--speak", action="store_true", help="also return synthesized speech")
+    chat.add_argument("--require-speech", action="store_true", help="use live speech validation")
+    chat.add_argument("--live-engaged", action=argparse.BooleanOptionalAction, default=True,
+                      help="active exchange; disable for ambient room listening")
     return parser
 
 
