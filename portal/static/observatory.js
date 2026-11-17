@@ -1,85 +1,27 @@
+/* LCD display modules and connected readouts adapted from Nick Gallo:
+   https://www.nickgallo.dev/projects/clock/ — see docs/observatory-lcd.md. */
 (() => {
   "use strict";
 
-  const SVG_NS = "http://www.w3.org/2000/svg";
-  const REFRESH_MS = 10_000;
+  const $ = id => document.getElementById(id);
+  const REFRESH_MS = 2_000;
   const STALE_MS = 25_000;
-  const TIMELINE_PAGE = 18;
-  const CATEGORY_ORDER = ["live", "memory", "work", "conversation", "tools"];
-  const NODE_POSITIONS = [
-    [205, 145], [410, 105], [655, 105], [850, 170], [930, 330],
-    [820, 500], [625, 560], [440, 558], [255, 510], [130, 392],
-    [125, 240], [310, 300], [905, 430], [690, 310], [350, 170],
-  ];
-
-  const elements = {
-    chatLink: document.getElementById("chat-link"),
-    clock: document.getElementById("observatory-clock"),
-    connection: document.getElementById("observatory-connection"),
-    status: document.getElementById("observatory-status"),
-    refresh: document.getElementById("refresh-button"),
-    liveToggle: document.getElementById("live-toggle"),
-    liveToggleLabel: document.getElementById("live-toggle-label"),
-    totalMemories: document.getElementById("total-memories"),
-    totalContext: document.getElementById("total-context"),
-    totalWork: document.getElementById("total-work"),
-    totalSignals: document.getElementById("total-signals"),
-    graphEdges: document.getElementById("graph-edges"),
-    graphNodes: document.getElementById("graph-nodes"),
-    graphLoading: document.getElementById("graph-loading"),
-    graphVisibleCount: document.getElementById("graph-visible-count"),
-    liveFreshness: document.getElementById("live-freshness"),
-    stateCore: document.getElementById("state-core"),
-    liveReadout: document.getElementById("live-readout"),
-    timelineList: document.getElementById("timeline-list"),
-    timelineMeta: document.getElementById("timeline-meta"),
-    timelineEmpty: document.getElementById("timeline-empty"),
-    timelineMore: document.getElementById("timeline-more"),
-    memoryMeta: document.getElementById("memory-meta"),
-    memoryStrengthFill: document.getElementById("memory-strength-fill"),
-    memoryStrengthValue: document.getElementById("memory-strength-value"),
-    memoryList: document.getElementById("memory-list"),
-    memoryEmpty: document.getElementById("memory-empty"),
-    workCurrent: document.getElementById("work-current"),
-    workMeta: document.getElementById("work-meta"),
-    archiveList: document.getElementById("archive-list"),
-    workEmpty: document.getElementById("work-empty"),
-    error: document.getElementById("observatory-error"),
-    errorMessage: document.getElementById("observatory-error-message"),
-    retry: document.getElementById("retry-button"),
-    announcer: document.getElementById("observatory-announcer"),
-  };
-
+  const PAGE_SIZE = 18;
+  const TABS = ["weights", "events", "states", "memory"];
   const query = new URLSearchParams(location.search);
-  const initialRange = ["today", "7d", "retained"].includes(query.get("range"))
-    ? query.get("range") : "today";
-  const requestedFilters = new Set(
-    String(query.get("signals") || CATEGORY_ORDER.join(",")).split(","),
-  );
   const state = {
-    token: "",
-    snapshot: null,
-    refreshing: false,
-    live: true,
-    range: initialRange,
-    filters: new Set(CATEGORY_ORDER.filter(category => requestedFilters.has(category))),
-    timelineLimit: TIMELINE_PAGE,
-    controller: null,
-    lastSuccessAt: 0,
-    timer: null,
+    token: "", snapshot: null, refreshing: false, live: true,
+    tab: TABS.includes(query.get("tab")) ? query.get("tab") : "weights",
+    range: ["today", "7d", "retained"].includes(query.get("range")) ? query.get("range") : "today",
+    filter: ["all", "conversation", "tools", "hearing", "llm", "speaking", "vision"].includes(query.get("events")) ? query.get("events") : "all",
+    limit: PAGE_SIZE, controller: null, lastSuccessAt: 0,
+    agent: null, savingIdentity: false, identityUpdatedAt: 0, window: 60, selectedEventId: null,
   };
-  if (!state.filters.size) state.filters = new Set(CATEGORY_ORDER);
-
-  function accessToken() {
-    const fragment = new URLSearchParams(location.hash.replace(/^#/, ""));
-    const supplied = fragment.get("access");
-    if (supplied) sessionStorage.setItem("omni_access", supplied);
-    return supplied || sessionStorage.getItem("omni_access") || "";
-  }
-
-  function authHeaders() {
-    return { Authorization: `Bearer ${state.token}` };
-  }
+  const pad = (value, width = 2) => String(value).padStart(width, "0");
+  const compact = value => new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
+  const numeric = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+  const count = value => numeric(value) ? compact(Number(value)) : "unreported";
+  const clamp = value => Math.max(0, Math.min(100, Number(value)));
 
   function create(tag, className, text) {
     const node = document.createElement(tag);
@@ -88,59 +30,17 @@
     return node;
   }
 
-  function svgNode(tag, attributes = {}) {
-    const node = document.createElementNS(SVG_NS, tag);
-    for (const [name, value] of Object.entries(attributes)) {
-      node.setAttribute(name, String(value));
-    }
-    return node;
-  }
-
-  function compactNumber(value) {
-    const numeric = Number(value || 0);
-    return new Intl.NumberFormat(undefined, {
-      notation: numeric >= 1000 ? "compact" : "standard",
-      maximumFractionDigits: 1,
-    }).format(numeric);
-  }
-
-  function formatBytes(value) {
-    let numeric = Number(value || 0);
-    const units = ["B", "KB", "MB", "GB"];
-    let unit = 0;
-    while (numeric >= 1024 && unit < units.length - 1) {
-      numeric /= 1024;
-      unit += 1;
-    }
-    return `${numeric.toFixed(unit > 1 ? 1 : 0)} ${units[unit]}`;
-  }
-
   function parsedDate(value) {
     if (!value) return null;
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  function relativeTime(value) {
+  function timestamp(value) {
     const date = parsedDate(value);
-    if (!date) return "time unknown";
-    const seconds = Math.round((date.getTime() - Date.now()) / 1000);
-    const magnitude = Math.abs(seconds);
-    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-    if (magnitude < 60) return formatter.format(seconds, "second");
-    if (magnitude < 3600) return formatter.format(Math.round(seconds / 60), "minute");
-    if (magnitude < 86400) return formatter.format(Math.round(seconds / 3600), "hour");
-    return formatter.format(Math.round(seconds / 86400), "day");
-  }
-
-  function shortTime(value) {
-    const date = parsedDate(value);
-    if (!date) return "—";
-    if (state.range === "today") {
-      return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
-    }
+    if (!date) return "Time unreported";
     return new Intl.DateTimeFormat(undefined, {
-      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
     }).format(date);
   }
 
@@ -149,443 +49,615 @@
     const date = parsedDate(value);
     if (!date) return false;
     const now = new Date();
-    if (state.range === "7d") return now.getTime() - date.getTime() <= 7 * 86400 * 1000;
-    return date.getFullYear() === now.getFullYear()
-      && date.getMonth() === now.getMonth()
-      && date.getDate() === now.getDate();
+    if (state.range === "7d") return date <= now && now - date <= 7 * 86400 * 1000;
+    return date.toDateString() === now.toDateString();
   }
 
-  function updateUrlState() {
-    const parameters = new URLSearchParams(location.search);
-    parameters.set("range", state.range);
-    parameters.set("signals", CATEGORY_ORDER.filter(category => state.filters.has(category)).join(","));
-    const suffix = parameters.toString();
-    history.replaceState(null, "", `${location.pathname}${suffix ? `?${suffix}` : ""}${location.hash}`);
+  function facts(id, rows) {
+    $(id).replaceChildren(...rows.map(([label, value]) => {
+      const row = create("div");
+      row.append(create("dt", "", label), create("dd", "", value));
+      return row;
+    }));
   }
 
-  function setConnection(mode, text) {
-    elements.connection.classList.remove("online", "stale", "offline");
-    elements.connection.classList.add(mode);
-    elements.status.textContent = text;
+  function serviceEntries(snapshot) {
+    return Object.entries(snapshot.live?.services || {}).filter(([, value]) => value?.enabled !== false);
   }
 
-  function serviceSummary(services) {
-    const entries = Object.entries(services || {});
-    const healthy = entries.filter(([, value]) => value && value.ok === true).length;
-    return { healthy, total: entries.length };
+  function setConnection(mode, label) {
+    $("observatory-connection").className = `connection ${mode}`;
+    $("observatory-status").textContent = label;
   }
 
-  function timelineCounts(snapshot) {
-    const counts = { conversation: 0, tools: 0, work: 0, memory: 0, live: 0 };
-    for (const item of snapshot.timeline || []) {
-      if (counts[item.category] !== undefined) counts[item.category] += 1;
+  function updateFreshness() {
+    if (!state.snapshot) return;
+    const captured = parsedDate(state.snapshot.captured_at);
+    const age = captured ? Math.max(0, Date.now() - captured) : Infinity;
+    const stale = age > STALE_MS || Date.now() - state.lastSuccessAt > STALE_MS || !$("observatory-error").hidden;
+    const ageText = Number.isFinite(age) ? `${Math.floor(age / 1000)}s ago` : "at an unreported time";
+    $("sample-freshness").textContent = `${stale ? "Stale sample" : "Sampled"} ${ageText}${state.live ? " · every 2s" : " · auto refresh paused"}`;
+    setConnection(stale ? "stale" : "online", stale ? "Stale" : state.live ? "Live" : "Paused");
+  }
+
+  function updateUrl() {
+    const params = new URLSearchParams(location.search);
+    params.set("tab", state.tab);
+    params.set("range", state.range);
+    params.set("events", state.filter);
+    history.replaceState(null, "", `${location.pathname}?${params}${location.hash}`);
+  }
+
+  function selectTab(tab, moveFocus = false) {
+    state.tab = tab;
+    for (const name of TABS) {
+      const selected = tab === name;
+      $(`tab-${name}`).setAttribute("aria-selected", String(selected));
+      $(`tab-${name}`).tabIndex = selected ? 0 : -1;
+      $(`view-${name}`).hidden = !selected;
     }
-    return counts;
+    updateTitle();
+    if (moveFocus) $(`tab-${tab}`).focus({ preventScroll: true });
+    updateUrl();
+    requestAnimationFrame(drawWires);
   }
 
-  function graphNodes(snapshot) {
-    const live = snapshot.live || {};
+  function updateTitle() {
+    document.title = `${$(`tab-${state.tab}`).textContent} — ${state.agent?.name || "Agent"} Observatory`;
+  }
+
+  function applyIdentity(identity) {
+    if (!identity || typeof identity.name !== "string") return;
+    state.agent = identity;
+    $("agent-name").textContent = identity.name;
+    $("agent-name").disabled = false;
+    $("rename-button").disabled = false;
+    $("identity-help").textContent = `Shared by this deployment. Takes effect on following turns. Account default: ${identity.default_name || "unreported"}.`;
+    $("chat-title").textContent = `Chat with ${identity.name}`;
+    $("chat-frame").title = `Chat with ${identity.name}`;
+    updateTitle();
+  }
+
+  function openIdentity() {
+    if (!state.agent || state.savingIdentity) return;
+    $("identity-form").hidden = false;
+    $("identity-error").hidden = true;
+    $("agent-name-input").value = state.agent.name;
+    $("agent-name-input").setAttribute("aria-invalid", "false");
+    $("agent-name-input").focus();
+    $("agent-name-input").select();
+  }
+
+  function closeIdentity() {
+    if (state.savingIdentity) return;
+    $("identity-form").hidden = true;
+    $("agent-name").focus();
+  }
+
+  async function saveIdentity(event) {
+    event.preventDefault();
+    if (state.savingIdentity) return;
+    const name = $("agent-name-input").value.trim();
+    const show = message => {
+      $("identity-error").textContent = message;
+      $("identity-error").hidden = false;
+    };
+    if (!name || [...name].length > 64) {
+      show("Use between 1 and 64 characters for the agent name.");
+      $("agent-name-input").setAttribute("aria-invalid", "true");
+      $("agent-name-input").focus();
+      return;
+    }
+    state.savingIdentity = true;
+    $("identity-error").hidden = true;
+    $("identity-form").setAttribute("aria-busy", "true");
+    for (const id of ["identity-save", "identity-cancel", "agent-name-input"]) $(id).disabled = true;
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 15_000);
+    let saved = false;
+    try {
+      const response = await fetch("/api/agent-identity", {
+        method: "PUT", headers: { Authorization: `Bearer ${state.token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name }), signal: controller.signal,
+      });
+      const identity = await response.json();
+      if (!response.ok) {
+        if (response.status === 400) $("agent-name-input").setAttribute("aria-invalid", "true");
+        throw new Error(response.status === 401 || response.status === 403
+          ? "Access expired. Return to chat and reopen the Observatory with the current link."
+          : identity.error || "Agent name could not be saved. Try again.");
+      }
+      if (typeof identity.name !== "string") throw new Error("The name update could not be confirmed. Try saving again.");
+      state.identityUpdatedAt = Date.now();
+      applyIdentity(identity);
+      $("observatory-announcer").textContent = `Agent name saved as ${identity.name}. Following turns use this identity.`;
+      saved = true;
+    } catch (error) {
+      show(error.name === "AbortError" ? "The name update timed out. Try saving again to confirm it." : error.message || "The name update could not be confirmed. Try again.");
+    } finally {
+      clearTimeout(deadline);
+      state.savingIdentity = false;
+      $("identity-form").setAttribute("aria-busy", "false");
+      for (const id of ["identity-save", "identity-cancel", "agent-name-input"]) $(id).disabled = false;
+      if (saved) closeIdentity();
+      else $("agent-name-input").focus();
+    }
+  }
+
+  const SIGNALS = [["hearing", "Heard speech"], ["audio", "Sound input"], ["vision", "Image / video"], ["llm", "LLM"], ["speaking", "Speech output"], ["tools", "Tools"], ["documents", "Documents"]];
+  function signalOf(item) {
+    return item.signal || (item.category === "tools" ? "tools" : "llm");
+  }
+  function formatBytes(value) {
+    const bytes = Number(value);
+    const unit = bytes >= 1024 ** 3 ? 3 : bytes >= 1024 ** 2 ? 2 : bytes >= 1024 ? 1 : 0;
+    return `${(bytes / 1024 ** unit).toFixed(unit ? 2 : 0)} ${["B", "KiB", "MiB", "GiB"][unit]}`;
+  }
+  function meter(label, value, maximum, detail) {
+    const row = create("div", "instrument-bar");
+    const track = create("div", "t");
+    const fill = create("div", "f");
+    track.append(fill);
+    fill.style.width = `calc((100% - 4px) * ${Math.max(0, Math.min(1, value / Math.max(1, maximum)))})`;
+    track.setAttribute("role", "meter");
+    track.setAttribute("aria-label", label);
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", String(maximum));
+    track.setAttribute("aria-valuenow", String(value));
+    row.append(create("span", "bar-label", label), track, create("span", "bar-value", detail));
+    return row;
+  }
+  function renderDisplay(snapshot) {
+    renderWeightInstrument(snapshot);
+    renderEventInstrument(snapshot);
+    renderStateInstrument(snapshot);
+    renderMemoryInstrument(snapshot);
+    document.querySelectorAll(".visualization .d7").forEach(node => {
+      const value = node.querySelector(".segment-value")?.textContent || node.textContent;
+      const ghost = create("span", "segment-ghost", value.replace(/[0-9]/g, "8"));
+      ghost.setAttribute("aria-hidden", "true");
+      node.replaceChildren(ghost, create("span", "segment-value", value));
+    });
+    requestAnimationFrame(drawWires);
+  }
+  function renderWeightInstrument(snapshot) {
+    const inventory = snapshot.weights || {};
+    const components = inventory.components || [];
+    $("loaded-graphs").textContent = numeric(inventory.loaded) ? String(inventory.loaded) : String(components.filter(item => item.state === "loaded").length);
+    $("loaded-bytes").textContent = (Number(inventory.reported_weight_bytes || 0) / 1024 ** 3).toFixed(2);
+    $("loaded-bytes").parentElement.hidden = !inventory.reported_weight_bytes;
+    const reported = components.length ? components : serviceEntries(snapshot).map(([name, value]) => ({
+      role: name, name: "Execution service", state: value.ok ? "reachable" : "unavailable", source: "HTTP health observation",
+    }));
+    $("component-network").replaceChildren(...reported.map(component => {
+      const box = create("article", `readout component-node ${component.state === "loaded" ? "loaded" : ""}`);
+      box.setAttribute("data-wire-node", "");
+      box.append(create("span", "field-label", component.role), create("strong", "d14 lit component-state", component.state.toUpperCase()),
+        create("p", "component-name", component.name), create("span", "muted", component.bytes ? formatBytes(component.bytes) : component.policy === "request" ? "Loads for each spoken reply" : component.source));
+      if (typeof component.gpu_resident === "boolean") box.append(create("span", "muted", component.gpu_resident ? "GPU residency confirmed" : "GPU weights released"));
+      return box;
+    }));
+    const daemon = snapshot.live?.daemon || {};
+    const memory = snapshot.live?.environment?.memory || {};
+    const bars = [];
+    if (numeric(daemon.comprehension_context_tokens) && numeric(daemon.comprehension_context_ceiling)) bars.push(meter("Resident KV budget", Number(daemon.comprehension_context_tokens), Number(daemon.comprehension_context_ceiling), `${count(daemon.comprehension_context_tokens)} / ${count(daemon.comprehension_context_ceiling)} tokens`));
+    if (numeric(memory.used_percent)) bars.push(meter("Host memory", Number(memory.used_percent), 100, `${Number(memory.used_percent).toFixed(1)}%${numeric(memory.used_gib) ? ` · ${memory.used_gib} GiB` : ""}`));
+    $("weight-budget-bars").replaceChildren(...bars);
+  }
+  function renderEventInstrument(snapshot) {
+    const harness = snapshot.live?.harness || {};
+    const current = harness.available && harness.fresh ? harness.state : null;
+    const activity = current ? current.toUpperCase() : "NO LIVE VOICE STATE";
+    $("activity-label").textContent = activity.replaceAll(" ", "!");
+    $("activity-label").setAttribute("aria-label", activity);
+    $("activity-source").textContent = current ? `Voice loop · ${timestamp(harness.updated_at)}` : "Waiting for a fresh voice-loop report";
+    const now = Date.now();
+    const from = now - state.window * 1000;
+    const events = (snapshot.timeline || []).filter(item => parsedDate(item.at) && new Date(item.at).getTime() >= from && new Date(item.at).getTime() <= now);
+    const counts = SIGNALS.slice(0, 6).map(([signal, label]) => [label, String(events.filter(item => signalOf(item) === signal).length)]);
+    facts("signal-totals", counts);
+    const focusId = document.activeElement?.dataset.eventId;
+    const rows = SIGNALS.map(([signal, label]) => {
+      const row = create("div", "event-lane");
+      const track = create("div", "event-lane-track");
+      const items = events.filter(item => signalOf(item) === signal);
+      for (const item of items) {
+        const marker = create("button", `event-mark ${item.status === "error" ? "error" : ""}`);
+        marker.type = "button";
+        marker.dataset.eventId = item.id;
+        marker.style.left = `${Math.max(0, Math.min(98, (new Date(item.at).getTime() - from) / (state.window * 1000) * 98))}%`;
+        marker.setAttribute("aria-label", `${item.label}, ${timestamp(item.at)}`);
+        marker.addEventListener("click", () => {
+          state.selectedEventId = item.id;
+          $("raster-selection").textContent = `${timestamp(item.at)} · ${item.label}${item.detail ? ` · ${item.detail}` : ""} · ${item.source || "Source unreported"} · ${item.retention || "bounded diagnostic"}`;
+        });
+        track.append(marker);
+      }
+      row.append(create("span", "lane-label", label), track, create("span", "lane-count d7", String(items.length)));
+      return row;
+    });
+    const axis = create("div", "raster-axis");
+    axis.append(create("span", "", `${state.window < 60 ? state.window + "s" : state.window / 60 + "m"} ago`), create("span", "", "Now"));
+    $("event-raster").replaceChildren(...rows, axis);
+    if (focusId) $("event-raster").querySelector(`[data-event-id="${CSS.escape(focusId)}"]`)?.focus({ preventScroll: true });
+    if (!events.some(item => item.id === state.selectedEventId)) {
+      state.selectedEventId = null;
+      $("raster-selection").textContent = `${events.length} observed events in this window. Select an event to inspect its source.`;
+    }
+    if (!events.length) $("raster-selection").textContent = "No events observed in this window. The timeline fills as inputs, inference stages, speech output, and tools arrive.";
+  }
+  function renderStateInstrument(snapshot) {
+    const harness = snapshot.live?.harness || {};
+    const current = harness.available && harness.fresh ? harness.state : null;
+    const phases = [["listening", "Listening", "Waiting for input"], ["hearing", "Hearing", "Capturing input"], ["thinking", "Thinking", "Processing the turn"], ["speaking", "Speaking", "Playing the reply"]];
+    $("state-flow").replaceChildren(...phases.map(([phase, label, detail]) => {
+      const box = create("div", `state-step frame ${current === phase ? "is-current" : ""}`);
+      box.append(create("span", "field-label", current === phase ? "Current state" : "Voice-loop phase"), create("strong", "d14 lit", label.toUpperCase()), create("span", "muted", current === phase ? detail : current ? "Inactive" : "Unobserved"));
+      return box;
+    }));
+    const queue = snapshot.live?.requests || {};
+    const memory = snapshot.live?.environment?.memory || {};
+    const meters = [];
+    if (numeric(queue.active) && numeric(queue.slots)) meters.push(meter("Inference lanes", Number(queue.active), Number(queue.slots), `${queue.active} / ${queue.slots} active`));
+    if (numeric(queue.inflight) && numeric(queue.limit)) meters.push(meter("Admission capacity", Number(queue.inflight), Number(queue.limit), `${queue.inflight} / ${queue.limit} admitted`));
+    if (numeric(memory.used_percent)) meters.push(meter("Host RAM", Number(memory.used_percent), 100, `${Number(memory.used_percent).toFixed(1)}% used`));
+    $("state-meters").replaceChildren(...meters);
+    const transitions = (snapshot.timeline || []).filter(item => item.source === "voice-loop status").slice(0, 8).reverse();
+    $("state-history").replaceChildren(...transitions.map(item => {
+      const entry = create("div", "state-history-entry");
+      entry.append(create("time", "", timestamp(item.at)), create("span", "", item.label));
+      return entry;
+    }));
+    if (!transitions.length) $("state-history").append(create("p", "muted", current ? `Observed now: ${current}. State transitions appear here as the voice loop changes.` : "No fresh voice-loop transitions have been observed."));
+  }
+  function renderMemoryInstrument(snapshot) {
     const memory = snapshot.memory || {};
     const passive = memory.passive || {};
-    const virtual = memory.virtual_context || {};
-    const work = snapshot.work || {};
-    const archive = work.archive || {};
-    const environment = live.environment || {};
-    const battery = environment.battery || {};
-    const runtimeMemory = environment.memory || {};
-    const connectivity = environment.connectivity || {};
-    const daemon = live.daemon || {};
-    const harness = live.harness || {};
-    const services = serviceSummary(live.services);
-    const counts = timelineCounts(snapshot);
-    const nodes = [
-      {
-        id: "egg", label: "EGG", value: harness.state || daemon.state || "present",
-        category: "root", status: "ok", x: 540, y: 325, radius: 57,
-      },
-      {
-        id: "presence", label: "VOICE LOOP", value: harness.state || "unavailable",
-        category: "live",
-        status: !harness.available ? "error" : (harness.fresh ? "ok" : "stale"),
-      },
-      {
-        id: "services", label: "SERVICES", value: `${services.healthy}/${services.total} healthy`,
-        category: "live",
-        status: services.healthy === services.total ? "ok" : "error",
-      },
-      {
-        id: "compute", label: "COMPUTE", value: `${Number(runtimeMemory.used_percent || 0).toFixed(0)}% memory`,
-        category: "live",
-        status: "ok",
-      },
-      {
-        id: "battery", label: "BATTERY", value: battery.available ? `${battery.percentage}%` : "unavailable",
-        category: "live",
-        status: battery.available ? "ok" : "stale",
-      },
-      {
-        id: "network", label: "NETWORK", value: connectivity.active_link ? "attached" : "unavailable",
-        category: "live",
-        status: connectivity.active_link ? "ok" : "stale",
-      },
-      {
-        id: "passive-memory", label: "MEMORY", value: `${compactNumber(passive.entries)} retained`,
-        category: "memory",
-        status: passive.available ? "ok" : "stale",
-      },
-      {
-        id: "working-context", label: "CONTEXT", value: `${compactNumber(virtual.chunks)} chunks`,
-        category: "memory",
-        status: virtual.mode === "off" ? "stale" : "ok",
-      },
-      {
-        id: "session-memory", label: "SESSION NOTES", value: `${compactNumber(memory.session?.entries)} entries`,
-        category: "memory",
-        status: "ok",
-      },
-      {
-        id: "current-work", label: "CURRENT WORK", value: `${compactNumber(work.live?.length)} active`,
-        category: "work",
-        status: work.live?.some(item => item.status === "blocked") ? "error" : "ok",
-      },
-      {
-        id: "work-archive", label: "OUTCOMES", value: `${compactNumber(archive.records_observed)} observed`,
-        category: "work",
-        status: archive.available ? "ok" : "stale",
-      },
-      {
-        id: "conversation", label: "CONVERSATION", value: `${compactNumber(counts.conversation)} signals`,
-        category: "conversation",
-        status: "ok",
-      },
-      {
-        id: "tools", label: "TOOLS", value: `${compactNumber(counts.tools)} calls`,
-        category: "tools",
-        status: snapshot.timeline?.some(item => item.category === "tools" && item.status === "error") ? "error" : "ok",
-      },
-    ];
-    if (snapshot.location?.available === true) {
-      const location = snapshot.location;
-      nodes.push({
-        id: "location", label: "LOCATION", value: [location.city, location.region].filter(Boolean).join(", ") || "approximate",
-        category: "live",
-        status: "ok",
+    const stores = [["Passive memory", passive.available ? count(passive.entries) : "OFFLINE", "Durable · relevance-decayed"], ["Session memory", count(memory.session?.entries), "This browser only"], ["Working corpus", count(memory.virtual_context?.chunks), `${memory.virtual_context?.mode || "off"} · session scoped`]];
+    $("store-readouts").replaceChildren(...stores.map(([label, value, detail]) => {
+      const box = create("div", "frame store-readout");
+      box.append(create("span", "field-label", label), create("strong", /^\d/.test(value) ? "d7 lit" : "store-status", value), create("span", "muted", detail));
+      return box;
+    }));
+    const memories = (passive.recent || []).slice(0, 24).filter(item => parsedDate(item.created_at));
+    const plot = $("memory-plot");
+    const focusIndex = document.activeElement?.dataset.memoryIndex;
+    plot.replaceChildren();
+    if (memories.length) {
+      const dates = memories.map(item => new Date(item.created_at).getTime());
+      const min = Math.min(...dates), max = Math.max(...dates);
+      $("memory-plot-range").textContent = `${timestamp(new Date(min).toISOString())} → ${timestamp(new Date(max).toISOString())}`;
+      memories.forEach((item, index) => {
+        const point = create("button", "memory-point");
+        point.type = "button";
+        point.dataset.memoryIndex = String(index);
+        point.style.left = `${5 + (max === min ? .5 : (dates[index] - min) / (max - min)) * 90}%`;
+        point.style.bottom = `${8 + Math.max(0, Math.min(1, Number(item.strength || 0))) * 82}%`;
+        point.setAttribute("aria-label", `${item.kind || "Memory"}: ${item.text || "Retained source"}; strength ${item.strength}`);
+        point.addEventListener("click", () => { $("memory-focus").textContent = `${item.text || "Retained memory"} · strength ${Number(item.strength || 0).toFixed(3)} · ${item.uses || 0} recalls · ${timestamp(item.created_at)}`; });
+        plot.append(point);
       });
+      plot.append(create("span", "plot-axis-label top", "Strength 1.0"), create("span", "plot-axis-label bottom", "0.0 · source time →"));
+    } else {
+      $("memory-plot-range").textContent = "No passive source points";
+      plot.append(create("p", "plot-empty", passive.available ? "No retained passive memories yet. New memories appear here at their source time and recall strength." : "Passive store is offline. Session and working-corpus counts are shown above."));
     }
-    let position = 0;
-    for (const node of nodes) {
-      if (node.id === "egg") continue;
-      [node.x, node.y] = NODE_POSITIONS[position] || [540, 325];
-      node.radius = node.category === "memory" || node.category === "work" ? 38 : 34;
-      position += 1;
+    if (focusIndex) plot.querySelector(`[data-memory-index="${focusIndex}"]`)?.focus({ preventScroll: true });
+    const bars = [];
+    if (numeric(passive.mean_strength) && passive.available) bars.push(meter("Mean recall strength", Number(passive.mean_strength), 1, Number(passive.mean_strength).toFixed(3)));
+    if (numeric(memory.virtual_storage?.bytes)) {
+      const storage = create("div", "storage-fact");
+      storage.append(create("span", "", "Retained corpus storage"), create("span", "muted", `${formatBytes(memory.virtual_storage.bytes)} · ${count(memory.virtual_storage.corpora)} corpora`));
+      bars.push(storage);
     }
-    return nodes;
+    $("memory-budget-bars").replaceChildren(...bars);
   }
 
-  function visibleGraphNodes(snapshot) {
-    return graphNodes(snapshot).filter(node => node.id === "egg" || state.filters.has(node.category));
+  function renderWeights(snapshot) {
+    const daemon = snapshot.live?.daemon || {};
+    $("model-name").textContent = daemon.model || document.body.dataset.model || "Unreported";
+    $("model-source").textContent = daemon.available && daemon.model
+      ? `Daemon report · ${daemon.state || "state unreported"} · ${timestamp(daemon.updated_at)}`
+      : "Portal configuration · daemon model report unavailable";
+    facts("weight-facts", [
+      ["Runtime", daemon.state || "unavailable"],
+      ["Resident context", numeric(daemon.comprehension_context_tokens) ? `${count(daemon.comprehension_context_tokens)} tokens` : "Unreported"],
+      ["Context ceiling", numeric(daemon.comprehension_context_ceiling) ? `${count(daemon.comprehension_context_ceiling)} tokens` : "Unreported"],
+      ["Loaded worker graphs", numeric(snapshot.weights?.loaded) ? String(snapshot.weights.loaded) : "Worker inventory unavailable"],
+    ]);
+    const entries = Object.entries(snapshot.live?.services || {});
+    $("service-list").replaceChildren(...entries.map(([name, health]) => {
+      const disabled = health?.enabled === false;
+      const row = create("tr");
+      const identity = create("th", "", name);
+      identity.scope = "row";
+      row.append(identity,
+        create("td", !disabled && !health?.ok ? "error" : "", disabled ? "Disabled" : health?.ok ? "Reachable" : "Unavailable"),
+        create("td", "", disabled ? "Not enabled in this deployment" : numeric(health?.status) ? `HTTP ${health.status} · health probe` : "No HTTP response"));
+      return row;
+    }));
+    if (!entries.length) {
+      const row = create("tr");
+      const cell = create("td", "", "No service health observations in this snapshot.");
+      cell.colSpan = 3;
+      row.append(cell);
+      $("service-list").append(row);
+    }
   }
 
-  function drawGraph(snapshot) {
-    elements.graphEdges.replaceChildren();
-    elements.graphNodes.replaceChildren();
-    const nodes = visibleGraphNodes(snapshot);
-    const root = nodes.find(node => node.id === "egg");
-    for (const node of nodes) {
-      if (node.id === "egg") continue;
-      const line = svgNode("line", { x1: root.x, y1: root.y, x2: node.x, y2: node.y });
-      line.classList.add("graph-edge");
-      if (node.status === "error") line.classList.add("error");
-      else if (node.category === "live") line.classList.add("active");
-      else line.classList.add("retained");
-      elements.graphEdges.appendChild(line);
-    }
-    for (const node of nodes) {
-      const group = svgNode("g", { transform: `translate(${node.x} ${node.y})` });
-      group.classList.add("graph-node", `category-${node.category}`, `status-${node.status}`);
-      if (node.id === "egg") group.classList.add("root-node");
-      const title = svgNode("title");
-      title.textContent = `${node.label}: ${node.value}`;
-      const ring = svgNode("circle", { class: "node-ring", r: node.radius });
-      const core = svgNode("circle", { class: "node-core", r: node.id === "egg" ? 8 : 4 });
-      const label = svgNode("text", { class: "node-label", y: node.radius + 19 });
-      label.textContent = node.label;
-      const value = svgNode("text", { class: "node-value", y: node.radius + 33 });
-      value.textContent = node.value;
-      group.append(title, ring, core, label, value);
-      elements.graphNodes.appendChild(group);
-    }
-    elements.graphVisibleCount.textContent = `${nodes.length} visible node${nodes.length === 1 ? "" : "s"}`;
+  function renderEvents(snapshot) {
+    const filtered = (snapshot.timeline || []).filter(item =>
+      ["conversation", "tools"].includes(item.category)
+      && (state.filter === "all" || item.category === state.filter || signalOf(item) === state.filter) && inRange(item.at));
+    const shown = filtered.slice(0, state.limit);
+    $("timeline-list").replaceChildren(...shown.map(item => {
+      const row = create("li", `timeline-item ${item.status === "error" ? "error" : ""}`);
+      const time = create("time", "timeline-time", timestamp(item.at));
+      if (parsedDate(item.at)) time.dateTime = item.at;
+      const body = create("div", "timeline-body");
+      body.append(create("strong", "", item.label || "Event"));
+      if (item.detail) body.append(create("p", "", item.detail));
+      const source = create("div", "timeline-source");
+      source.append(create("span", "", SIGNALS.find(([signal]) => signal === signalOf(item))?.[1] || "Runtime event"),
+        create("span", "", item.source || "Source unreported"), create("span", "", item.retention || "Retention unreported"));
+      row.append(time, body, source);
+      return row;
+    }));
+    $("timeline-empty").hidden = filtered.length > 0;
+    $("timeline-more").hidden = shown.length >= filtered.length;
+    $("timeline-more").textContent = `Show ${Math.min(PAGE_SIZE, filtered.length - shown.length)} more events`;
+    $("timeline-meta").textContent = `${shown.length} of ${filtered.length} retained events`;
   }
 
-  function renderLive(snapshot) {
+  function renderStates(snapshot) {
     const live = snapshot.live || {};
-    const daemon = live.daemon || {};
     const harness = live.harness || {};
+    const daemon = live.daemon || {};
     const environment = live.environment || {};
     const battery = environment.battery || {};
-    const runtimeMemory = environment.memory || {};
-    const requests = live.requests || {};
-    const services = serviceSummary(live.services);
-    const age = Math.max(0, (Date.now() - new Date(snapshot.captured_at).getTime()) / 1000);
-    const fresh = age < STALE_MS / 1000;
-    elements.liveFreshness.textContent = fresh ? "Fresh sample" : "Stale sample";
-    elements.liveFreshness.className = `freshness ${fresh ? "fresh" : "stale"}`;
-    elements.stateCore.className = "state-core";
-    if (!daemon.available) elements.stateCore.classList.add("error");
-    else if (["thinking", "speaking", "hearing"].includes(harness.state)) elements.stateCore.classList.add("thinking");
-    else elements.stateCore.classList.add("online");
-    const rows = [
-      ["Presence", harness.state || "unavailable"],
-      ["Runtime", daemon.state || "unavailable"],
-      ["Services", `${services.healthy}/${services.total} healthy`],
-      ["Inference", `${Number(requests.active || 0)} active · ${Number(requests.queued || 0)} queued`],
-      ["Memory", `${Number(runtimeMemory.used_percent || 0).toFixed(1)}% host RAM`],
-      ["Battery", battery.available ? `${battery.percentage}% · ${battery.voltage_v} V` : "unavailable"],
-      ["Model", daemon.model || document.body.dataset.model || "unknown"],
-    ];
-    elements.liveReadout.replaceChildren();
-    for (const [label, value] of rows) {
-      const wrapper = create("div");
-      wrapper.append(create("dt", "", label), create("dd", "", value));
-      elements.liveReadout.appendChild(wrapper);
-    }
-  }
-
-  function filteredTimeline(snapshot) {
-    return (snapshot.timeline || []).filter(item => state.filters.has(item.category) && inRange(item.at));
-  }
-
-  function renderTimeline(snapshot) {
-    const filtered = filteredTimeline(snapshot);
-    const shown = filtered.slice(0, state.timelineLimit);
-    elements.timelineList.replaceChildren();
-    for (const item of shown) {
-      const row = create("li", "timeline-item");
-      const time = create("time", "timeline-time", shortTime(item.at));
-      if (item.at) time.dateTime = item.at;
-      const marker = create("span", `timeline-marker ${item.category}`);
-      marker.setAttribute("aria-hidden", "true");
-      const body = create("div", "timeline-body");
-      body.append(create("strong", "", item.label || "signal"));
-      if (item.detail) body.append(create("p", "", item.detail));
-      const source = create("span", "timeline-source", item.source || "retained evidence");
-      row.append(time, marker, body, source);
-      elements.timelineList.appendChild(row);
-    }
-    elements.timelineEmpty.hidden = filtered.length > 0;
-    elements.timelineMore.hidden = shown.length >= filtered.length;
-    elements.timelineMore.textContent = `Show ${Math.min(TIMELINE_PAGE, filtered.length - shown.length)} more retained signals`;
-    const rangeLabels = { today: "today", "7d": "the last 7 days", retained: "all retained time" };
-    elements.timelineMeta.textContent = `${filtered.length} signals across ${rangeLabels[state.range]}`;
-  }
-
-  function renderMemory(snapshot) {
-    const passive = snapshot.memory?.passive || {};
-    const memories = (passive.recent || []).filter(item => inRange(item.created_at));
-    const strength = Math.max(0, Math.min(1, Number(passive.mean_strength || 0)));
-    elements.memoryStrengthFill.style.transform = `scaleX(${strength})`;
-    elements.memoryStrengthValue.textContent = strength ? strength.toFixed(3) : "—";
-    elements.memoryMeta.textContent = passive.available
-      ? `${compactNumber(passive.entries)} durable · oldest ${Number(passive.oldest_days || 0).toFixed(1)} days`
-      : "Passive memory unavailable";
-    elements.memoryList.replaceChildren();
-    for (const item of memories.slice(0, 16)) {
-      const row = create("li", "memory-item");
-      const text = create("p", "", item.text || "Retained memory");
-      const kind = create("span", "memory-kind", item.kind || "turn");
-      const time = create("time", "", shortTime(item.created_at));
-      if (item.created_at) time.dateTime = item.created_at;
-      const vitals = create("div", "memory-vitals");
-      vitals.append(
-        create("span", "", `strength ${Number(item.strength || 0).toFixed(3)}`),
-        create("span", "", `${Number(item.uses || 0)} recall${Number(item.uses || 0) === 1 ? "" : "s"}`),
-      );
-      row.append(text, kind, time, vitals);
-      elements.memoryList.appendChild(row);
-    }
-    elements.memoryEmpty.hidden = memories.length > 0;
-  }
-
-  function renderWork(snapshot) {
+    const services = serviceEntries(snapshot);
+    const memory = environment.memory?.used_percent;
+    facts("live-readout", [
+      ["Voice loop", harness.available ? `${harness.state || "unknown"}${harness.fresh ? "" : " · stale"}` : "Unavailable"],
+      ["Voice source", timestamp(harness.updated_at)],
+      ["Runtime", daemon.available ? daemon.state || "unknown" : "Unavailable"],
+      ["Runtime source", timestamp(daemon.updated_at)],
+      ["Services", services.length ? `${services.filter(([, value]) => value?.ok).length} / ${services.length} reachable` : "Unreported"],
+      ["Inference", `${count(live.requests?.active)} active · ${count(live.requests?.queued)} queued`],
+      ["Host RAM", numeric(memory) ? `${Number(memory).toFixed(1)}% used` : "Unreported"],
+      ["Battery", battery.available ? `${battery.percentage}%${numeric(battery.voltage_v) ? ` · ${battery.voltage_v} V` : ""}` : "Unavailable"],
+    ]);
     const work = snapshot.work || {};
-    const live = work.live || [];
-    const archive = work.archive || {};
-    elements.workCurrent.replaceChildren();
-    for (const task of live) {
+    const tasks = work.live || [];
+    $("work-current").replaceChildren(...tasks.map(task => {
       const card = create("article", "work-card");
       const header = create("header");
-      header.append(
-        create("span", "work-status", String(task.status || "active").replaceAll("_", " ")),
-        create("time", "", relativeTime(task.updated_at ? new Date(Number(task.updated_at) * 1000).toISOString() : null)),
-      );
+      const date = numeric(task.updated_at) ? new Date(Number(task.updated_at) * 1000).toISOString() : task.updated_at;
+      header.append(create("span", "", String(task.status || "active").replaceAll("_", " ")), create("span", "", timestamp(date)));
       card.append(header, create("h3", "", task.objective || "Background objective"));
       if (task.current_stage) card.append(create("p", "", task.current_stage));
       const progress = create("div", "work-progress");
-      progress.append(
-        create("span", "", `round ${Number(task.round || 0)}`),
-        create("span", "", `${Number(task.actions?.length || 0)} actions`),
-        create("span", "", `${Number(task.tools_used?.length || 0)} tools`),
-      );
+      progress.append(create("span", "", `Round ${count(task.round)}`), create("span", "", `${task.actions?.length || 0} actions`));
       card.append(progress);
-      elements.workCurrent.appendChild(card);
-    }
-    elements.archiveList.replaceChildren();
-    const archived = (archive.recent || []).filter(item => inRange(item.updated_at || item.created_at));
-    for (const item of archived.slice(0, 12)) {
+      return card;
+    }));
+    $("work-empty").hidden = tasks.length > 0;
+    const archive = work.archive || {};
+    $("work-meta").textContent = `${archive.records_observed || 0} archived work records observed · bounded tail`;
+    const archived = (archive.recent || []).slice(0, 12);
+    $("archive-list").replaceChildren(...archived.map(item => {
       const row = create("li", "archive-item");
-      const time = create("time", "", shortTime(item.updated_at || item.created_at));
-      row.append(
-        create("span", "", item.status || "archived"),
-        create("p", "", item.objective || "Archived objective"),
-        time,
-      );
-      elements.archiveList.appendChild(row);
-    }
-    elements.workEmpty.hidden = live.length > 0 || archived.length > 0;
-    elements.workMeta.textContent = `${live.length} active · ${archive.records_observed || 0} archived records observed`;
+      row.append(create("span", "", item.status || "archived"), create("p", "", item.objective || "Archived objective"), create("time", "", timestamp(item.updated_at || item.created_at)));
+      return row;
+    }));
+    if (!archived.length) $("archive-list").append(create("li", "panel-empty", archive.available ? "No records in the retained archive tail." : "Work archive unavailable."));
   }
 
-  function renderTotals(snapshot) {
-    const passive = snapshot.memory?.passive || {};
-    const virtual = snapshot.memory?.virtual_context || {};
-    const work = snapshot.work || {};
-    const filtered = filteredTimeline(snapshot);
-    const active = Number(work.live?.length || 0);
-    elements.totalMemories.textContent = compactNumber(passive.entries);
-    elements.totalContext.textContent = compactNumber(virtual.chunks);
-    elements.totalWork.textContent = compactNumber(active);
-    elements.totalSignals.textContent = compactNumber(filtered.length);
+  function renderMemory(snapshot) {
+    const memory = snapshot.memory || {};
+    const passive = memory.passive || {};
+    const virtual = memory.virtual_context || {};
+    facts("memory-stores", [
+      ["Passive · durable host", passive.available ? `${count(passive.entries)} memories` : "Unavailable"],
+      ["Session · this browser", `${count(memory.session?.entries)} entries`],
+      ["Working context", `${count(virtual.chunks)} chunks · ${virtual.mode || "mode unreported"}`],
+      ["Retained corpora · host", count(memory.virtual_storage?.corpora)],
+    ]);
+    const strength = passive.available && numeric(passive.mean_strength) ? Math.max(0, Math.min(1, Number(passive.mean_strength))) : null;
+    $("memory-strength-fill").style.width = `calc((100% - 4px) * ${strength ?? 0})`;
+    $("memory-strength-value").textContent = strength === null ? "—" : strength.toFixed(3);
+    $("memory-meta").textContent = passive.available ? `${count(passive.entries)} durable memories · latest ${Math.min(16, passive.recent?.length || 0)} shown` : passive.reason || "Passive memory unavailable";
+    const memories = (passive.recent || []).slice(0, 16);
+    $("memory-list").replaceChildren(...memories.map(item => {
+      const row = create("li", "memory-item");
+      row.append(create("p", "", item.text || "Retained memory"));
+      const vitals = create("div", "memory-vitals");
+      vitals.append(create("span", "", item.kind || "turn"), create("time", "", timestamp(item.created_at)),
+        create("span", "", numeric(item.strength) ? `Strength ${Number(item.strength).toFixed(3)}` : "Strength unreported"), create("span", "", `${count(item.uses)} recalls`), create("span", "", "Passive semantic memory · durable host"));
+      row.append(vitals);
+      return row;
+    }));
+    $("memory-empty").hidden = memories.length > 0;
+    $("memory-empty").textContent = passive.available ? "No retained passive memories in this snapshot." : "Passive memory is unavailable. Session and working-context counts remain separate above.";
   }
 
-  function render(snapshot) {
-    renderTotals(snapshot);
-    drawGraph(snapshot);
-    renderLive(snapshot);
-    renderTimeline(snapshot);
-    renderMemory(snapshot);
-    renderWork(snapshot);
-    elements.graphLoading.hidden = true;
-  }
-
-  function showError(error) {
-    const message = error instanceof Error ? error.message : String(error);
-    elements.errorMessage.textContent = message;
-    elements.error.hidden = false;
+  function showError(message) {
+    $("observatory-error-message").textContent = message;
+    $("observatory-error").hidden = false;
+    $("review-loading").hidden = true;
+    $("review").setAttribute("aria-busy", "false");
     setConnection(state.snapshot ? "stale" : "offline", state.snapshot ? "Stale" : "Offline");
-    if (!state.snapshot) elements.graphLoading.querySelector("p").textContent = "Local evidence unavailable";
+    if (state.snapshot) updateFreshness();
+    else $("sample-freshness").textContent = "No runtime sample received";
   }
 
   async function refresh({ announce = false } = {}) {
     if (state.refreshing) return;
     if (!state.token) {
-      showError(new Error("This link is missing its access fragment. Return to chat and open the Observatory again."));
+      showError("Access is missing. Return to chat and open the Observatory from your authenticated session.");
       return;
     }
     state.refreshing = true;
-    elements.refresh.disabled = true;
-    elements.refresh.classList.add("refreshing");
-    if (state.controller) state.controller.abort();
+    $("refresh-button").disabled = true;
+    $("retry-button").disabled = true;
     const controller = new AbortController();
     state.controller = controller;
+    const deadline = setTimeout(() => controller.abort(), 25_000);
+    const startedAt = Date.now();
     try {
-      const response = await fetch("/api/observatory", {
-        headers: authHeaders(),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        let detail = `Observatory returned HTTP ${response.status}`;
-        try {
-          const payload = await response.json();
-          if (payload.error) detail = payload.error;
-        } catch (_error) {
-          // Preserve the bounded HTTP status when a proxy returned non-JSON.
-        }
-        throw new Error(detail);
-      }
+      const response = await fetch("/api/observatory", { headers: { Authorization: `Bearer ${state.token}` }, signal: controller.signal, cache: "no-store" });
+      if (response.status === 401 || response.status === 403) throw new Error("Access expired or was denied. Return to chat and reopen the Observatory with the current access link.");
+      if (!response.ok) throw new Error(`Runtime returned HTTP ${response.status}. Try refreshing again.`);
       const snapshot = await response.json();
-      if (snapshot.schema !== "robit.omni.observatory.v1") {
-        throw new Error("Observatory returned an unsupported snapshot schema");
-      }
+      if (snapshot.schema !== "robit.omni.observatory.v1") throw new Error("The runtime returned an unsupported snapshot. Reload after updating the portal.");
       state.snapshot = snapshot;
       state.lastSuccessAt = Date.now();
-      elements.error.hidden = true;
-      setConnection("online", "Live");
-      render(snapshot);
-      if (announce) elements.announcer.textContent = `Observatory refreshed ${relativeTime(snapshot.captured_at)}.`;
+      if (!state.savingIdentity && startedAt >= state.identityUpdatedAt) applyIdentity(snapshot.agent);
+      $("observatory-error").hidden = true;
+      renderDisplay(snapshot);
+      renderWeights(snapshot);
+      renderEvents(snapshot);
+      renderStates(snapshot);
+      renderMemory(snapshot);
+      $("review-loading").hidden = true;
+      $("review").setAttribute("aria-busy", "false");
+      updateFreshness();
+      if (announce) $("observatory-announcer").textContent = `Runtime sample refreshed. ${timestamp(snapshot.captured_at)}.`;
     } catch (error) {
-      if (error.name !== "AbortError") showError(error);
+      showError(error.name === "AbortError" ? "The runtime sample timed out. Try again when the service is reachable." : error.message || "The runtime could not be reached. Try again.");
     } finally {
+      clearTimeout(deadline);
       if (state.controller === controller) state.controller = null;
       state.refreshing = false;
-      elements.refresh.disabled = false;
-      elements.refresh.classList.remove("refreshing");
+      $("refresh-button").disabled = false;
+      $("retry-button").disabled = false;
     }
   }
 
-  function applyControls() {
-    document.querySelectorAll("[data-range]").forEach(button => {
-      button.setAttribute("aria-pressed", String(button.dataset.range === state.range));
-      button.addEventListener("click", () => {
-        state.range = button.dataset.range;
-        state.timelineLimit = TIMELINE_PAGE;
-        document.querySelectorAll("[data-range]").forEach(item => {
-          item.setAttribute("aria-pressed", String(item === button));
-        });
-        updateUrlState();
-        if (state.snapshot) render(state.snapshot);
+  function drawWires() {
+    document.querySelectorAll(".connected-stage").forEach(stage => {
+      const svg = stage.querySelector(".wires");
+      if (stage.offsetParent === null || !svg) return;
+      const root = stage.getBoundingClientRect();
+      const hub = stage.querySelector("[data-wire-hub]")?.getBoundingClientRect();
+      if (!hub) return;
+      svg.setAttribute("viewBox", `0 0 ${root.width} ${root.height}`);
+      svg.replaceChildren();
+      stage.querySelectorAll("[data-wire-node]").forEach(node => {
+        const rect = node.getBoundingClientRect();
+        const x = rect.left - root.left + rect.width / 2;
+        const y = rect.top - root.top;
+        const hx = hub.left - root.left + hub.width / 2;
+        const hy = hub.bottom - root.top;
+        const middle = hy + Math.max(8, (y - hy) / 2);
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M${hx},${hy}V${middle}H${x}V${y}`);
+        svg.append(path);
       });
     });
-    document.querySelectorAll("[data-filter]").forEach(button => {
-      button.setAttribute("aria-pressed", String(state.filters.has(button.dataset.filter)));
-      button.addEventListener("click", () => {
-        const category = button.dataset.filter;
-        if (state.filters.has(category) && state.filters.size > 1) state.filters.delete(category);
-        else state.filters.add(category);
-        button.setAttribute("aria-pressed", String(state.filters.has(category)));
-        state.timelineLimit = TIMELINE_PAGE;
-        updateUrlState();
-        if (state.snapshot) render(state.snapshot);
-      });
-    });
-  }
-
-  function updateClock() {
-    elements.clock.textContent = new Intl.DateTimeFormat(undefined, {
-      weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit",
-    }).format(new Date());
-    if (state.lastSuccessAt && Date.now() - state.lastSuccessAt > STALE_MS) {
-      setConnection("stale", "Stale");
-      elements.liveFreshness.textContent = `Last sample ${relativeTime(state.lastSuccessAt)}`;
-      elements.liveFreshness.className = "freshness stale";
-    }
   }
 
   function initialize() {
-    state.token = accessToken();
-    if (location.hash) elements.chatLink.href = `/${location.hash}`;
-    applyControls();
-    elements.refresh.addEventListener("click", () => refresh({ announce: true }));
-    elements.retry.addEventListener("click", () => refresh({ announce: true }));
-    elements.timelineMore.addEventListener("click", () => {
-      state.timelineLimit += TIMELINE_PAGE;
-      if (state.snapshot) renderTimeline(state.snapshot);
+    const supplied = new URLSearchParams(location.hash.slice(1)).get("access");
+    state.token = supplied || "";
+    try {
+      if (supplied) sessionStorage.setItem("omni_access", supplied);
+      else state.token = sessionStorage.getItem("omni_access") || "";
+    } catch (_error) { /* A supplied capability still works when storage is blocked. */ }
+    if (supplied) $("chat-link").href = `/#${new URLSearchParams({ access: supplied })}`;
+    const chatUrl = new URL("/", location.href);
+    chatUrl.searchParams.set("surface", "observatory");
+    if (state.token) chatUrl.hash = new URLSearchParams({ access: state.token }).toString();
+    $("chat-link").href = chatUrl.href;
+    $("chat-link").target = "_blank";
+    $("chat-link").rel = "noopener noreferrer";
+    $("chat-new-tab").href = chatUrl.href;
+    document.querySelectorAll(".open-chat").forEach(button => button.addEventListener("click", () => {
+      $("observatory-chat").hidden = false;
+      $("observatory-workspace").classList.add("chat-open");
+      document.querySelectorAll(".open-chat").forEach(item => item.setAttribute("aria-expanded", "true"));
+      if (!$("chat-frame").getAttribute("src")) $("chat-frame").src = chatUrl.href;
+      $("close-chat").focus();
+      requestAnimationFrame(drawWires);
+    }));
+    $("close-chat").addEventListener("click", () => {
+      $("chat-frame").removeAttribute("src");
+      $("observatory-chat").hidden = true;
+      $("observatory-workspace").classList.remove("chat-open");
+      document.querySelectorAll(".open-chat").forEach(item => item.setAttribute("aria-expanded", "false"));
+      document.querySelector(".open-chat").focus();
+      requestAnimationFrame(drawWires);
     });
-    elements.liveToggle.addEventListener("click", () => {
+    $("copy-chat-link").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(chatUrl.href);
+        $("chat-link-status").textContent = "Chat link copied.";
+      } catch (_error) {
+        $("chat-link-status").textContent = "Clipboard unavailable. Use Open in new tab to open the authenticated chat.";
+      }
+    });
+    selectTab(state.tab);
+    $("agent-name").addEventListener("dblclick", openIdentity);
+    $("agent-name").addEventListener("keydown", event => {
+      if (!["Enter", " ", "F2"].includes(event.key)) return;
+      event.preventDefault();
+      openIdentity();
+    });
+    $("rename-button").addEventListener("click", openIdentity);
+    $("identity-form").addEventListener("submit", saveIdentity);
+    $("identity-cancel").addEventListener("click", closeIdentity);
+    $("identity-form").addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); closeIdentity(); }
+    });
+    $("agent-name-input").addEventListener("input", () => {
+      $("agent-name-input").setAttribute("aria-invalid", "false");
+      $("identity-error").hidden = true;
+    });
+    TABS.forEach((tab, index) => {
+      $(`tab-${tab}`).addEventListener("click", () => selectTab(tab));
+      $(`tab-${tab}`).addEventListener("keydown", event => {
+        const targets = { ArrowRight: (index + 1) % TABS.length, ArrowLeft: (index + TABS.length - 1) % TABS.length, Home: 0, End: TABS.length - 1 };
+        if (!(event.key in targets)) return;
+        event.preventDefault();
+        selectTab(TABS[targets[event.key]], true);
+      });
+    });
+    for (const kind of ["range", "filter"]) {
+      document.querySelectorAll(`[data-${kind}]`).forEach(button => {
+        button.setAttribute("aria-pressed", String(button.dataset[kind] === state[kind]));
+        button.addEventListener("click", () => {
+          state[kind] = button.dataset[kind];
+          state.limit = PAGE_SIZE;
+          document.querySelectorAll(`[data-${kind}]`).forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+          updateUrl();
+          if (state.snapshot) renderEvents(state.snapshot);
+        });
+      });
+    }
+    $("timeline-more").addEventListener("click", () => {
+      state.limit += PAGE_SIZE;
+      if (state.snapshot) renderEvents(state.snapshot);
+    });
+    $("refresh-button").addEventListener("click", () => refresh({ announce: true }));
+    $("retry-button").addEventListener("click", () => refresh({ announce: true }));
+    $("live-toggle").addEventListener("click", () => {
       state.live = !state.live;
-      elements.liveToggle.setAttribute("aria-pressed", String(state.live));
-      elements.liveToggleLabel.textContent = state.live ? "Live refresh" : "Refresh paused";
-      elements.announcer.textContent = state.live ? "Live refresh resumed." : "Live refresh paused.";
+      $("live-toggle").setAttribute("aria-pressed", String(state.live));
+      $("live-toggle").textContent = state.live ? "Auto refresh" : "Refresh paused";
+      updateFreshness();
       if (state.live) refresh();
     });
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && state.live) refresh();
-    });
-    updateClock();
-    setInterval(updateClock, 1000);
-    state.timer = setInterval(() => {
-      if (state.live && !document.hidden) refresh();
-    }, REFRESH_MS);
+
+    document.querySelectorAll("[data-window]").forEach(button => button.addEventListener("click", () => {
+      state.window = Number(button.dataset.window);
+      document.querySelectorAll("[data-window]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+      if (state.snapshot) renderEventInstrument(state.snapshot);
+    }));
+    new ResizeObserver(drawWires).observe($("review"));
+    document.fonts.ready.then(drawWires);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && state.live) refresh(); });
+    setInterval(() => { if (state.live && !document.hidden) refresh(); }, REFRESH_MS);
+    setInterval(updateFreshness, 1000);
     refresh();
   }
 

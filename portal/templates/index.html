@@ -12,8 +12,9 @@
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/assets/portal.css?v=20261001-camera-sources">
+  {% if observatory_surface %}<link rel="stylesheet" href="/assets/observatory-chat.css?v=20261116-windowed">{% endif %}
 </head>
-<body data-model="{{ model }}" data-max-upload-mib="{{ max_upload_mib }}" data-session-scope="{{ session_scope }}">
+<body{% if observatory_surface %} class="observatory-embedded-chat"{% endif %} data-model="{{ model }}" data-max-upload-mib="{{ max_upload_mib }}" data-session-scope="{{ session_scope }}">
   <main class="app-shell">
     <section class="chat-panel" aria-label="Omni chat">
       <div class="topbar">

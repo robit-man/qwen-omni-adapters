@@ -1,0 +1,25 @@
+/* Same-origin chat variant; the existing portal owns chat, media and session behavior. */
+@font-face { font-family: VT323; font-display: swap; src: url('/assets/fonts/VT323-Regular.ttf') format('truetype'); }
+:root {
+  --bg: #000;
+  --panel: #080500;
+  --raised: #100a00;
+  --line: #5c3e0e;
+  --line-strong: #a36e1d;
+  --text: #ffd391;
+  --muted: #c88f39;
+  --quiet: #bf8938;
+  --accent: #ffa800;
+  --font: VT323, ui-monospace, monospace;
+  --mono: VT323, ui-monospace, monospace;
+}
+.observatory-embedded-chat { background: var(--bg); font-size: 19px; }
+.observatory-embedded-chat .app-shell { max-width: none; padding: 0; }
+.observatory-embedded-chat .chat-panel { border: 0; border-radius: 0; }
+.observatory-embedded-chat .topbar { background: var(--bg); border-bottom: 1px solid var(--line); }
+.observatory-embedded-chat .icon-button { border-radius: 0; border-color: var(--line); }
+.observatory-embedded-chat .composer-box { border-radius: 0; border-color: var(--line); }
+.observatory-embedded-chat .message { border-radius: 0; }
+.observatory-embedded-chat .message-body { font-size: 19px; line-height: 1.45; }
+.observatory-embedded-chat .observatory-button { display: none; }
+::selection { color: var(--bg); background: var(--accent); }

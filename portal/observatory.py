@@ -7,11 +7,12 @@ so live telemetry, session journals, and durable memory are not conflated.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import threading
 import time
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +22,111 @@ OBSERVATORY_SCHEMA = "robit.omni.observatory.v1"
 MAX_STATE_BYTES = 2 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 4 * 1024 * 1024
 MAX_MEMORY_TEXT = 220
+
+
+class RuntimeModelReader:
+    """Read existing worker inventories without starting or warming any model."""
+
+    def __init__(self, client: Any, *, comprehension_url: str, tts_url: str, ollama_url: str):
+        from urllib.parse import urlsplit, urlunsplit
+
+        def endpoint(url: str, path: str) -> str:
+            parts = urlsplit(url)
+            return urlunsplit((parts.scheme, parts.netloc, path, "", "")) if url else ""
+
+        self.client = client
+        self.urls = {"comprehension": endpoint(comprehension_url, "/props"),
+                     "tts": tts_url, "ollama": endpoint(ollama_url, "/api/ps")}
+        self._lock = threading.Lock()
+        self._sampled_at = 0.0
+        self._cached: dict[str, Any] = {}
+
+    def _get(self, url: str) -> dict[str, Any]:
+        if not url:
+            return {}
+        try:
+            response = self.client.get(url, timeout=2)
+            if response.status_code != 200 or len(response.content) > 2 * 1024 * 1024:
+                return {}
+            data = response.json()
+            return data if isinstance(data, dict) else {}
+        except Exception:  # noqa: BLE001 - an inventory probe must not affect inference
+            return {}
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            if self._cached and time.monotonic() - self._sampled_at < 5:
+                return dict(self._cached)
+            components: list[dict[str, Any]] = []
+            props = self._get(self.urls["comprehension"])
+            if props.get("model_path"):
+                path = Path(str(props["model_path"]))
+                entry: dict[str, Any] = {
+                    "role": "Language + perception", "name": path.name[:180],
+                    "state": "sleeping" if props.get("is_sleeping") is True else "loaded",
+                    "source": "llama.cpp worker /props", "bytes": None,
+                    "precision": _bounded_text(props.get("model_ftype"), 48),
+                }
+                try:
+                    with path.open("rb") as artifact:
+                        if artifact.read(4) == b"GGUF":
+                            entry["bytes"] = path.stat().st_size
+                except OSError:
+                    pass
+                components.append(entry)
+            tts = self._get(self.urls["tts"])
+            if tts:
+                components.append({
+                    "role": "Speech synthesis", "name": "Qwen3-TTS",
+                    "state": "loaded" if tts.get("persistent_ready") is True else "released" if tts.get("ok") is True else "unavailable",
+                    "policy": tts.get("residency_policy") if tts.get("residency_policy") in {"request", "persistent"} else "request",
+                    "gpu_resident": tts.get("gpu_resident") if isinstance(tts.get("gpu_resident"), bool) else None,
+                    "source": "TTS worker health", "bytes": None,
+                })
+            models = self._get(self.urls["ollama"]).get("models")
+            for model in (models if isinstance(models, list) else [])[:16]:
+                if not isinstance(model, Mapping):
+                    continue
+                components.append({
+                    "role": "Ollama runner", "name": _bounded_text(model.get("name") or model.get("model"), 180),
+                    "state": "loaded", "bytes": model.get("size") if isinstance(model.get("size"), int) else None,
+                    "vram_bytes": model.get("size_vram") if isinstance(model.get("size_vram"), int) else None,
+                    "source": "Ollama /api/ps",
+                })
+            self._cached = {"captured_at": _now_iso(), "components": components,
+                            "loaded": sum(item["state"] == "loaded" for item in components),
+                            "reported_weight_bytes": sum(item.get("bytes") or 0 for item in components if item["state"] == "loaded")}
+            self._sampled_at = time.monotonic()
+            return dict(self._cached)
+
+
+def _diagnostic_signals(event: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """Typed instrumentation only; never infer speech/vision from message words."""
+
+    kind = event.get("event")
+    if kind == "inference_stage":
+        return [{"comprehension": ("perception", "Perception started"),
+                 "language": ("llm", "LLM inference started"),
+                 "tts": ("speaking", "Speech synthesis started")}.get(
+                     event.get("stage"), ("llm", "Inference stage"))]
+    if kind == "perception_observed":
+        return [(signal, label) for flag, signal, label in (
+            ("speech_present", "hearing", "Speech recognized"),
+            ("audio_observation_present", "audio", "Sound observed"),
+            ("visual_observation_present", "vision", "Visual observation received"),
+        ) if event.get(flag) is True] or [("perception", "Perception completed")]
+    if kind in {"audio_stream_started", "audio_stream_ended"}:
+        return [("speaking", "Audio output started" if kind == "audio_stream_started" else "Audio output completed")]
+    if kind == "request_received":
+        return [(signal, label) for flag, signal, label in (
+            ("has_audio_input", "audio", "Audio input received"),
+            ("has_image_input", "vision", "Image input received"),
+            ("has_video_input", "vision", "Video input received"),
+            ("has_document_input", "documents", "Document input received"),
+        ) if event.get(flag) is True] or [("llm", "Text request received")]
+    if kind in {"tool_call_started", "tool_call_completed"}:
+        return [("tools", str(kind).replace("_", " "))]
+    return [("llm", str(kind or "signal").replace("_", " "))]
 
 
 def _now_iso() -> str:
@@ -283,7 +389,7 @@ def _timeline(
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     raw_events = diagnostics.get("events")
-    for index, event in enumerate(raw_events if isinstance(raw_events, list) else []):
+    for event in raw_events if isinstance(raw_events, list) else []:
         if not isinstance(event, Mapping):
             continue
         event_name = _bounded_text(event.get("event") or "signal", 64)
@@ -294,18 +400,20 @@ def _timeline(
             detail = _bounded_text(event.get("task"), 80)
         elif event.get("outcome"):
             detail = _bounded_text(event.get("outcome"), 80)
-        items.append(
-            {
-                "id": f"diagnostic-{index}",
+        identity = hashlib.sha256(json.dumps(dict(event), sort_keys=True).encode()).hexdigest()[:20]
+        for signal, label in _diagnostic_signals(event):
+            items.append({
+                "id": f"diagnostic-{identity}-{signal}",
                 "at": event.get("at"),
+                "signal": signal,
+                "event": event_name,
                 "category": "tools" if event_name.startswith("tool_") else "conversation",
-                "label": event_name.replace("_", " "),
+                "label": label,
                 "detail": detail,
                 "source": "session diagnostic journal",
                 "retention": "session · short-lived",
                 "status": "error" if "error" in event_name else "ok",
-            }
-        )
+            })
     for task in tasks:
         task_id = _bounded_text(task.get("task_id"), 64)
         items.append(
@@ -378,6 +486,8 @@ class ObservatoryReader:
         self._lock = threading.Lock()
         self._environment_sampled_at = 0.0
         self._environment: dict[str, Any] = {}
+        self._harness_state: str | None = None
+        self._harness_events: deque[dict[str, Any]] = deque(maxlen=120)
 
     def _environment_snapshot(self) -> dict[str, Any]:
         now = time.monotonic()
@@ -417,6 +527,21 @@ class ObservatoryReader:
             for item in task_list
             if item.get("status") not in {"completed", "blocked", "cancelled"}
         ]
+        harness = _harness_projection(harness_path)
+        with self._lock:
+            if harness.get("available") and harness.get("state") != self._harness_state:
+                self._harness_state = harness["state"]
+                self._harness_events.append({
+                    "id": f"voice-{harness.get('updated_at')}-{self._harness_state}",
+                    "at": harness.get("updated_at"), "category": "conversation",
+                    "signal": {"hearing": "hearing", "speaking": "speaking", "thinking": "llm"}.get(self._harness_state, "presence"),
+                    "label": f"Voice loop · {self._harness_state}",
+                    "detail": "Observed state transition", "source": "voice-loop status",
+                    "retention": "bounded observed transitions", "status": "ok",
+                })
+            voice_events = list(self._harness_events)
+        timeline = _timeline(diagnostics, task_list, memory, archive) + voice_events
+        timeline.sort(key=lambda item: str(item.get("at") or ""), reverse=True)
         return {
             "schema": OBSERVATORY_SCHEMA,
             "captured_at": _now_iso(),
@@ -429,7 +554,7 @@ class ObservatoryReader:
             },
             "live": {
                 "daemon": _daemon_projection(daemon_path),
-                "harness": _harness_projection(harness_path),
+                "harness": harness,
                 "services": dict(services),
                 "requests": dict(requests),
                 "environment": self._environment_snapshot(),
@@ -446,7 +571,7 @@ class ObservatoryReader:
                 "archive": archive,
             },
             "location": dict(location),
-            "timeline": _timeline(diagnostics, task_list, memory, archive),
+            "timeline": timeline[:240],
             "retention": [
                 {
                     "id": "live",

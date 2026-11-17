@@ -11,11 +11,21 @@ colors:
   accent: "#FACC15"
   danger: "#FB7185"
   success: "#86EFAC"
+  observatory-amber: "#FFA800"
+  observatory-background: "#000000"
+  observatory-muted: "#C88F39"
+  observatory-rule: "#5C3E0E"
 typography:
   sans:
     fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
   utility:
     fontFamily: "IBM Plex Mono, JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+  observatory-label:
+    fontFamily: "VT323, ui-monospace, monospace"
+  observatory-digits:
+    fontFamily: "DSEG7, monospace"
+  observatory-segments:
+    fontFamily: "DSEG14, monospace"
 rounded:
   DEFAULT: "0.75rem"
   control: "0.5625rem"
@@ -44,6 +54,13 @@ components:
     textColor: "{colors.danger}"
   success-state:
     textColor: "{colors.success}"
+  observatory-display:
+    backgroundColor: "{colors.observatory-background}"
+    textColor: "{colors.observatory-amber}"
+  observatory-telemetry:
+    textColor: "{colors.observatory-muted}"
+  observatory-rule:
+    backgroundColor: "{colors.observatory-rule}"
 ---
 
 # Omni Portal Design System
@@ -78,7 +95,7 @@ The sans stack owns conversation and controls. The utility mono stack owns compa
 
 The single chat column is capped at `shell-max` and uses one bounded conversation scroller between a fixed top control rail and a natural-height composer. Safe-area insets protect phone chrome. Popovers are anchored without affecting flow; dialogs stay within the visual viewport and keep controls reachable. Media reserves its intrinsic aspect ratio and uses `object-fit: contain` where cropping would remove evidence.
 
-The desktop-first observatory is the one deliberate wide-shell exception. It uses the same tokens and control grammar across an asymmetric context field, live-state rail, chronological day tape, memory field, and work ledger. At narrower widths these regions stack in evidence priority order; the graph remains a summary and never becomes the only way to access its data.
+The observatory is a full-window application. Its approved visual reference is [Nick Gallo's 2026 LCD clock](https://www.nickgallo.dev/projects/clock/), with the extracted frame, segment, phosphor, wire, pixel-grid and hatched-meter vocabulary repurposed for runtime data. Four top chips select Active weights, Inference events, States, or Memory. Each view owns a different responsive instrument, rather than a shared clock or a scaled picture. The document does not scroll: the header, tabs and footer remain in the app frame; visualizations and expandable detail ledgers own bounded inner scrolling. On phones the tab chips form two columns. Chat opens beside the active instrument on desktop and occupies the workspace on narrow screens.
 
 ## Elevation & Depth
 
@@ -118,7 +135,15 @@ Motion communicates state: a short reveal for new messages and a restrained puls
 
 Copy is direct and operational: “Hold to record,” “Take still,” “Camera unavailable.” Status text states what is happening and how to recover. Do not personify errors or claim a capture completed before an attachment exists.
 
-The observatory’s signature visualization is the **experience constellation**: Egg is the fixed center, while live state, memory, work, conversation, and tool evidence keep stable category colors around it. Edges describe retained relationships, not causal certainty. Every node exposes the source, freshness, and retention boundary in an adjacent inspector, with the same facts available in semantic timelines and lists. Live, stale, unavailable, empty, and partial-archive states must be explicit. Raw media, credentials, vectors, hidden reasoning, and unretained experience never appear.
+The observatory's signature is the **sodium-vapor LCD instrument**: pure black, amber #FFA800, DSEG7 measurements, DSEG14 state lettering, VT323 labels, 8% inaccessible ghost segments, a 3px scanline/pixel grid, fine glowing frames, right-angle SVG wires, and hatched meters. These modules visualize live model inventory, a multi-lane sensory/inference event raster, voice-loop state flow, and memories plotted by source time and recall strength. There is no clock, synthetic frequency display, tilt, whole-panel scaling, or ornamental waveform. Body detail text remains unsegmented and outside the grid for legibility. State lettering uses container-relative sizing so narrowing a view beside chat cannot overflow a state card.
+
+`portal/static/observatory.css` is canonical for this named surface variant: `colors.observatory-*` map to `--lcd`, `--lcd-bg`, `--lcd-muted`, and `--lcd-rule`; the three `typography.observatory-*` roles map to `--label`, `.d7`, and `.d14`. All three fonts are self-hosted under `portal/static/fonts/` with their licenses. The source extraction, modules, and intentional adaptations are recorded in `docs/observatory-lcd.md`.
+
+The optical treatment covers the entire app, including framed chat. `lcd-surface.js` renders a static, pointer-transparent WebGL pixel/scanline mask using the reference's 3px pitch and 38%/22% attenuation, with a matching CSS fallback. It never samples the DOM or media. Backlight, bloom and the reference's bounded six-second flicker remain CSS compositing. Reduced motion disables flicker; forced colors remove the render layer.
+
+The extracted radio and time modules carry observed runtime facts. Weight inventory reads llama.cpp properties, TTS readiness and Ollama's running-model list without warming models; local GGUF byte counts require an actual GGUF header. Model loading and GPU residency are separate observations. Sensory lanes use explicit typed request flags, perception evidence flags, stream stages and audio events; transcripts, media bytes and reasoning never enter the journal. Voice-loop transitions are bounded observations with their own source timestamps. Memory stores, source times, recall strengths, retention scopes and session boundaries remain distinct. Missing and stale sources never become invented activity.
+
+The observatory heading uses the authenticated runtime identity, defaulting to the service account name, rather than a product-name constant. Double-clicking the name opens an inline editor; Enter/Space/F2 and the visible Rename action provide keyboard and touch access. Save changes the shared agent identity for following turns; Cancel/Escape discard the draft and restore focus. Pending saves preserve geometry and block duplicate submission; failed saves retain the draft with an inline error. Telemetry remains observational; identity rename is an explicit configuration action. The embedded chat reuses the existing portal and cookie/session boundaries, carries access only in the URL fragment, and uses a scoped amber chat stylesheet. Only the observatory chat variant permits same-origin framing; other routes retain frame denial. Closing chat unloads its frame so microphone, playback and live streams cannot continue invisibly. Copy chat link and Open in new tab use the same current-origin capability as the existing portal access plumbing.
 
 ## Do's and Don'ts
 

@@ -7,6 +7,8 @@ import getpass
 import json
 import os
 import re
+import tempfile
+import unicodedata
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from importlib.resources import files
@@ -173,24 +175,98 @@ def without_parent_frame_coordinates(value: str, *, max_chars: int = 2000) -> st
     )
 
 
-def runtime_agent_name() -> str:
-    """Resolve the conversational identity from configuration or OS account."""
+def _system_agent_name() -> str:
+    try:
+        import pwd
 
-    configured = os.environ.get("OMNI_AGENT_NAME", "").strip()
-    if configured:
-        raw = configured
-    else:
-        try:
-            import pwd
+        raw = pwd.getpwuid(os.getuid()).pw_name
+    except (ImportError, KeyError, OSError):
+        raw = getpass.getuser()
+    return _safe_agent_name(raw)
 
-            raw = pwd.getpwuid(os.getuid()).pw_name
-        except (ImportError, KeyError, OSError):
-            raw = getpass.getuser()
+
+def _safe_agent_name(raw: str) -> str:
     # This value becomes prompt text. Keep a human-readable account label, but
     # never allow control characters or an environment value to add policy.
     normalized = " ".join(str(raw).split())
     normalized = re.sub(r"[^\w .@+-]", "", normalized, flags=re.UNICODE)[:64]
     return normalized or "local-agent"
+
+
+def _agent_identity_path() -> Path:
+    configured = os.environ.get("OMNI_AGENT_IDENTITY_FILE", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return (
+        Path(os.environ.get("OMNI_REPO_ROOT") or ".").expanduser()
+        / "runtime-data/state/agent-identity.json"
+    )
+
+
+def _validated_agent_name(value: Any) -> str:
+    if not isinstance(value, str):
+        raise ValueError("Agent name must be text.")
+    name = unicodedata.normalize("NFC", value.strip())
+    if not 1 <= len(name) <= 64:
+        raise ValueError("Use between 1 and 64 characters for the agent name.")
+    if any(not (character.isalnum() or character in "_ .@+-") for character in name):
+        raise ValueError("Use letters, numbers, spaces, or _ . @ + - in the agent name.")
+    return name
+
+
+def runtime_agent_identity() -> dict[str, str]:
+    """Resolve shared identity afresh so dashboard renames reach the next turn."""
+
+    default = _system_agent_name()
+    configured = os.environ.get("OMNI_AGENT_NAME", "").strip()
+    identity = {
+        "name": _safe_agent_name(configured) if configured else default,
+        "default_name": default,
+        "source": "environment" if configured else "system_account",
+    }
+    try:
+        with _agent_identity_path().open("rb") as source:
+            payload = source.read(2049)
+        if len(payload) > 2048:
+            raise ValueError("Identity record is too large")
+        record = json.loads(payload)
+        if not isinstance(record, dict):
+            raise ValueError("Identity record must be an object")
+        identity.update(name=_validated_agent_name(record.get("name")), source="saved")
+    except FileNotFoundError:
+        pass
+    except (OSError, ValueError, UnicodeError):
+        identity["warning"] = "Saved identity unavailable; using the deployment default."
+    return identity
+
+
+def save_runtime_agent_name(value: Any) -> dict[str, str]:
+    """Atomically persist an authorized deployment-wide identity override."""
+
+    name = _validated_agent_name(value)
+    path = _agent_identity_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=".agent-identity-",
+            suffix=".tmp", delete=False,
+        ) as target:
+            temporary = Path(target.name)
+            json.dump({"name": name}, target, ensure_ascii=False)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return runtime_agent_identity()
+
+
+def runtime_agent_name() -> str:
+    """Resolve the conversational identity from saved settings or OS account."""
+
+    return runtime_agent_identity()["name"]
 
 
 def runtime_identity_context() -> str:

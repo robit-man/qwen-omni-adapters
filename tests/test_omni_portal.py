@@ -2027,12 +2027,20 @@ def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
     response = app.test_client().get("/observatory")
 
     assert response.status_code == 200
-    assert b"Egg Observatory" in response.data
-    assert b'id="context-graph"' in response.data
+    assert b"Agent Observatory" in response.data
+    assert b">EGG<" not in response.data
+    assert b'id="context-graph"' not in response.data
+    assert response.data.count(b'role="tab"') == 4
+    assert response.data.count(b'role="tabpanel"') == 4
+    assert b'aria-label="Runtime review"' in response.data
     assert b'id="timeline-list"' in response.data
     assert b'id="memory-list"' in response.data
     assert b'id="work-current"' in response.data
-    assert b'aria-label="Current observatory totals"' in response.data
+    assert b'id="component-network"' in response.data
+    assert b'id="event-raster"' in response.data
+    assert b'id="state-flow"' in response.data
+    assert b'id="memory-plot"' in response.data
+    assert b'id="time"' not in response.data
     assert b"Retained experience" not in response.data
     assert b"What Egg is carrying forward" not in response.data
     assert b"Egg is listening" not in response.data
@@ -2058,8 +2066,58 @@ def test_observatory_assets_use_safe_dom_and_resilient_refresh() -> None:
     assert "html {" in css
     assert "overflow-y: auto" in css
     assert "transition: width" not in css
-    assert "transition: transform" in css
-    assert "memoryStrengthFill.style.transform" in javascript
+    assert 'setTimeout(() => controller.abort()' in javascript
+    assert "Math.random" not in javascript
+    assert "fonts.googleapis.com" not in css
+    assert "cdn.jsdelivr.net" not in css
+
+
+def test_observatory_embedded_chat_keeps_same_origin_framing_and_auth_fragment():
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200))))
+    client = app.test_client()
+    ordinary = client.get("/")
+    embedded = client.get("/?surface=observatory")
+    assert ordinary.headers["X-Frame-Options"] == "DENY"
+    assert "frame-ancestors 'none'" in ordinary.headers["Content-Security-Policy"]
+    assert embedded.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert "frame-ancestors 'self'" in embedded.headers["Content-Security-Policy"]
+    assert b"observatory-chat.css" in embedded.data
+    assert TOKEN.encode() not in embedded.data
+    assert embedded.headers["Cache-Control"] == "no-store"
+    dashboard = client.get("/observatory")
+    assert b'id="chat-frame"' in dashboard.data
+    assert b'id="copy-chat-link"' in dashboard.data
+    assert b"nickgallo.dev" not in dashboard.data
+
+
+def test_streamed_stages_reach_observatory_without_transcript_or_output_content():
+    events = [
+        {"type": "stage", "stage": "comprehension"},
+        {"type": "observation", "transcript": "private heard words", "audio_observation": "private sound"},
+        {"type": "stage", "stage": "language"},
+        {"type": "stage", "stage": "tts"},
+        {"type": "audio_start"},
+        {"type": "audio_end"},
+        {"type": "final", "response": {"model": DEFAULT_MODEL, "message": {"role": "assistant", "content": "private reply"}, "done": True}},
+    ]
+
+    def upstream(request):
+        if request.url.path.endswith("/stream"):
+            return httpx.Response(200, text="\n".join(json.dumps(event) for event in events), headers={"Content-Type": "application/x-ndjson"})
+        return httpx.Response(200, json={})
+
+    client = create_app(_config(), httpx.Client(transport=httpx.MockTransport(upstream))).test_client()
+    client.get("/")
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    response = client.post("/api/chat/stream", headers=headers, json=_request(stream=True))
+    assert response.status_code == 200
+    assert b"private reply" in response.data
+    snapshot = client.get("/api/observatory", headers=headers).get_json()
+    signals = {item.get("signal") for item in snapshot["timeline"]}
+    assert {"perception", "hearing", "audio", "llm", "speaking"} <= signals
+    assert "private heard words" not in json.dumps(snapshot)
+    assert "private sound" not in json.dumps(snapshot)
+    assert "private reply" not in json.dumps(snapshot)
 
 
 def test_authenticated_observatory_endpoint_joins_existing_state_stores(

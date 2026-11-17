@@ -54,6 +54,8 @@ from qwen_omni_adapters.context import (
     context_text,
     live_call_system_prompt,
     retained_tool_names,
+    runtime_agent_identity,
+    save_runtime_agent_name,
 )
 from qwen_omni_adapters.contract import OmniAdapterError, parse_adapter_request
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
@@ -71,7 +73,7 @@ try:
     from portal.environment import portal_behavior_system_message, runtime_environment_snapshot
     from portal.gpu_lease import RequestDrainGate
     from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
-    from portal.observatory import ObservatoryReader
+    from portal.observatory import ObservatoryReader, RuntimeModelReader
     from portal.session_state import SessionContinuationStore
     from portal.tools import (
         DISCOVERY_TOOLS,
@@ -99,7 +101,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from environment import portal_behavior_system_message, runtime_environment_snapshot
     from gpu_lease import RequestDrainGate
     from native_ui import native_task_scope_sha256, normalize_native_task_scope
-    from observatory import ObservatoryReader
+    from observatory import ObservatoryReader, RuntimeModelReader
     from session_state import SessionContinuationStore
     from tools import (
         DISCOVERY_TOOLS,
@@ -196,6 +198,9 @@ DIAGNOSTIC_BOOLEAN_FIELDS = {
     "reply_discarded",
     "playback_running",
     "pcm_started",
+    "speech_present",
+    "audio_observation_present",
+    "visual_observation_present",
 }
 DIAGNOSTIC_STRING_FIELDS = {
     "request_id",
@@ -209,6 +214,7 @@ DIAGNOSTIC_STRING_FIELDS = {
     "decision_source",
     "decision_band",
     "decision_checkpoint",
+    "stage",
 }
 
 def load_voice_profile(path: Path) -> dict[str, Any]:
@@ -2270,6 +2276,9 @@ def create_app(
         ),
         environment_sampler=runtime_environment_snapshot,
     )
+    observatory_models = RuntimeModelReader(session,
+        comprehension_url=runtime.comprehension_health_url,
+        tts_url=runtime.tts_health_url, ollama_url=runtime.ollama_health_url)
     plane = decision_plane
     if plane is None and runtime.decision_plane_enabled:
         plane = DecisionPlane.from_environment()
@@ -3274,6 +3283,11 @@ def create_app(
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
+        if request.path == "/" and request.args.get("surface") == "observatory":
+            response.headers["Content-Security-Policy"] = response.headers[
+                "Content-Security-Policy"
+            ].replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
         if (
             request.path.startswith("/api/")
             or request.path.startswith("/assets/")
@@ -3293,6 +3307,7 @@ def create_app(
             render_template(
                 "index.html",
                 model=runtime.model,
+                observatory_surface=request.args.get("surface") == "observatory",
                 max_upload_mib=runtime.max_body_bytes // (1024 * 1024),
                 session_scope=hashlib.sha256(
                     f"robit-omni-browser-cache:{browser_session}".encode()
@@ -3517,17 +3532,35 @@ def create_app(
             stages["comprehension"] = _probe(session, runtime.comprehension_health_url)
         else:
             stages["comprehension"] = {"ok": True, "status": None, "enabled": False}
-        return jsonify(
-            observatory.snapshot(
-                diagnostics=diagnostics.observatory_snapshot(),
-                tasks=background_tasks.list() if background_tasks is not None else [],
-                virtual_context=virtual_context.stats(session_id),
-                session_memory=tool_harness.memory_stats(session_id),
-                location=tool_harness.client_location(session_id),
-                services=stages,
-                requests=inference_queue.snapshot(),
-            )
+        snapshot = observatory.snapshot(
+            diagnostics=diagnostics.observatory_snapshot(),
+            tasks=background_tasks.list() if background_tasks is not None else [],
+            virtual_context=virtual_context.stats(session_id),
+            session_memory=tool_harness.memory_stats(session_id),
+            location=tool_harness.client_location(session_id),
+            services=stages,
+            requests=inference_queue.snapshot(),
         )
+        snapshot["agent"] = runtime_agent_identity()
+        snapshot["weights"] = observatory_models.snapshot()
+        return jsonify(snapshot)
+
+    @app.route("/api/agent-identity", methods=["GET", "PUT"])
+    def agent_identity():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if request.method == "GET":
+            return jsonify(runtime_agent_identity())
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or set(payload) != {"name"}:
+            return jsonify({"error": "Provide only the agent name."}), 400
+        try:
+            identity = save_runtime_agent_name(payload["name"])
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except OSError:
+            return jsonify({"error": "Agent name could not be saved. Try again."}), 503
+        return jsonify(identity)
 
     @app.get("/api/cameras")
     def list_host_cameras():
@@ -4325,6 +4358,21 @@ def create_app(
                         if not isinstance(event, Mapping):
                             stream_error = "adapter returned a non-object stream event"
                             break
+                        if event.get("type") == "stage" and event.get("stage") in {"comprehension", "language", "tts"}:
+                            diagnostics.record(session_id, "inference_stage", {
+                                "request_id": request_id, "stage": event["stage"],
+                            }, request_id=request_id)
+                        elif event.get("type") == "observation":
+                            diagnostics.record(session_id, "perception_observed", {
+                                "request_id": request_id,
+                                "speech_present": bool(event.get("transcript")),
+                                "audio_observation_present": bool(event.get("audio_observation")),
+                                "visual_observation_present": bool(event.get("visual_observation")),
+                            }, request_id=request_id)
+                        elif event.get("type") in {"audio_start", "audio_end"}:
+                            diagnostics.record(session_id,
+                                "audio_stream_started" if event["type"] == "audio_start" else "audio_stream_ended",
+                                {"request_id": request_id}, request_id=request_id)
                         if event.get("type") == "final":
                             candidate = event.get("response")
                             if isinstance(candidate, dict):

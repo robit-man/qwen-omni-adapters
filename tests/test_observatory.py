@@ -6,10 +6,12 @@ import sys
 import time
 from pathlib import Path
 
+import httpx
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from portal.app import _SessionDiagnostics
-from portal.observatory import OBSERVATORY_SCHEMA, ObservatoryReader
+from portal.observatory import OBSERVATORY_SCHEMA, ObservatoryReader, RuntimeModelReader, _timeline
 
 
 def _memory_store(path: Path) -> None:
@@ -142,3 +144,49 @@ def test_observatory_diagnostic_view_joins_active_sessions_but_remains_redacted(
     assert {item["task"] for item in snapshot["events"]} == {"chat", "transcribe"}
     assert "must not survive" not in json.dumps(snapshot)
     assert "also private" not in json.dumps(snapshot)
+
+
+def test_worker_inventory_reads_actual_loaded_artifacts_without_starting_models(tmp_path):
+    model = tmp_path / "worker.gguf"
+    model.write_bytes(b"GGUF" + bytes(4096))
+    requests = []
+
+    def handle(request):
+        requests.append((request.method, request.url.path))
+        if request.url.path == "/props":
+            return httpx.Response(200, json={"model_path": str(model), "is_sleeping": False})
+        if request.url.path == "/healthz":
+            return httpx.Response(200, json={"ok": True, "persistent_ready": False, "residency_policy": "request", "gpu_resident": None})
+        return httpx.Response(200, json={"models": []})
+
+    reader = RuntimeModelReader(httpx.Client(transport=httpx.MockTransport(handle)),
+        comprehension_url="http://worker/health", tts_url="http://speech/healthz", ollama_url="http://ollama/api/tags")
+    snapshot = reader.snapshot()
+    assert snapshot["loaded"] == 1
+    assert snapshot["reported_weight_bytes"] == model.stat().st_size
+    assert snapshot["components"][0]["name"] == "worker.gguf"
+    assert str(tmp_path) not in json.dumps(snapshot)
+    assert snapshot["components"][1]["state"] == "released"
+    assert all(method == "GET" for method, _path in requests)
+    assert {path for _method, path in requests} == {"/props", "/healthz", "/api/ps"}
+    reader.snapshot()
+    assert len(requests) == 3
+
+
+def test_timeline_keeps_typed_sensory_and_inference_events_without_content():
+    at = "2026-11-16T10:00:00-08:00"
+    raw = [
+        {"at": at, "event": "request_received", "has_audio_input": True, "has_image_input": True},
+        {"at": at, "event": "perception_observed", "speech_present": True, "audio_observation_present": True, "transcript": "private words"},
+        {"at": at, "event": "inference_stage", "stage": "language"},
+        {"at": at, "event": "audio_stream_started"},
+    ]
+    result = _timeline({"events": raw}, [], {}, {})
+    assert {item["signal"] for item in result} == {"audio", "vision", "hearing", "llm", "speaking"}
+    assert "private words" not in json.dumps(result)
+    assert {item["id"] for item in result} == {item["id"] for item in _timeline({"events": list(reversed(raw))}, [], {}, {})}
+
+
+def test_noise_only_observation_never_becomes_heard_speech():
+    result = _timeline({"events": [{"event": "perception_observed", "speech_present": False, "audio_observation_present": True}]}, [], {}, {})
+    assert [item["signal"] for item in result] == ["audio"]

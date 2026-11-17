@@ -11,14 +11,30 @@ compact monospace type, yellow accents, thin borders, fixed runtime status,
 and a responsive control rail. It does not copy NOCLIP assets or documentation
 content.
 
-The authenticated `/observatory` route is a read-only, responsive dashboard over
-the stores Egg already owns. Its experience constellation joins live daemon and
-voice-loop state, bounded host/battery/network facts, current-session diagnostics,
-virtual context, passive semantic memory, and the background-work ledger. Every
-layer labels its source, freshness, and retention scope; it does not retain a
-second copy of raw media, credentials, tool payloads, or hidden reasoning. The
-tray indicator's **Dashboard** action opens this route in the default browser
-with the current portal access fragment.
+The authenticated `/observatory` route is a full-window app over the stores
+and running workers the agent already owns. Its heading defaults to the runtime
+system account; double-click the name or choose Rename to save a shared identity
+for following turns. It repurposes the amber LCD frames, fonts, wires, grids and
+hatched meters from [Nick Gallo's clock](https://www.nickgallo.dev/projects/clock/)
+into four distinct instruments, without the clock itself:
+
+- **Active weights:** observed worker model files/sizes, loaded/released state,
+  resident context and host-memory budgets.
+- **Inference events:** a live, selectable timeline for recognized speech, sound,
+  visual input, LLM stages, speech output, tools and documents.
+- **States:** current voice-loop phase, observed transitions and admission/queue
+  meters; state lettering shrinks within its card when chat narrows the view.
+- **Memory:** distinct durable/session/working stores and source-time versus
+  recall-strength points for retained passive memories.
+
+The app frame does not scroll. Each visualization and expandable detail ledger
+owns its own bounded scrolling. Open chat uses the existing portal in a same-origin
+amber pane beside the instrument (or a full pane on phones); Copy chat link and
+Open in new tab retain the existing fragment capability and session isolation.
+Closing the pane unloads it to stop hidden capture/playback. No live capture starts
+on page load. Source freshness, unavailable data and retention bounds remain
+explicit. No raw media, transcripts, credentials or hidden reasoning enter the
+observatory event journal. See [LCD modules and review behavior](../docs/observatory-lcd.md).
 
 ## Interface and routing
 
