@@ -414,6 +414,7 @@ html { height: 100%; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
   .observatory-shell { animation: none; }
 }
 .memory-scope-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.memory-mode-controls { display: flex; flex-wrap: wrap; gap: 10px; }
 .memory-scope-controls > span { flex: 1 1 240px; text-align: right; font-size: 17px; }
 .memory-visual .store-readouts { gap: 24px; }
 .memory-visual .store-readout { padding: 12px 0; border-bottom: 1px solid var(--lcd-rule); gap: 10px; }
@@ -496,3 +497,52 @@ html { height: 100%; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
 .mcp-server-list li > span { flex: 1 1 220px; overflow-wrap: anywhere; }
 @media (max-width: 900px) { .plan-workbench { grid-template-columns: minmax(0, 1fr); } .mcp-connect-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .mcp-connect-form { grid-template-columns: minmax(0, 1fr); } .plan-heading label { width: 100%; } .plan-heading select { max-width: 100%; } }
+.review-tabs .chip { min-width: 0; }
+.tools-visual { container-type: inline-size; display: flex; flex-direction: column; }
+.tools-visual > .tool-overview, .tools-visual > .tool-console-grid { flex: 0 0 auto; }
+.tools-visual > .execution-overview { flex: 1 0 auto; display: flex; flex-direction: column; }
+.tools-visual .plan-workbench { flex: 1 0 auto; }
+.tools-visual .plan-steps, .tools-visual .plan-inspector { max-height: none; overflow: visible; }
+.tool-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 28px; margin: 10px 0 32px; align-items: stretch; }
+.tool-signal { min-width: 0; padding: 24px 18px 16px; display: flex; flex-direction: column; justify-content: center; }
+.tool-signal > strong { font-size: clamp(22px, 4.4cqi, 58px); font-weight: 400; overflow-wrap: anywhere; }
+.tool-signal > p { margin: 14px 0 0; font-size: 17px; overflow-wrap: anywhere; }
+.tool-counters { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: center; }
+.tool-counters > div { min-width: 0; border-left: 1px solid var(--lcd-rule); padding-left: 18px; }
+.tool-counters dt { font-size: 17px; color: var(--lcd-muted); }
+.tool-counters dd { margin: 12px 0 0; font-size: clamp(24px, 3.8cqi, 48px); }
+.tool-console-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(250px, .8fr); gap: 32px; margin-bottom: 32px; align-items: start; }
+.tool-dispatch, .tool-connections { min-width: 0; }
+.tool-connections { border-left: 1px solid var(--lcd-rule); padding-left: 24px; }
+.tool-connections .connections-panel { padding-top: 0; border: 0; }
+.tool-connections .mcp-connect-form { grid-template-columns: minmax(0, 1fr); }
+.tool-dispatch .plan-heading label { flex: 1 1 180px; }
+.tool-dispatch select { min-width: 0; width: 100%; max-width: 100%; }
+.tool-chain { list-style: none; padding: 0 12px 0 0; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; max-height: 340px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.tool-dispatch-node { position: relative; min-width: 0; }
+.tool-dispatch-node.is-linked::before { content: ""; position: absolute; left: 12px; top: -18px; height: 18px; border-left: 1px solid var(--lcd-rule); }
+.tool-dispatch-node button { display: flex; flex-direction: column; gap: 10px; min-width: 0; width: 100%; height: 100%; padding: 14px; text-align: left; color: var(--lcd-muted); background: var(--lcd-bg); border: 1px solid var(--lcd-rule); font: inherit; cursor: pointer; }
+.tool-dispatch-node strong { color: var(--lcd); font-size: 23px; font-weight: 400; overflow-wrap: anywhere; }
+.tool-dispatch-phase { font-size: 16px; }
+.tool-dispatch-node button[aria-pressed="true"] { border-color: var(--lcd); box-shadow: inset 3px 0 var(--lcd); }
+.tool-dispatch-node.is-error .tool-dispatch-phase { text-decoration: underline wavy; text-underline-offset: 4px; }
+.tool-receipt { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--lcd-rule); max-height: 280px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.tool-receipt h4 { margin: 0 0 16px; font-size: 23px; font-weight: 400; overflow-wrap: anywhere; }
+.tool-receipt .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tool-receipt .facts dd { font-size: 17px; overflow-wrap: anywhere; }
+@container (max-width: 850px) {
+  .tool-console-grid { grid-template-columns: minmax(0, 1fr); }
+  .plan-workbench { grid-template-columns: minmax(0, 1fr); }
+  .tool-connections { border-left: 0; border-top: 1px solid var(--lcd-rule); padding: 20px 0 0; }
+  .tool-connections .mcp-connect-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 540px) {
+  .tool-overview { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .tool-signal > strong { font-size: clamp(24px, 10cqi, 44px); }
+  .tool-counters { gap: 10px; }
+  .tool-counters > div { padding-left: 10px; }
+  .tool-counters dt { font-size: 15px; }
+  .tool-counters dd { font-size: 27px; }
+  .tool-chain, .tool-receipt .facts, .tool-connections .mcp-connect-form { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) { .review-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .review-tabs .chip:last-child { grid-column: span 2; } }

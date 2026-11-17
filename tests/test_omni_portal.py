@@ -2031,8 +2031,9 @@ def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
     assert b"Agent Observatory" in response.data
     assert b">EGG<" not in response.data
     assert b'id="context-graph"' not in response.data
-    assert response.data.count(b'role="tab"') == 4
-    assert response.data.count(b'role="tabpanel"') == 4
+    assert response.data.count(b'role="tab"') == 5
+    assert b'id="view-tools"' in response.data
+    assert response.data.count(b'role="tabpanel"') == 5
     assert b'aria-label="Runtime review"' in response.data
     assert b'id="timeline-list"' in response.data
     assert b'id="memory-node-records"' in response.data

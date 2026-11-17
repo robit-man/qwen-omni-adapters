@@ -7,7 +7,7 @@
   const REFRESH_MS = 2_000;
   const STALE_MS = 25_000;
   const PAGE_SIZE = 18;
-  const TABS = ["weights", "events", "states", "memory"];
+  const TABS = ["weights", "events", "states", "tools", "memory"];
   const query = new URLSearchParams(location.search);
   const state = {
     token: "", snapshot: null, refreshing: false, live: true,
@@ -397,6 +397,7 @@
   }
 
   function renderStates(snapshot) {
+    window.OmniToolActivity?.render(snapshot);
     window.OmniTaskPlan?.render(snapshot);
     window.OmniMCPConnections?.render(snapshot, state.token);
     const live = snapshot.live || {};

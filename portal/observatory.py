@@ -528,6 +528,8 @@ def _timeline(
                 "source": "session diagnostic journal",
                 "retention": "session · short-lived",
                 "status": "error" if event.get("tool_ok") is False or "error" in event_name else "ok",
+                "request_id": _bounded_text(event.get("request_id"), 128),
+                "tool_round": event.get("tool_round") if isinstance(event.get("tool_round"), int) else None,
             })
     for task in tasks:
         task_id = _bounded_text(task.get("task_id"), 64)

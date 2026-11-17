@@ -95,7 +95,7 @@ The sans stack owns conversation and controls. The utility mono stack owns compa
 
 The single chat column is capped at `shell-max` and uses one bounded conversation scroller between a fixed top control rail and a natural-height composer. Safe-area insets protect phone chrome. Popovers are anchored without affecting flow; dialogs stay within the visual viewport and keep controls reachable. Media reserves its intrinsic aspect ratio and uses `object-fit: contain` where cropping would remove evidence.
 
-The observatory is a full-window application. Its approved visual reference is [Nick Gallo's 2026 LCD clock](https://www.nickgallo.dev/projects/clock/), with the extracted frame, segment, phosphor, wire, pixel-grid and hatched-meter vocabulary repurposed for runtime data. Four top chips select Active weights, Inference events, States, or Memory. Each view owns a different responsive instrument, rather than a shared clock or a scaled picture. The document does not scroll: the header, tabs and footer remain in the app frame; visualizations and expandable detail ledgers own bounded inner scrolling. On phones the tab chips form two columns. Chat opens beside the active instrument on desktop and occupies the workspace on narrow screens.
+The observatory is a full-window application. Its approved visual reference is [Nick Gallo's 2026 LCD clock](https://www.nickgallo.dev/projects/clock/), with the extracted frame, segment, phosphor, wire, pixel-grid and hatched-meter vocabulary repurposed for runtime data. Five top chips select Active weights, Inference events, States, Tools, or Memory. Each view owns a different responsive instrument, rather than a shared clock or a scaled picture. The document does not scroll: the header, tabs and footer remain in the app frame; visualizations and expandable detail ledgers own bounded inner scrolling. On phones the tab chips form two compact rows. Chat opens beside the active instrument on desktop and occupies the workspace on narrow screens.
 
 ## Elevation & Depth
 
@@ -155,17 +155,17 @@ Source counts remain separate from graph encoding and semantic indexing. The sta
 
 The map and inspector retain the amber frames, VT323 labels and DSEG7 counts. Selected state adds an underline and text feedback rather than relying on color alone. The workbench places map and inspector side by side, stacking them when its container is at most 900px wide, including beside chat. The graph reflows from three to two columns below 600px of available width, with its source root spanning both columns. The visualization and inspector scroll internally; on narrow workbenches the inspector is capped at 280px. Long labels and quoted text wrap without expanding the app frame. The separate retention guide keeps its existing bounded detail scroller.
 
-### States execution plan
+### Tools execution plan
 
-States keeps its voice-loop and admission instruments and adds a task selector with the controller's current committed frontier. The header reports task status, phase, next transition, plan revision and environment version. Connected step cards show explicit states: planned, evidence acquired, awaiting verification, verified, or a reported action/effect/verification failure. Current and selected steps use amber borders; verified status also gains an underline. A selected step exposes its tool family, operation, retained selection explanation, expected effect, target, acceptance test, verification family and executor receipt IDs, alongside requirement statuses and their evidence. This makes tool choice and substep completion inspectable without displaying private reasoning. Missing plans, explanations or receipts have explicit text; discovery and command success alone never become invented progress or completion.
+Tools adds a task selector with the controller's current committed frontier; States keeps voice-loop and admission instruments. The header reports task status, phase, next transition, plan revision and environment version. Connected step cards show explicit states: planned, evidence acquired, awaiting verification, verified, or a reported action/effect/verification failure. Current and selected steps use amber borders; verified status also gains an underline. A selected step exposes its tool family, operation, retained selection explanation, expected effect, target, acceptance test, verification family and executor receipt IDs, alongside requirement statuses and their evidence. This makes tool choice and substep completion inspectable without displaying private reasoning. Missing plans, explanations or receipts have explicit text; discovery and command success alone never become invented progress or completion.
 
-The step list and evidence inspector each scroll within a 450px bound inside the existing States visualization. Their two-column workbench stacks at viewport widths of 900px or less. Labels and evidence wrap within the app frame; the four peer tabs and whole-window scrolling contract remain unchanged.
+The plan workbench expands into the available Tools surface down to the footer. The step list and evidence inspector have no fixed height cap or nested scrollers; the Tools surface owns overflow. Their two-column workbench stacks at viewport widths of 900px or less. Labels and evidence wrap within the app frame; the five peer tabs and whole-window scrolling contract remain unchanged.
 
 ### MCP connections
 
-The collapsible **MCP connections** section stays within States. Its form has a labeled endpoint, optional password-style API key, **Available to** scope selector and Connect action. Connection discovery, success and failure appear in a live status region; unavailable service disables the form. The server list reports name, transport, whether a key is configured, and scope, with explicit Refresh and Remove actions. The key field clears after either submission outcome. Credentials remain private server-side and are omitted from the public connection list; Remove deletes the registration and its credential.
+The collapsible **MCP connections** section stays within Tools. Its form has a labeled endpoint, optional password-style API key, **Available to** scope selector and Connect action. Connection discovery, success and failure appear in a live status region; unavailable service disables the form. The server list reports name, transport, whether a key is configured, and scope, with explicit Refresh and Remove actions. The key field clears after either submission outcome. Credentials remain private server-side and are omitted from the public connection list; Remove deletes the registration and its credential.
 
-**Device and daemon** connections persist for the shared runtime. **This browser** connections belong to the cookie-scoped session and clear with its Trash action; they do not become another browser's connections. The form retains square amber controls and VT323 labels, reflows to two columns at 900px and one at 480px, and scrolls with the bounded States instrument rather than expanding the document.
+**Device and daemon** connections persist for the shared runtime. **This browser** connections belong to the cookie-scoped session and clear with its Trash action; they do not become another browser's connections. The form retains square amber controls and VT323 labels, reflows to two columns at 900px and one at 480px, and scrolls with the bounded Tools instrument rather than expanding the document.
 
 ## Do's and Don'ts
 
@@ -176,3 +176,22 @@ The collapsible **MCP connections** section stays within States. Its form has a 
 - **Don't:** Auto-open cameras, replay cached raw media as current evidence, or expose host device paths.
 - **Don't:** Present retained history as a complete recording of Egg’s lifespan or infer certainty from a graph edge.
 - **Don't:** Crop live evidence, hide capture controls behind hover, or introduce new decorative colors for individual features.
+
+## Tools review
+
+Tools is a dedicated fifth review tab. Its amber executor signal, retained-return
+counters, request-linked dispatch modules and receipt inspector sit beside MCP
+registration; committed task plans follow below. Only recorded request/round IDs
+establish dispatch chains. States keeps voice phases and runtime transitions.
+All surfaces retain inner scrolling, responsive chat splits and labeled keyboard
+scroll regions. Tool failure is visibly distinct from a successful return;
+neither establishes task completion without current verification.
+
+Memory also has Experience and Learned behaviors & tools modes. The latter
+shows separately recorded invocations, verified effects, failed approaches and
+unverified candidates, with exact audit references and source hashes in the
+inspector. Directed links mean later evidence for the same committed contract;
+they do not imply that a failure caused a recovery. Present applicability and
+permission stay unverified. Owner contents are private; unknown legacy ownership
+is not reassigned. Embedded chat controls use the same sodium-yellow palette on
+black, including selected and recording states; the idle mic helper is absent.

@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
-  <meta name="description" content="Runtime observations for agent weights, inference, states, and memory">
+  <meta name="description" content="Runtime observations for agent weights, inference, states, tools, and memory">
   <meta name="referrer" content="no-referrer">
   <title>Active weights — Agent Observatory</title>
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/VT323-Regular.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="stylesheet" href="/assets/observatory.css?v=20261116-windowed">
+  <link rel="stylesheet" href="/assets/observatory.css?v=20261117-tools">
 </head>
 <body class="observatory-page lcd-render-fallback" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
   <a class="skip-link" href="#review">Skip to runtime review</a>
@@ -34,6 +34,7 @@
               <button class="chip" id="tab-weights" type="button" role="tab" data-tab="weights" aria-selected="true" aria-controls="view-weights">Active weights</button>
               <button class="chip" id="tab-events" type="button" role="tab" data-tab="events" aria-selected="false" aria-controls="view-events" tabindex="-1">Inference events</button>
               <button class="chip" id="tab-states" type="button" role="tab" data-tab="states" aria-selected="false" aria-controls="view-states" tabindex="-1">States</button>
+              <button class="chip" id="tab-tools" type="button" role="tab" data-tab="tools" aria-selected="false" aria-controls="view-tools" tabindex="-1">Tools</button>
               <button class="chip" id="tab-memory" type="button" role="tab" data-tab="memory" aria-selected="false" aria-controls="view-memory" tabindex="-1">Memory</button>
             </div>
     </nav>
@@ -96,7 +97,7 @@
 
       <section id="view-states" class="review-view" role="tabpanel" aria-labelledby="tab-states" tabindex="0" hidden>
         <header class="section-heading"><h2>States</h2><p>Runtime, voice loop &amp; work ledger</p></header>
-        <div class="visualization states-visual"><div class="state-flow" id="state-flow" aria-label="Voice loop states"></div><div class="state-meter-grid" id="state-meters"></div><section class="execution-overview" aria-labelledby="plan-heading"><header class="plan-heading"><h3 id="plan-heading">Execution plan</h3><label>Task <select id="plan-task" aria-label="Task to inspect"></select></label><span id="plan-meta" class="muted"></span></header><p id="plan-empty" class="scope-note">Committed steps appear when a task starts. Discovery alone does not count as completion.</p><div class="plan-workbench" id="plan-workbench" hidden><ol id="plan-steps" class="plan-steps" aria-label="Committed plan steps"></ol><section class="plan-inspector" tabindex="0" role="region" aria-labelledby="plan-step-title"><h4 id="plan-step-title"></h4><dl class="facts" id="plan-step-facts"></dl><ul id="plan-requirements" class="plan-requirements"></ul></section></div><p class="sr-only" role="status" id="plan-announcement"></p></section><details class="connections-panel" id="mcp-connections"><summary>MCP connections <span id="mcp-count"></span></summary><p class="scope-note">Add an MCP endpoint and optional API key. Device connections are available to the daemon; browser connections stay with this browser.</p><form id="mcp-connect-form" class="mcp-connect-form"><label>Endpoint <input name="endpoint" type="url" autocomplete="off" required placeholder="https://service.example/mcp"></label><label>API key <input name="key" type="password" autocomplete="off" placeholder="Optional"></label><label>Available to <select name="scope"><option value="device">Device and daemon</option><option value="session">This browser</option></select></label><button class="chip" type="submit">Connect</button></form><p id="mcp-message" role="status"></p><ul id="mcp-server-list" class="mcp-server-list"></ul></details><div class="state-history" id="state-history" aria-label="Observed state transitions"></div></div>
+        <div class="visualization states-visual"><div class="state-flow" id="state-flow" aria-label="Voice loop states"></div><div class="state-meter-grid" id="state-meters"></div><div class="state-history" id="state-history" aria-label="Observed state transitions"></div></div>
         <details class="review-details"><summary>State details & work ledger</summary><div class="detail-scroll">
         <dl class="facts state-facts" id="live-readout"></dl>
         <h3 class="subheading">Current work</h3><div id="work-current"></div>
@@ -105,10 +106,20 @@
         </div></details>
       </section>
 
+      <section id="view-tools" class="review-view" role="tabpanel" aria-labelledby="tab-tools" tabindex="0" hidden>
+        <header class="section-heading"><h2>Tools</h2><p>Dispatch, chaining &amp; connected capabilities</p></header>
+        <div class="visualization tools-visual">
+          <div class="tool-overview"><div class="frame tool-signal"><span class="corner l lit">EXECUTOR SIGNAL</span><strong class="d14 lit" id="tool-signal">WAITING</strong><p id="tool-signal-detail" class="muted">Awaiting tool observations</p></div><dl class="tool-counters"><div><dt>Retained returns</dt><dd class="d7 lit" id="tool-return-count">0</dd></div><div><dt>Failed returns</dt><dd class="d7 lit" id="tool-error-count">0</dd></div><div><dt>MCP connections</dt><dd class="d7 lit" id="tool-connection-count">0</dd></div></dl></div>
+          <div class="tool-console-grid"><section class="tool-dispatch" aria-labelledby="tool-dispatch-heading"><header class="plan-heading"><h3 id="tool-dispatch-heading">Dispatch chain</h3><label>Request <select id="tool-request" aria-label="Tool request to inspect"></select></label></header><p class="scope-note" id="tool-chain-empty">Tool calls appear here as requests execute. Connections follow recorded request IDs and tool rounds.</p><ol id="tool-chain" class="tool-chain" aria-label="Recorded tool dispatches"></ol><section class="tool-receipt" tabindex="0" role="region" aria-labelledby="tool-receipt-title"><h4 id="tool-receipt-title">Select a dispatch</h4><dl class="facts" id="tool-receipt-facts"></dl><p class="scope-note">A returned tool call is evidence of execution. Task completion requires its own current verification.</p></section></section><aside class="tool-connections" aria-label="Connected MCP servers"><details class="connections-panel" id="mcp-connections" open><summary>MCP connections <span id="mcp-count"></span></summary><p class="scope-note">Add an MCP endpoint and optional API key. Device connections are available to the daemon; browser connections stay with this browser.</p><form id="mcp-connect-form" class="mcp-connect-form"><label>Endpoint <input name="endpoint" type="url" autocomplete="off" required placeholder="https://service.example/mcp"></label><label>API key <input name="key" type="password" autocomplete="off" placeholder="Optional"></label><label>Available to <select name="scope"><option value="device">Device and daemon</option><option value="session">This browser</option></select></label><button class="chip" type="submit">Connect</button></form><p id="mcp-message" role="status"></p><ul id="mcp-server-list" class="mcp-server-list"></ul></details></aside></div>
+          <section class="execution-overview" aria-labelledby="plan-heading"><header class="plan-heading"><h3 id="plan-heading">Execution plan</h3><label>Task <select id="plan-task" aria-label="Task to inspect"></select></label><span id="plan-meta" class="muted"></span></header><p id="plan-empty" class="scope-note">Committed steps appear when a task starts. Discovery alone does not count as completion.</p><div class="plan-workbench" id="plan-workbench" hidden><ol id="plan-steps" class="plan-steps" aria-label="Committed plan steps"></ol><section class="plan-inspector" tabindex="0" role="region" aria-labelledby="plan-step-title"><h4 id="plan-step-title"></h4><dl class="facts" id="plan-step-facts"></dl><ul id="plan-requirements" class="plan-requirements"></ul></section></div><p class="sr-only" role="status" id="plan-announcement"></p></section>
+        </div>
+      </section>
+
       <section id="view-memory" class="review-view" role="tabpanel" aria-labelledby="tab-memory" tabindex="0" hidden>
         <header class="section-heading"><h2>Memory</h2><p id="memory-meta">Durable &amp; session stores</p></header>
         <div class="visualization memory-visual">
           <div class="memory-scope-controls" role="group" aria-label="Memory scope"><button class="chip" type="button" data-memory-scope="durable" aria-pressed="true">Device memory</button><button class="chip" type="button" data-memory-scope="session" aria-pressed="false">This browser</button><span id="memory-index-status" class="muted" role="status">Reading memory structure…</span></div>
+          <div class="memory-mode-controls" role="group" aria-label="Memory structure to review"><button class="chip" type="button" data-memory-mode="experience" aria-pressed="true">Experience</button><button class="chip" type="button" data-memory-mode="behaviors" aria-pressed="false">Learned behaviors &amp; tools</button></div>
           <div class="store-readouts" id="store-readouts"></div>
           <p id="memory-structure-empty" class="scope-note" hidden></p>
           <div class="memory-workbench">
@@ -135,10 +146,11 @@
     <footer class="observatory-footer"><span>RETAINED EVIDENCE</span><div><button class="text-button open-chat" type="button" aria-controls="observatory-chat" aria-expanded="false">Open chat</button><a id="chat-link" href="/">Chat in new tab</a></div></footer>
   </main>
   <p class="sr-only" id="observatory-announcer" aria-live="polite"></p>
+  <script src="/assets/tool-activity.js?v=20261117" defer></script>
   <script src="/assets/task-plan.js?v=20261117" defer></script>
   <script src="/assets/mcp-connections.js?v=20261117" defer></script>
-  <script src="/assets/memory-graph.js?v=20261116-structure" defer></script>
-  <script src="/assets/observatory.js?v=20261116-memory" defer></script>
+  <script src="/assets/memory-graph.js?v=20261117-behaviors" defer></script>
+  <script src="/assets/observatory.js?v=20261117-tools" defer></script>
   <script src="/assets/lcd-surface.js?v=20261116-glass" defer></script>
 </body>
 </html>

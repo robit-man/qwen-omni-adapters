@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import fcntl
+import hashlib
 import json
 import os
 import secrets
@@ -833,6 +834,7 @@ class BackgroundTaskStore:
             key: copy.deepcopy(task.get(key))
             for key in (
                 "task_id",
+                "origin_scope",
                 "objective",
                 "completion_criteria",
                 "status",
@@ -860,7 +862,7 @@ class BackgroundTaskStore:
             public["evidence_record_count"] = len(evidence_records)
         return public
 
-    def create(self, objective: str, completion_criteria: str = "") -> dict[str, Any]:
+    def create(self, objective: str, completion_criteria: str = "", *, source_session: str | None = None) -> dict[str, Any]:
         objective = str(objective).strip()
         if not objective:
             raise ValueError("objective is required")
@@ -903,6 +905,8 @@ class BackgroundTaskStore:
                 "evidence_records": [],
                 "task_state": _initial_task_state(objective, completion_criteria),
             }
+            if source_session:
+                task["origin_scope"] = hashlib.sha256(source_session.encode()).hexdigest()
             tasks = value.setdefault("tasks", [])
             tasks.append(task)
             # Terminal records are useful conversational context, but this is

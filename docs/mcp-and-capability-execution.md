@@ -1,6 +1,6 @@
 # MCP connections and capability execution
 
-Observatory's **States → MCP connections** accepts a remote endpoint and an
+Observatory's **Tools → MCP connections** accepts a remote endpoint and an
 optional key. Choose **This browser** for cookie-scoped access, or **Device and
 daemon** to make a connection discoverable to the local agent. Registration
 initializes the server and discovers its tools; it does not execute them.
@@ -87,7 +87,7 @@ missing drivers and permissions without guessing a product or protocol.
 
 ## Execution display and verification
 
-States projects the controller's committed frontier and successor steps, tool
+Tools projects the controller's committed frontier and successor steps, tool
 choice rationale, acceptance criteria, evidence references and environment
 revision. Selecting a step shows its supporting receipts. The display does not
 invent a dependency graph, progress percentage or private reasoning transcript.
@@ -95,9 +95,50 @@ Acquiring information, changing an environment and independently verifying the
 change remain distinct states. Failed tool receipts remain failures in the
 activity timeline.
 
+Its dispatch display links calls only through retained request IDs and tool
+rounds. Select a dispatch to inspect its source time, status and retention.
+Counters describe the bounded retained sample, rather than lifetime totals.
+States remains dedicated to voice phases, runtime state and the work ledger.
+
 Unit/protocol coverage is in `test_mcp_bridge.py`, `test_desktop_capture.py`,
 `test_peripheral_tools.py`, `test_omni_portal.py` and `test_observatory.py`.
 Local live fixtures separately exercise actual model source consumption,
 downloaded capture hashes, peripheral inspection, isolated browser actions and
 a multi-step file task. These are local acceptance checks, not a claim of
 arbitrary-task reliability or a reproduced research benchmark.
+
+## Learned behavior evidence
+
+Memory's **Learned behaviors & tools** view separates actual tool returns from
+audited approaches. Failed executions remain warnings; information reads and
+mutations awaiting verification remain candidates. A verified-effect record
+requires a separate successful controller verification that matches the recorded
+contract. It does not assert complete-task success, generalized skill mastery or
+current permission. Acceptance semantics and environment revision remain visible
+in the source audit. The display never assigns invented confidence scores.
+
+`behavior-memory.sqlite3` retains immutable, hash-checked, occurrence-addressed
+source records, scoped by a hash of the authorized session. The native controller
+uses its parent voice scope while its transient tool sessions stay task-local.
+Actual call IDs join approaches to their audits. Later observations of the same
+contract receive directed lineage links; those links do not assert causality.
+Only tool names and typed contract/audit metadata enter this store: raw argument
+values, output previews, credentials and binary media are omitted. Browser Trash
+clears only that browser's behavior records; device-owner records remain private
+and survive browser cleanup. Legacy tasks with unknown ownership are not imported
+as the current owner's experience.
+
+The source commits before optional indexing into the corresponding episodic
+graph. Those historical tool-source events can then be encoded and retrieved
+through `episodic_search`, with its existing attribution and time filters.
+Replaying an occurrence cannot add another independent success, and conflicting
+evidence under the same identity fails. A missed optional index write leaves the
+behavior source intact for retry.
+
+The reference review covered `open-agents` at `1c1a1504`: its
+`proceduralMemoryStore.ts`, `successful-procedure-memory.ts`, `lesson-bank.ts`
+and their runtime producers. They are separate mechanisms, rather than one
+uniformly verified success/failure graph. This implementation adopts immutable
+lineage, private scopes and unverified present applicability; it does not copy
+fixed-confidence promotion, lexical contradiction heuristics or automatic
+permission from historical success.

@@ -14,6 +14,7 @@
     return value && !Number.isNaN(date.getTime()) ? date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Not recorded";
   };
   let scope = new URLSearchParams(location.search).get("memory") === "session" ? "session" : "durable";
+  let mode = new URLSearchParams(location.search).get("structure") === "behaviors" ? "behaviors" : "experience";
   let selected = null, model = null, snapshot = null;
   const node = (id, label, value, unit, column, row, facts, records = []) => ({ id, label, value, unit, column, row, facts, records });
 
@@ -143,6 +144,35 @@
       empty: unavailable ? "This memory store is temporarily unavailable. Retrying with the next live update." : !data.events ? "No source events in this scope yet. New interactions are committed before background encoding." : null };
   }
 
+  function behaviorModel(memory) {
+    const data = memory.behaviors?.[scope === "durable" ? "device" : "session"] || {}, recent = data.recent || [];
+    const records = items => items.map(item => ({title: `${item.outcome.replaceAll("_", " ")} · ${when(item.occurred_at)}`,
+      text: `${item.trigger}\nStep: ${item.step}\nTool: ${item.required_tools.join(", ")} · ${item.family}/${item.operation}\nAcceptance: ${item.acceptance_test}\n${item.claim_limits}`,
+      meta: `Task ${item.task_id} · ${item.source_audit.authority} · receipt ${item.source_audit.evidence_id} · environment ${item.source_audit.environment_version_after}\nSource SHA-256 ${item.source_sha256}\nCurrent applicability: unverified · permission not granted` }));
+    const nodes = [node("behavior-sources", "Behavior evidence", data.behaviors ?? 0, "audited observations", 0, 1,
+      [["Source", "Immutable controller audits"], ["Applicability", "Historical; current prerequisites and permission must be checked"],
+        ["Coverage", "New audited approaches after this upgrade; legacy tasks without scope are not attributed"],
+        ["Claim limit", "A verified effect is separate from complete-task success"]], records(recent))], links = [];
+    for (const [index, [status, label]] of [["verified_effect", "Verified effects"], ["failed", "Failed approaches"], ["candidate", "Unverified approaches"]].entries()) {
+      nodes.push(node(status, label, data[status] ?? 0, "retained observations", index % 2 + 1, Math.floor(index / 2),
+        [["Admission", status === "verified_effect" ? "Separate successful verification of the recorded contract" : status === "failed" ? "Executor-observed failure; retained as a warning" : "Includes information reads and mutations awaiting verification"],
+          ["Reuse", "Inspect the original conditions and fresh environment before reuse"], ["Scope", data.content_available ? "This authorized scope" : "Device-owner contents stay private"]], records(recent.filter(item => item.outcome === status))));
+      links.push({from: "behavior-sources", to: status, kind: "recorded outcome", count: data[status] ?? 0});
+    }
+    nodes.push(node("invocations", "Tools invoked", data.invocations ?? 0, "retained tool returns", 2, 1,
+      [["Meaning", "Returned calls and failures; no inferred task success"], ["Source", "Executed portal tool receipts"]],
+      (data.tools || []).map(item => ({title: item.name, text: `${number(item.returns)} returns · ${number(item.failed)} failed returns`, meta: "Return status remains separate from behavior verification"}))));
+    links.push({from: "behavior-sources", to: "invocations", kind: "separate invocation evidence", count: data.invocations ?? 0});
+    const byId = new Map(recent.map(item => [item.source_id, item])), seen = new Set();
+    (data.links || []).forEach(link => {
+      const from = byId.get(link.from)?.outcome, to = byId.get(link.to)?.outcome, key = `${from}:${to}`;
+      if (from && to && from !== to && !seen.has(key)) { links.push({from, to, kind: link.kind, count: null}); seen.add(key); }
+    });
+    return {nodes, links, title: "Learned behavior evidence", note: "Source-linked approaches · current applicability remains unverified",
+      metrics: [["Tools invoked", data.invocations ?? 0, "Actual returned calls"], ["Verified effects", data.verified_effect ?? 0, "Separate verification receipts"], ["Failed approaches", data.failed ?? 0, "Retained warnings, not reusable successes"]],
+      empty: data.available === false ? "Behavior evidence is temporarily unavailable." : !data.behaviors ? "No audited behavior sources in this scope yet. Actual tool returns are listed separately; an attempted action is never promoted to a learned success." : null};
+  }
+
   function details() {
     const item = model.nodes.find(item => item.id === selected) || model.nodes[0];
     selected = item.id;
@@ -205,7 +235,7 @@
   function render(value) {
     if (!$("memory-graph")) return;
     snapshot = value;
-    model = value.memory?.episodic?.enabled ? episodicModel(value.memory || {}, scope) : scope === "durable" ? durableModel(value.memory || {}) : sessionModel(value.memory || {});
+    model = mode === "behaviors" ? behaviorModel(value.memory || {}) : value.memory?.episodic?.enabled ? episodicModel(value.memory || {}, scope) : scope === "durable" ? durableModel(value.memory || {}) : sessionModel(value.memory || {});
     if (!model.nodes.some(item => item.id === selected)) selected = model.nodes[0].id;
     const focus = document.activeElement?.dataset.memoryNode;
     $("memory-structure-title").textContent = model.title;
@@ -229,12 +259,19 @@
     details();
     if (focus) buttons.find(button => button.dataset.memoryNode === focus)?.focus({ preventScroll: true });
     document.querySelectorAll("[data-memory-scope]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.memoryScope === scope)));
+    document.querySelectorAll("[data-memory-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.memoryMode === mode)));
     requestAnimationFrame(draw);
   }
 
   document.querySelectorAll("[data-memory-scope]").forEach(button => button.addEventListener("click", () => {
     scope = button.dataset.memoryScope; selected = null;
     const params = new URLSearchParams(location.search); params.set("memory", scope);
+    history.replaceState(null, "", `${location.pathname}?${params}${location.hash}`);
+    if (snapshot) render(snapshot);
+  }));
+  document.querySelectorAll("[data-memory-mode]").forEach(button => button.addEventListener("click", () => {
+    mode = button.dataset.memoryMode; selected = null;
+    const params = new URLSearchParams(location.search); params.set("structure", mode);
     history.replaceState(null, "", `${location.pathname}?${params}${location.hash}`);
     if (snapshot) render(snapshot);
   }));

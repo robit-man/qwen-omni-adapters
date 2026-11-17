@@ -43,6 +43,8 @@ from flask import (
 )
 from waitress import serve
 
+from qwen_omni_adapters.behavior_memory import BehaviorMemory
+
 if __package__ in {None, ""}:
     repository_path = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repository_path))
@@ -1895,8 +1897,6 @@ def _tool_followup(
                             if str(item) in known_names
                         )
         content, result_images = _model_tool_result(result, tool_name=name)
-        if memory_capture is not None and not blocked:
-            memory_capture.tool(name, result, ok=isinstance(result, Mapping) and result.get("ok") is not False, model_text=content, family=next((family for family, definition in TOOL_FAMILIES.items() if name in definition["tools"]), None))
         tool_message: dict[str, Any] = {
             "role": "tool",
             "tool_name": name or "unknown",
@@ -1941,6 +1941,9 @@ def _tool_followup(
                 and result.get("exit_code") == 0
                 and result.get("timed_out") is not True
             )
+        if memory_capture is not None and not blocked:
+            memory_capture.tool(name, result, ok=ok, model_text=content,
+                family=next((family for family, definition in TOOL_FAMILIES.items() if name in definition["tools"]), None))
         executed.append(
             {
                 "id": str(call.get("id") or fingerprint[:12]),
@@ -3005,6 +3008,11 @@ def create_app(
         owner_session=tool_harness.conversation_history_owner,
         legacy_archive=tool_harness.conversation_history_path)
         if runtime.episodic_memory_enabled else None)
+    behaviors = BehaviorMemory(state_root / "behavior-memory.sqlite3",
+        owner_session=tool_harness.conversation_history_owner,
+        episodic_root=episodic_memory.root if episodic_memory else None)
+    if episodic_memory is not None:
+        episodic_memory.behaviors = behaviors
     remote_mcp = RemoteMCPRegistry(runtime.mcp_root or state_root / "mcp") if runtime.mcp_enabled else None
     tool_harness.remote_mcp = remote_mcp
     app.extensions["remote_mcp"] = remote_mcp
@@ -3647,6 +3655,9 @@ def create_app(
             requests=inference_queue.snapshot(),
         )
         snapshot["memory"]["episodic"] = episodic_memory.snapshot(session_id) if episodic_memory else {"enabled": False}
+        snapshot["memory"]["behaviors"] = {"session": behaviors.view(session_id),
+            "device": behaviors.view(tool_harness.conversation_history_owner,
+                include_content=session_id == tool_harness.conversation_history_owner)}
         snapshot["connections"] = {"mcp_enabled": remote_mcp is not None, "servers": remote_mcp.list(session_id) if remote_mcp else []}
         snapshot["agent"] = runtime_agent_identity()
         snapshot["weights"] = observatory_models.snapshot()

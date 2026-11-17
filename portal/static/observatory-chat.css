@@ -22,4 +22,19 @@
 .observatory-embedded-chat .message { border-radius: 0; }
 .observatory-embedded-chat .message-body { font-size: 19px; line-height: 1.45; }
 .observatory-embedded-chat .observatory-button { display: none; }
+.observatory-embedded-chat { --ok: var(--accent); --danger: var(--accent); }
+.observatory-embedded-chat .composer,
+.observatory-embedded-chat .composer-box { background: #000; box-shadow: none; }
+.observatory-embedded-chat .topbar .icon-button,
+.observatory-embedded-chat .composer .icon-button { color: var(--accent); background: #000; border-color: var(--line); }
+.observatory-embedded-chat .topbar .icon-button:hover,
+.observatory-embedded-chat .composer .icon-button:hover { color: var(--accent); border-color: var(--accent); background: #000; }
+.observatory-embedded-chat .topbar .icon-button[aria-pressed="true"],
+.observatory-embedded-chat .topbar .icon-button[aria-expanded="true"],
+.observatory-embedded-chat .composer .icon-button[aria-pressed="true"],
+.observatory-embedded-chat .composer .mic-button.recording,
+.observatory-embedded-chat .composer .send-button:not(:disabled) { color: #000; background: var(--accent); border-color: var(--accent); }
+.observatory-embedded-chat .connection .status-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.observatory-embedded-chat #active-user-count { color: var(--accent); }
+.composer-status:empty { display: none; }
 ::selection { color: var(--bg); background: var(--accent); }

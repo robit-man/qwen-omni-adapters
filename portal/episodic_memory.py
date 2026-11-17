@@ -229,6 +229,8 @@ class EpisodicMemoryService:
         key = self._key(session_id)
         with self._lock:
             self._generations[key] = self._generations.get(key, 0) + 1
+            if getattr(self, "behaviors", None) is not None:
+                self.behaviors.clear(session_id)
             if key == "device-owner":
                 return
             current = self._scopes.pop(key, None)
@@ -670,9 +672,18 @@ class MemoryCapture:
             for field in ("executor_receipt", "mutation_receipt", "verification_receipt", "source_receipt"):
                 if isinstance(result.get(field), (Mapping, list)):
                     receipt[field] = result[field]
+        stamp = time.time()
         self._record(f"tool-{self._tool_sequence}", modality, "tool_result", name, json.dumps(receipt, ensure_ascii=False),
             {"origin": "executed_tool_receipt", "producing_tool": name, "conversation_eligible": self._has_user_text,
-                "claim_limits": "Historical return receipt; return success alone is not task completion or current environment verification"}, at=time.time())
+                "claim_limits": "Historical return receipt; return success alone is not task completion or current environment verification"}, at=stamp)
+        if self.service is not None and not self.internal_background and not self.synthesis_only:
+            with self.service._lock:
+                if self.generation == self.service.generation(self.session_id) and getattr(self.service, "behaviors", None) is not None:
+                    try:
+                        self.service.behaviors.invocation(self.session_id, episode=self.episode,
+                            sequence=self._tool_sequence, tool=name, ok=ok, occurred_at=stamp)
+                    except (OSError, sqlite3.Error, ValueError) as error:
+                        self.service._last_behavior_error = type(error).__name__
 
     def observation_from_response(self, response: Mapping[str, Any]) -> None:
         adapter = response.get("adapter")

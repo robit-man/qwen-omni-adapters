@@ -289,6 +289,16 @@ def test_noise_only_observation_never_becomes_heard_speech():
     assert [item["signal"] for item in result] == ["audio"]
 
 
+def test_tool_dispatch_projection_preserves_chain_keys_and_failure_without_arguments():
+    result = _timeline({"events": [{"event": "tool_call_completed", "tool_name": "mcp_call",
+        "request_id": "request-a", "tool_round": 3, "tool_ok": False,
+        "arguments": {"key": "private"}, "result": "private source body"}]}, [], {}, {})
+    assert len(result) == 1
+    assert result[0]["request_id"] == "request-a" and result[0]["tool_round"] == 3
+    assert result[0]["status"] == "error"
+    assert "private" not in json.dumps(result)
+
+
 def test_plan_projection_preserves_receipt_states_and_does_not_infer_completion():
     from portal.observatory import _task_plan_projection
     task = {"task_id": "plan", "objective": "Acquire, change and verify", "status": "running", "task_state": {

@@ -2932,6 +2932,7 @@ class PortalToolHarness:
                     result = self.background_tasks.create(
                         _bounded_text(arguments.get("objective"), "objective", 6000),
                         completion_criteria,
+                        source_session=session_id,
                     )
                     result["accepted"] = True
                     result["next_action"] = context_text(

@@ -28,6 +28,7 @@ from portal.background_tasks import (
     BackgroundTaskStore,
 )
 from portal.tools import DISCOVERY_TOOLS, tool_schemas
+from qwen_omni_adapters.behavior_memory import BehaviorMemory
 from qwen_omni_adapters.context import (
     configured_tool_families,
     context_text,
@@ -5435,6 +5436,10 @@ class BackgroundAgent:
         self._quiesced_tasks: set[str] = set()
         self.owner = f"voice-agent-{secrets.token_hex(8)}"
         self._portal_session_seed = portal_session_id or secrets.token_urlsafe(24)
+        self.behaviors = BehaviorMemory(self.store.path.parent / "behavior-memory.sqlite3",
+            owner_session=hashlib.sha256(b"omni-voice-session\0" + token.encode()).hexdigest(),
+            episodic_root=(self.store.path.parent / "episodic-memory"
+                if os.environ.get("OMNI_EPISODIC_MEMORY", "1").lower() not in {"0", "false", "off", "no"} else None))
         self._active_portal_session = ""
         self.active = threading.Event()
         self._wake = threading.Event()
@@ -5591,7 +5596,7 @@ class BackgroundAgent:
                     require_contract=self.manage_execute_audit,
                 )
             )
-            return self.store.record_action(
+            recorded = self.store.record_action(
                 task_id,
                 self.owner,
                 call_id=call_id,
@@ -5604,6 +5609,12 @@ class BackgroundAgent:
                 audit_report=audit_report,
                 recorded_at=0 if historical else None,
             )
+            if recorded is not None and not historical:
+                try:
+                    self.behaviors.observe_task(self._portal_session_seed, recorded)
+                except Exception as error:
+                    logger.warning("behavior evidence indexing deferred: %s", type(error).__name__)
+            return recorded
         except Exception as error:  # noqa: BLE001 - auditing must not stop the task
             logger.warning("could not audit background tool call %s: %s", name, error)
             return None

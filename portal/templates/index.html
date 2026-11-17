@@ -12,7 +12,7 @@
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/assets/portal.css?v=20261001-camera-sources">
-  {% if observatory_surface %}<link rel="stylesheet" href="/assets/observatory-chat.css?v=20261116-windowed">{% endif %}
+  {% if observatory_surface %}<link rel="stylesheet" href="/assets/observatory-chat.css?v=20261117-controls">{% endif %}
 </head>
 <body{% if observatory_surface %} class="observatory-embedded-chat"{% endif %} data-model="{{ model }}" data-max-upload-mib="{{ max_upload_mib }}" data-session-scope="{{ session_scope }}">
   <main class="app-shell">
@@ -115,7 +115,7 @@
             </button>
           </div>
         </div>
-        <p class="composer-status" id="composer-status">Hold the mic to record</p>
+        <p class="composer-status" id="composer-status" role="status"></p>
       </section>
     </section>
   </main>

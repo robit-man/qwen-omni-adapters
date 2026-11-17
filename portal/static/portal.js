@@ -918,7 +918,7 @@
   }
 
   function setComposerStatus(text, error = false) {
-    elements.composerStatus.textContent = text;
+    elements.composerStatus.textContent = text === "Hold the mic to record" ? "" : text;
     elements.composerStatus.classList.toggle("error", error);
   }
 
