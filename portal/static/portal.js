@@ -430,7 +430,30 @@
     }).catch(() => {});
   }
 
+  // Content-free activity for the embedded Observatory. PCM callbacks establish
+  // capture; an unlocked AudioContext alone says nothing about the microphone.
+  const observedRequests = new Map();
+  function publishObservatoryActivity() {
+    if (window.parent === window) return;
+    const capture = state.call || state.recording;
+    const microphone = Boolean(capture && Date.now() - (capture.lastCaptureAt || 0) < 15000
+      && capture.stream.getAudioTracks().some(track => track.readyState === "live" && track.enabled && !track.muted));
+    const playing = Boolean(state.playbackSource
+      || (state.streamController?.sources.size && state.playbackContext?.state === "running")
+      || (state.playbackElement && !state.playbackElement.paused && !state.playbackElement.ended));
+    window.parent.postMessage({ type: "omni-observatory-activity",
+      stages: [...observedRequests.values()], microphone,
+      hearing: microphone && Boolean(state.call?.vadActive || state.recording), playing,
+    }, location.origin);
+  }
+  window.addEventListener("message", event => {
+    if (event.origin === location.origin && event.source === window.parent
+        && event.data?.type === "omni-observatory-observe") publishObservatoryActivity();
+  });
+  if (window.parent !== window) setInterval(publishObservatoryActivity, 2000);
+
   function reportCallState(call, outcome, turn = null, pcm = null, level = 0) {
+    publishObservatoryActivity();
     reportDiagnostic("client_stream_timing", {
       outcome,
       call_sequence: call.nextSequence,
@@ -1015,6 +1038,7 @@
   function setVadActive(call, active) {
     if (!call) return;
     call.vadActive = Boolean(active);
+    publishObservatoryActivity();
     if (state.call === call) {
       elements.waveform.classList.toggle("vad-active", call.vadActive);
     }
@@ -1829,9 +1853,11 @@
     return new Promise(resolve => {
       source.addEventListener("ended", () => {
         if (state.playbackSource === source) state.playbackSource = null;
+        publishObservatoryActivity();
         resolve(true);
       }, { once: true });
       source.start();
+      publishObservatoryActivity();
     });
   }
 
@@ -1865,14 +1891,17 @@
       state.playbackElement.currentTime = 0;
       state.playbackElement = null;
     }
+    publishObservatoryActivity();
   }
 
   function playHtmlAudio(audio, epoch) {
     if (state.playbackEpoch !== epoch) return Promise.resolve(false);
     state.playbackElement = audio;
     return audio.play().then(() => new Promise(resolve => {
+      publishObservatoryActivity();
       const done = () => {
         if (state.playbackElement === audio) state.playbackElement = null;
+        publishObservatoryActivity();
         resolve(true);
       };
       audio.addEventListener("ended", done, { once: true });
@@ -1958,6 +1987,7 @@
       savePlaybackPrior(callPlayback.learned(controller.pacer));
     }
     controller.resolve(!controller.cancelled);
+    publishObservatoryActivity();
   }
 
   function pendingSeconds(controller) {
@@ -2047,6 +2077,7 @@
       gain.gain.linearRampToValueAtTime(1, startAt + fadeIn);
     }
     source.start(startAt);
+    if (controller.sources.size === 1) publishObservatoryActivity();
     controller.nextTime = startAt + buffer.duration;
     controller.lastGain = gain;
     controller.lastDuration = buffer.duration;
@@ -2151,6 +2182,24 @@
   }
 
   async function streamChat(payload, { signal, onEvent } = {}) {
+    const activityId = Symbol();
+    observedRequests.set(activityId, "queued");
+    publishObservatoryActivity();
+    try {
+      return await streamChatWithRetry(payload, { signal, onEvent: event => {
+        if (event.type === "stage" && ["comprehension", "language", "tts"].includes(event.stage)) {
+          observedRequests.set(activityId, event.stage);
+          publishObservatoryActivity();
+        }
+        if (onEvent) onEvent(event);
+      } });
+    } finally {
+      observedRequests.delete(activityId);
+      publishObservatoryActivity();
+    }
+  }
+
+  async function streamChatWithRetry(payload, { signal, onEvent } = {}) {
     let replayUnsafe = payload.portal_detached_turn === true;
     const observe = event => {
       if (Number.isFinite(Number(event.server_seq))) {
@@ -2577,7 +2626,10 @@
     const sink = context.createGain();
     sink.gain.value = 0;
     const chunks = [];
-    processor.onaudioprocess = event => chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+    processor.onaudioprocess = event => {
+      chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+      if (state.recording) state.recording.lastCaptureAt = Date.now();
+    };
     source.connect(analyser);
     source.connect(processor);
     processor.connect(sink);
@@ -3863,6 +3915,7 @@
     };
     processor.onaudioprocess = event => {
       if (state.call !== call) return;
+      call.lastCaptureAt = Date.now();
       const now = performance.now();
       const samples = new Float32Array(event.inputBuffer.getChannelData(0));
       const level = rms(samples);
@@ -3935,6 +3988,7 @@
     const call = state.call;
     if (!call) return;
     state.call = null;
+    publishObservatoryActivity();
     clearPendingCallFlush(call);
     callQueue.clear(call.pendingAudio);
     for (const controller of call.controllers) controller.abort();

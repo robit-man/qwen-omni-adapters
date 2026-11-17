@@ -83,8 +83,14 @@ is labeled output/synthesis; it is not proof that physical speakers were heard.
 Voice-loop status transitions are a bounded in-memory observation tail, retaining
 the status source's timestamp. Stale state is never highlighted as current.
 
-The state instrument shows listening/hearing/thinking/speaking from fresh
-voice-loop reports, plus actual inference/admission counts and host RAM. Detailed
+The state instrument combines fresh daemon reports with active portal request
+stages across browser chats and calls. The embedded chat also sends content-free,
+same-origin phase notifications so short turns appear immediately between polls.
+Microphone capture requires recent delivered PCM frames; text-chat readiness and
+an unlocked playback context never claim that the microphone is listening.
+Native capture heartbeats preserve the phase-transition timestamp separately.
+Concurrent input, inference and playback can illuminate multiple activity cards.
+The instrument includes actual inference/admission counts and host RAM. Detailed
 state and the work/archive ledger remain available in the expandable section.
 Memory distinguishes durable passive memories, this browser's session memory,
 working context and aggregate host corpus storage. Passive plot points use source

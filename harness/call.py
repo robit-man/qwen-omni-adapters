@@ -1328,6 +1328,7 @@ def run_call_loop(
     *,
     on_state: Callable[[State, str], None] | None = None,
     on_turn: Callable[[TurnResult], None] | None = None,
+    on_capture: Callable[[], None] | None = None,
     frame_grabber: Callable[[], dict[str, Any] | None] | None = None,
     stop: threading.Event | None = None,
 ) -> None:
@@ -1582,9 +1583,15 @@ def run_call_loop(
     try:
         with microphone:
             listening_announced = False
+            capture_reported_at = float("-inf")
             for frame in microphone.frames():
                 if stop.is_set():
                     return
+                # Heartbeat only from delivered PCM, never from PID liveness.
+                captured_at = time.monotonic()
+                if on_capture is not None and captured_at - capture_reported_at >= 5:
+                    on_capture()
+                    capture_reported_at = captured_at
                 if config.evidence_trace is not None:
                     config.evidence_trace("capture_frame", {"samples": frame.copy(), "sample_rate_hz": CAPTURE_RATE_HZ})
                 try:

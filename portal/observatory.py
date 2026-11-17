@@ -219,6 +219,11 @@ def _harness_projection(path: Path) -> dict[str, Any]:
             "source_age_seconds": _file_age(path),
         }
     updated_epoch = raw.get("updated_at")
+    capture_epoch = raw.get("capture_at")
+    try:
+        capture_age = max(0.0, time.time() - float(capture_epoch))
+    except (TypeError, ValueError):
+        capture_age = None
     try:
         age = max(0.0, time.time() - float(updated_epoch))
     except (TypeError, ValueError):
@@ -226,9 +231,11 @@ def _harness_projection(path: Path) -> dict[str, Any]:
     return {
         "available": True,
         "state": _bounded_text(raw.get("state") or "unknown", 32),
-        "updated_at": _iso_from_epoch(updated_epoch),
+        "updated_at": _iso_from_epoch(raw.get("state_changed_at", updated_epoch)),
         "age_seconds": round(age, 1) if age is not None else None,
         "fresh": bool(age is not None and age <= 15),
+        "capture_at": _iso_from_epoch(capture_epoch),
+        "capture_fresh": bool(capture_age is not None and capture_age <= 15),
         "indicator_backend": _bounded_text(raw.get("indicator_backend"), 80),
     }
 
@@ -555,6 +562,7 @@ class ObservatoryReader:
             "live": {
                 "daemon": _daemon_projection(daemon_path),
                 "harness": harness,
+                "activity": dict(diagnostics.get("activity") or {}),
                 "services": dict(services),
                 "requests": dict(requests),
                 "environment": self._environment_snapshot(),

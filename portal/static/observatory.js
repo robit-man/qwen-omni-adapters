@@ -16,6 +16,7 @@
     filter: ["all", "conversation", "tools", "hearing", "llm", "speaking", "vision"].includes(query.get("events")) ? query.get("events") : "all",
     limit: PAGE_SIZE, controller: null, lastSuccessAt: 0,
     agent: null, savingIdentity: false, identityUpdatedAt: 0, window: 60, selectedEventId: null,
+    chatActivity: null, chatObservedAt: 0,
   };
   const pad = (value, width = 2) => String(value).padStart(width, "0");
   const compact = value => new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
@@ -244,13 +245,37 @@
     if (numeric(memory.used_percent)) bars.push(meter("Host memory", Number(memory.used_percent), 100, `${Number(memory.used_percent).toFixed(1)}%${numeric(memory.used_gib) ? ` · ${memory.used_gib} GiB` : ""}`));
     $("weight-budget-bars").replaceChildren(...bars);
   }
-  function renderEventInstrument(snapshot) {
+  function observedActivity(snapshot) {
+    const phases = new Map();
+    const add = (phase, detail) => phases.set(phase, [...(phases.get(phase) || []), detail]);
     const harness = snapshot.live?.harness || {};
-    const current = harness.available && harness.fresh ? harness.state : null;
-    const activity = current ? current.toUpperCase() : "NO LIVE VOICE STATE";
+    if (harness.available && harness.fresh) {
+      const descriptions = { listening: "Daemon waiting for input", hearing: "Daemon detecting input", thinking: "Daemon processing turn", speaking: "Daemon playing reply" };
+      if (descriptions[harness.state]) add(harness.state, descriptions[harness.state]);
+      if (harness.capture_fresh && !["muted", "paused", "offline"].includes(harness.state)) add("listening", "Daemon mic capturing");
+    }
+    const stagePhases = { queued: ["thinking", "Request queued"], comprehension: ["hearing", "Understanding media"], language: ["thinking", "Generating reply"], tts: ["speaking", "Synthesizing reply"] };
+    for (const [stage, number] of Object.entries(snapshot.live?.activity?.stages || {})) {
+      if (Number(number) > 0 && stagePhases[stage]) add(stagePhases[stage][0], `Portal · ${stagePhases[stage][1]}`);
+    }
+    const chat = Date.now() - state.chatObservedAt < 15000 ? state.chatActivity : null;
+    if (chat) {
+      for (const stage of new Set(chat.stages)) {
+        if (stagePhases[stage]) add(stagePhases[stage][0], `Chat · ${stagePhases[stage][1]}`);
+      }
+      if (chat.microphone) add("listening", "Chat mic capturing");
+      if (chat.hearing) add("hearing", "Chat detecting input");
+      if (chat.playing) add("speaking", "Chat playing reply");
+    }
+    return { phases, chat, known: Boolean(chat || (harness.available && harness.fresh) || phases.size) };
+  }
+  function renderEventInstrument(snapshot) {
+    const observed = observedActivity(snapshot);
+    const current = ["speaking", "thinking", "hearing", "listening"].find(phase => observed.phases.has(phase));
+    const activity = current ? current.toUpperCase() : observed.chat ? "CHAT READY" : "NO LIVE ACTIVITY";
     $("activity-label").textContent = activity.replaceAll(" ", "!");
     $("activity-label").setAttribute("aria-label", activity);
-    $("activity-source").textContent = current ? `Voice loop · ${timestamp(harness.updated_at)}` : "Waiting for a fresh voice-loop report";
+    $("activity-source").textContent = current ? observed.phases.get(current).join(" · ") : observed.chat ? "Text chat ready · chat microphone off" : "Waiting for an observed chat or voice activity";
     const now = Date.now();
     const from = now - state.window * 1000;
     const events = (snapshot.timeline || []).filter(item => parsedDate(item.at) && new Date(item.at).getTime() >= from && new Date(item.at).getTime() <= now);
@@ -287,12 +312,13 @@
     if (!events.length) $("raster-selection").textContent = "No events observed in this window. The timeline fills as inputs, inference stages, speech output, and tools arrive.";
   }
   function renderStateInstrument(snapshot) {
-    const harness = snapshot.live?.harness || {};
-    const current = harness.available && harness.fresh ? harness.state : null;
-    const phases = [["listening", "Listening", "Waiting for input"], ["hearing", "Hearing", "Capturing input"], ["thinking", "Thinking", "Processing the turn"], ["speaking", "Speaking", "Playing the reply"]];
-    $("state-flow").replaceChildren(...phases.map(([phase, label, detail]) => {
-      const box = create("div", `state-step frame ${current === phase ? "is-current" : ""}`);
-      box.append(create("span", "field-label", current === phase ? "Current state" : "Voice-loop phase"), create("strong", "d14 lit", label.toUpperCase()), create("span", "muted", current === phase ? detail : current ? "Inactive" : "Unobserved"));
+    const observed = observedActivity(snapshot);
+    const phases = [["listening", "Listening"], ["hearing", "Hearing"], ["thinking", "Thinking"], ["speaking", "Speaking"]];
+    $("state-flow").replaceChildren(...phases.map(([phase, label]) => {
+      const details = observed.phases.get(phase);
+      const idle = phase === "listening" && observed.chat && !observed.chat.microphone ? "Text chat ready · chat mic off" : observed.known ? "Idle" : "Unobserved";
+      const box = create("div", `state-step frame ${details ? "is-current" : ""}`);
+      box.append(create("span", "field-label", details ? "Current activity" : "Activity phase"), create("strong", "d14 lit", label.toUpperCase()), create("span", "muted", details ? details.join(" · ") : idle));
       return box;
     }));
     const queue = snapshot.live?.requests || {};
@@ -302,13 +328,13 @@
     if (numeric(queue.inflight) && numeric(queue.limit)) meters.push(meter("Admission capacity", Number(queue.inflight), Number(queue.limit), `${queue.inflight} / ${queue.limit} admitted`));
     if (numeric(memory.used_percent)) meters.push(meter("Host RAM", Number(memory.used_percent), 100, `${Number(memory.used_percent).toFixed(1)}% used`));
     $("state-meters").replaceChildren(...meters);
-    const transitions = (snapshot.timeline || []).filter(item => item.source === "voice-loop status").slice(0, 8).reverse();
+    const transitions = (snapshot.timeline || []).filter(item => item.source === "voice-loop status" || ["request_received", "inference_stage", "audio_stream_started", "audio_stream_ended", "request_complete"].includes(item.event)).slice(0, 8).reverse();
     $("state-history").replaceChildren(...transitions.map(item => {
       const entry = create("div", "state-history-entry");
       entry.append(create("time", "", timestamp(item.at)), create("span", "", item.label));
       return entry;
     }));
-    if (!transitions.length) $("state-history").append(create("p", "muted", current ? `Observed now: ${current}. State transitions appear here as the voice loop changes.` : "No fresh voice-loop transitions have been observed."));
+    if (!transitions.length) $("state-history").append(create("p", "muted", "Chat and daemon transitions appear here as activity is observed."));
   }
   function renderMemoryInstrument(snapshot) {
     const memory = snapshot.memory || {};
@@ -420,6 +446,7 @@
     facts("live-readout", [
       ["Voice loop", harness.available ? `${harness.state || "unknown"}${harness.fresh ? "" : " · stale"}` : "Unavailable"],
       ["Voice source", timestamp(harness.updated_at)],
+      ["Daemon microphone", harness.capture_fresh && !["muted", "paused", "offline"].includes(harness.state) ? "Capture frames arriving" : harness.state === "muted" ? "Muted" : harness.state === "paused" ? "Paused" : "Capture not recently observed"],
       ["Runtime", daemon.available ? daemon.state || "unknown" : "Unavailable"],
       ["Runtime source", timestamp(daemon.updated_at)],
       ["Services", services.length ? `${services.filter(([, value]) => value?.ok).length} / ${services.length} reachable` : "Unreported"],
@@ -581,12 +608,33 @@
       requestAnimationFrame(drawWires);
     }));
     $("close-chat").addEventListener("click", () => {
+      state.chatActivity = null;
+      state.chatObservedAt = 0;
       $("chat-frame").removeAttribute("src");
       $("observatory-chat").hidden = true;
       $("observatory-workspace").classList.remove("chat-open");
       document.querySelectorAll(".open-chat").forEach(item => item.setAttribute("aria-expanded", "false"));
       document.querySelector(".open-chat").focus();
+      if (state.snapshot) {
+        renderStateInstrument(state.snapshot);
+        renderEventInstrument(state.snapshot);
+      }
       requestAnimationFrame(drawWires);
+    });
+    $("chat-frame").addEventListener("load", () => {
+      $("chat-frame").contentWindow?.postMessage({ type: "omni-observatory-observe" }, location.origin);
+    });
+    window.addEventListener("message", event => {
+      if (event.origin !== location.origin || event.source !== $("chat-frame").contentWindow
+          || $("observatory-chat").hidden || event.data?.type !== "omni-observatory-activity") return;
+      const data = event.data;
+      state.chatActivity = { stages: Array.isArray(data.stages) ? data.stages.slice(0, 16).filter(stage => ["queued", "comprehension", "language", "tts"].includes(stage)) : [],
+        microphone: data.microphone === true, hearing: data.hearing === true, playing: data.playing === true };
+      state.chatObservedAt = Date.now();
+      if (state.snapshot) {
+        renderStateInstrument(state.snapshot);
+        renderEventInstrument(state.snapshot);
+      }
     });
     $("copy-chat-link").addEventListener("click", async () => {
       try {

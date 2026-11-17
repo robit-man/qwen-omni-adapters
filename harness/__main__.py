@@ -154,6 +154,8 @@ def _write_harness_status(
     state: str,
     indicator_backend: str,
     detail: str = "",
+    state_changed_at: float | None = None,
+    capture_at: float | None = None,
 ) -> None:
     """Publish a privacy-bounded liveness record for deployment and support."""
 
@@ -168,6 +170,10 @@ def _write_harness_status(
     }
     if detail:
         value["detail"] = detail[:160]
+    if state_changed_at is not None:
+        value["state_changed_at"] = state_changed_at
+    if capture_at is not None:
+        value["capture_at"] = capture_at
     partial = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     with _STATUS_LOCK:
         partial.write_text(json.dumps(value, indent=2, sort_keys=True), encoding="utf-8")
@@ -600,14 +606,36 @@ def main(argv: list[str] | None = None) -> int:
         indicator_backend=indicator_backend,
     )
 
-    def on_state(state: str, detail: str) -> None:
+    status_lock = threading.Lock()
+    observed_state = "indicator-ready"
+    published_state = observed_state
+    state_changed_at = time.time()
+    capture_at: float | None = None
+
+    def publish_status() -> None:
+        nonlocal published_state, state_changed_at
+        effective_state = "muted" if muted.is_set() else observed_state
+        if effective_state != published_state:
+            state_changed_at = time.time()
+        published_state = effective_state
         _write_harness_status(
-            repo_root,
-            state=state,
-            indicator_backend=indicator_backend,
+            repo_root, state=effective_state, indicator_backend=indicator_backend,
+            state_changed_at=state_changed_at, capture_at=capture_at,
         )
+
+    def on_capture() -> None:
+        nonlocal capture_at
+        with status_lock:
+            capture_at = time.time()
+            publish_status()
+
+    def on_state(state: str, detail: str) -> None:
+        nonlocal observed_state
+        with status_lock:
+            observed_state = state
+            publish_status()
         if indicator is not None:
-            indicator.set_state(state, detail)
+            indicator.set_state("muted" if muted.is_set() else state, detail)
 
     def on_turn(result: TurnResult) -> None:
         if result.error:
@@ -642,10 +670,9 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 run_call_loop(
                     config,
-                    on_state=lambda state, detail: on_state(
-                        "muted" if muted.is_set() else state, detail
-                    ),
+                    on_state=on_state,
                     on_turn=on_turn,
+                    on_capture=on_capture,
                     frame_grabber=guarded_frame,
                     stop=call_stop,
                 )

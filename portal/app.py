@@ -729,6 +729,7 @@ class _DiagnosticSession:
     last_seen_at: str
     events: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=240))
     request_ids: set[str] = field(default_factory=set)
+    active_requests: dict[str, str] = field(default_factory=dict)
     timer: threading.Timer | None = None
 
 
@@ -862,6 +863,14 @@ class _SessionDiagnostics:
     ) -> None:
         item = {"at": self._now_text(), "event": event}
         item.update(_diagnostic_fields(fields))
+        request_id = item.get("request_id")
+        if event == "request_received" and request_id:
+            record.active_requests[request_id] = "queued"
+        elif request_id in record.active_requests:
+            if event == "inference_stage" and item.get("stage") in {"comprehension", "language", "tts"}:
+                record.active_requests[request_id] = item["stage"]
+            elif event == "request_complete":
+                record.active_requests.pop(request_id, None)
         record.events.append(item)
         self._persist_locked(key, record)
 
@@ -888,10 +897,15 @@ class _SessionDiagnostics:
                 for event in record.events
             ]
             active_sessions = len(self._sessions)
+            stages: dict[str, int] = {}
+            for record in self._sessions.values():
+                for stage in record.active_requests.values():
+                    stages[stage] = stages.get(stage, 0) + 1
         events.sort(key=lambda item: str(item.get("at") or ""), reverse=True)
         return {
             "ttl_seconds": self.ttl_s,
             "active_sessions": active_sessions,
+            "activity": {"stages": stages, "source": "portal requests"},
             "events": events[:480],
         }
 

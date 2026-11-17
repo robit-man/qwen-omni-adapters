@@ -11,7 +11,13 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from portal.app import _SessionDiagnostics
-from portal.observatory import OBSERVATORY_SCHEMA, ObservatoryReader, RuntimeModelReader, _timeline
+from portal.observatory import (
+    OBSERVATORY_SCHEMA,
+    ObservatoryReader,
+    RuntimeModelReader,
+    _harness_projection,
+    _timeline,
+)
 
 
 def _memory_store(path: Path) -> None:
@@ -144,6 +150,43 @@ def test_observatory_diagnostic_view_joins_active_sessions_but_remains_redacted(
     assert {item["task"] for item in snapshot["events"]} == {"chat", "transcribe"}
     assert "must not survive" not in json.dumps(snapshot)
     assert "also private" not in json.dumps(snapshot)
+
+
+def test_active_chat_stages_follow_concurrent_request_lifetimes_and_session_clear():
+    diagnostics = _SessionDiagnostics(directory=None, ttl_s=300)
+    diagnostics.begin_request("one", "private-id-one", {"task": "chat"})
+    diagnostics.begin_request("two", "private-id-two", {"task": "chat"})
+    diagnostics.record("one", "inference_stage", {
+        "request_id": "private-id-one", "stage": "language", "content": "private words",
+    }, request_id="private-id-one")
+    activity = diagnostics.observatory_snapshot()["activity"]
+    assert activity == {"source": "portal requests", "stages": {"language": 1, "queued": 1}}
+    assert "private" not in json.dumps(activity)
+    assert not diagnostics.record("two", "request_complete", {
+        "request_id": "private-id-one",
+    }, request_id="private-id-one")
+    diagnostics.record("one", "request_complete", {
+        "request_id": "private-id-one",
+    }, request_id="private-id-one")
+    assert diagnostics.observatory_snapshot()["activity"]["stages"] == {"queued": 1}
+    diagnostics.clear("two")
+    assert diagnostics.observatory_snapshot()["activity"]["stages"] == {}
+    diagnostics.clear("one")
+
+
+def test_microphone_freshness_uses_capture_heartbeat_without_moving_transition_time(tmp_path, monkeypatch):
+    from harness.__main__ import HARNESS_STATUS_FILE, _write_harness_status
+    monkeypatch.setattr(time, "time", lambda: 2000)
+    _write_harness_status(tmp_path, state="listening", indicator_backend="test",
+        state_changed_at=1000, capture_at=1999)
+    status = _harness_projection(tmp_path / HARNESS_STATUS_FILE)
+    assert status["fresh"] and status["capture_fresh"]
+    assert status["updated_at"] != status["capture_at"]
+    transition_at = status["updated_at"]
+    monkeypatch.setattr(time, "time", lambda: 2020)
+    stale = _harness_projection(tmp_path / HARNESS_STATUS_FILE)
+    assert not stale["fresh"] and not stale["capture_fresh"]
+    assert stale["updated_at"] == transition_at
 
 
 def test_worker_inventory_reads_actual_loaded_artifacts_without_starting_models(tmp_path):
