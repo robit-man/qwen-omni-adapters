@@ -100,6 +100,26 @@ rounds. Select a dispatch to inspect its source time, status and retention.
 Counters describe the bounded retained sample, rather than lifetime totals.
 States remains dedicated to voice phases, runtime state and the work ledger.
 
+Each dispatch has an **Arguments & output** disclosure. Its content is fetched
+on demand from `GET /api/observatory/tool-call` using the request, round and
+call IDs. Only the calling cookie can read it. Arguments and outputs live in a
+bounded volatile store, expire with tool inactivity and clear with Trash;
+late results from a cleared request cannot recreate them. Diagnostics retain
+only call IDs, names, rounds and status. Credentials and media bytes are omitted
+from inspection, and large displayed values are explicitly truncated. Nothing
+in the inspector dispatches a tool or treats a return as proof of completion.
+
+States also has horizontal **heard / done / said** source-time rails. Each
+readout connects its exact recorded time to the rail and exposes source identity,
+actor, authority and hash. Typed input, validated transcripts, client-reported
+speech, tool returns and reply text remain distinguishable. A supplied audio
+transcript is labeled generated speech; generated audio has no physical-playback
+claim. The source text endpoint is included only when Observatory requests its
+States activity view, is bounded to 36 records from 15 minutes, and remains
+cookie-scoped. The native owner session can inspect device voice sources; other
+browsers see their own events. No text, tool output or reasoning is added to the
+content-free status journal.
+
 Unit/protocol coverage is in `test_mcp_bridge.py`, `test_desktop_capture.py`,
 `test_peripheral_tools.py`, `test_omni_portal.py` and `test_observatory.py`.
 Local live fixtures separately exercise actual model source consumption,

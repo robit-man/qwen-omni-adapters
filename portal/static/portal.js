@@ -4652,6 +4652,7 @@
     if (state.call) stopCall().catch(showError);
     stopCurrentPlayback();
     clearSessionDiagnostics();
+    if (window.parent !== window) window.parent.postMessage({type:"omni-observatory-session-cleared"}, location.origin);
     state.cacheSuppress = true;
     state.history = [];
     state.serverSequence = 0;

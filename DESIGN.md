@@ -195,3 +195,10 @@ they do not imply that a failure caused a recovery. Present applicability and
 permission stay unverified. Owner contents are private; unknown legacy ownership
 is not reassigned. Embedded chat controls use the same sodium-yellow palette on
 black, including selected and recording states; the idle mic helper is absent.
+
+Dispatch modules expand into private, on-demand argument and output readouts.
+States uses three horizontal source-time rails for heard, done and said text:
+amber polyps retain exact source labels and connect to their actual timeline
+position. Generated speech stays distinct from confirmed playback. Visualization
+surfaces have vertical padding, no horizontal padding and no outer border; the
+individual instrument frames remain. Review chips have a 170px maximum width.

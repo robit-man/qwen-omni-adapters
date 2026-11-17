@@ -209,6 +209,14 @@ class EpisodicMemory:
             return [self._event(row) for identity in identities
                     if (row := self._db.execute("SELECT * FROM event_sources WHERE id=?", (identity,)).fetchone()) is not None]
 
+    def activity(self, since: float, *, limit: int = 36) -> list[dict[str, Any]]:
+        """Bounded, current-window source text for this already authorized store."""
+        with self._lock:
+            rows = self._db.execute("""SELECT * FROM event_sources WHERE occurred_at>=?
+                AND modality IN ('speech','text','tool') ORDER BY occurred_at DESC,id DESC LIMIT ?""",
+                (since, max(1, min(60, int(limit))))).fetchall()
+            return [self._event(row) for row in rows]
+
     def _event(self, row: sqlite3.Row) -> dict[str, Any]:
         return {"event_id": int(row["id"]), "episode": row["episode"], "modality": row["modality"],
                 "authority": row["authority"], "actor": row["actor"], "text": row["text"],

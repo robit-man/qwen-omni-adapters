@@ -286,6 +286,46 @@ class EpisodicMemoryService:
                 "encoding_active": self._active_cancel is not None, "last_encoding_error": self._last_error,
                 "legacy_import_complete": self._legacy_complete}
 
+    def activity(self, session_id: str) -> dict[str, Any]:
+        current = self._scope(self._key(session_id), create=False)
+        result = {"scope": "device owner" if self._key(session_id) == "device-owner" else "this browser",
+            "window_seconds": 900, "limit": 36, "sources": []}
+        if current is None:
+            return result
+        with current.lock:
+            if current.closed:
+                return result
+            for source in current.store.activity(time.time() - 900):
+                provenance = source["provenance"]
+                lane = None
+                if source["modality"] == "speech":
+                    lane = "heard"
+                    label = "Speech transcript" if provenance.get("origin") == "validated_adapter_observation" else "Retained speech" if source["authority"] != "client_report" else "Reported speech"
+                elif source["authority"] == "user_statement" and provenance.get("origin") == "submitted_user_text":
+                    lane, label = "heard", "Typed input"
+                elif source["authority"] == "assistant_generated" and provenance.get("origin") == "completed_language_response":
+                    lane, label = "said", "Generated speech" if provenance.get("spoken_text") else "Reply text"
+                elif source["modality"] == "tool" and provenance.get("origin") == "executed_tool_receipt":
+                    lane, label = "done", "Tool return"
+                if lane is None:
+                    continue
+                text = source["text"]
+                if lane == "done":
+                    try:
+                        receipt = json.loads(text)
+                    except (ValueError, TypeError):
+                        continue
+                    text = f"{receipt.get('tool', source['actor'])} · {'returned' if receipt.get('returned_ok') else 'failed'}"
+                elif lane == "said" and provenance.get("spoken_text"):
+                    text = provenance["spoken_text"]
+                result["sources"].append({"id": str(source["event_id"]), "request_id": source["episode"],
+                    "lane": lane, "label": label, "text": text[:8000], "text_truncated": len(text) > 8000,
+                    "at": source["occurred_at"], "authority": source["authority"], "actor": source["actor"],
+                    "addressee": source["annotations"].get("speech_addressee", provenance.get("speech_addressee", "UNKNOWN")),
+                    "audio_generated": provenance.get("audio_generated") is True,
+                    "playback_verified": False, "source_sha256": source["content_sha256"]})
+        return result
+
     def search(self, session_id: str, query: str, **options: Any) -> dict[str, Any]:
         current = self._scope(self._key(session_id), create=False)
         if current is None:
@@ -702,8 +742,10 @@ class MemoryCapture:
         message = message if isinstance(message, Mapping) else {}
         content = message.get("content")
         if isinstance(content, str) and content.strip() and not message.get("tool_calls"):
+            audio = message.get("audio") if isinstance(message.get("audio"), Mapping) else {}
             self._record("assistant-response", "text", "assistant_generated", "agent", content,
                 {"origin": "completed_language_response", "audio_generated": bool(adapter.get("speech_synthesized")),
+                    "spoken_text": str(audio.get("transcript") or "")[:24000],
                     "physical_playback_unverified": True, "conversation_eligible": self._has_user_text}, at=time.time())
         if self.service is not None:
             addressee = str(adapter.get("speech_addressee") or "UNKNOWN").upper()

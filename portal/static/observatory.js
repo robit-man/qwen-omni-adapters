@@ -100,6 +100,7 @@
     updateTitle();
     if (moveFocus) $(`tab-${tab}`).focus({ preventScroll: true });
     updateUrl();
+    if (tab === "states" && state.snapshot) refresh();
     requestAnimationFrame(drawWires);
   }
 
@@ -312,6 +313,7 @@
     if (!events.length) $("raster-selection").textContent = "No events observed in this window. The timeline fills as inputs, inference stages, speech output, and tools arrive.";
   }
   function renderStateInstrument(snapshot) {
+    window.OmniStateSignals?.render(snapshot.activity_sources);
     const observed = observedActivity(snapshot);
     const phases = [["listening", "Listening"], ["hearing", "Hearing"], ["thinking", "Thinking"], ["speaking", "Speaking"]];
     $("state-flow").replaceChildren(...phases.map(([phase, label]) => {
@@ -397,7 +399,7 @@
   }
 
   function renderStates(snapshot) {
-    window.OmniToolActivity?.render(snapshot);
+    window.OmniToolActivity?.render(snapshot, state.token);
     window.OmniTaskPlan?.render(snapshot);
     window.OmniMCPConnections?.render(snapshot, state.token);
     const live = snapshot.live || {};
@@ -469,7 +471,7 @@
     const deadline = setTimeout(() => controller.abort(), 25_000);
     const startedAt = Date.now();
     try {
-      const response = await fetch("/api/observatory", { headers: { Authorization: `Bearer ${state.token}` }, signal: controller.signal, cache: "no-store" });
+      const response = await fetch("/api/observatory" + (state.tab === "states" ? "?activity=1" : ""), { headers: { Authorization: `Bearer ${state.token}` }, signal: controller.signal, cache: "no-store" });
       if (response.status === 401 || response.status === 403) throw new Error("Access expired or was denied. Return to chat and reopen the Observatory with the current access link.");
       if (!response.ok) throw new Error(`Runtime returned HTTP ${response.status}. Try refreshing again.`);
       const snapshot = await response.json();
@@ -563,7 +565,13 @@
     });
     window.addEventListener("message", event => {
       if (event.origin !== location.origin || event.source !== $("chat-frame").contentWindow
-          || $("observatory-chat").hidden || event.data?.type !== "omni-observatory-activity") return;
+          || $("observatory-chat").hidden) return;
+      if (event.data?.type === "omni-observatory-session-cleared") {
+        window.OmniToolActivity?.clear();
+        window.OmniStateSignals?.clear();
+        return;
+      }
+      if (event.data?.type !== "omni-observatory-activity") return;
       const data = event.data;
       state.chatActivity = { stages: Array.isArray(data.stages) ? data.stages.slice(0, 16).filter(stage => ["queued", "comprehension", "language", "tts"].includes(stage)) : [],
         microphone: data.microphone === true, hearing: data.hearing === true, playing: data.playing === true };

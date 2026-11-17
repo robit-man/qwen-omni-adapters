@@ -79,6 +79,7 @@ try:
     from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
     from portal.observatory import ObservatoryReader, RuntimeModelReader
     from portal.session_state import SessionContinuationStore
+    from portal.tool_traces import SessionToolTraces
     from portal.tools import (
         DISCOVERY_TOOLS,
         SAFE_TOOLS,
@@ -109,6 +110,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from native_ui import native_task_scope_sha256, normalize_native_task_scope
     from observatory import ObservatoryReader, RuntimeModelReader
     from session_state import SessionContinuationStore
+    from tool_traces import SessionToolTraces
     from tools import (
         DISCOVERY_TOOLS,
         SAFE_TOOLS,
@@ -213,6 +215,7 @@ DIAGNOSTIC_STRING_FIELDS = {
     "task",
     "outcome",
     "tool_name",
+    "tool_call_id",
     "media_id",
     "decision_wave",
     "decision_id",
@@ -2184,10 +2187,14 @@ def _record_tool_diagnostics(
     round_index: int,
     phase: str,
     items: list[Mapping[str, Any]],
+    *, details_store: SessionToolTraces | None = None,
 ) -> None:
     """Record tool name/status only; arguments and results remain outside diagnostics."""
 
-    for item in items:
+    normalized = _tool_start_trace(items) if phase == "started" else _tool_trace(items)
+    if details_store is not None:
+        details_store.record(session_id, request_id, round_index, normalized)
+    for index, item in enumerate(items):
         if phase == "started":
             function = item.get("function")
             name = (
@@ -2199,6 +2206,7 @@ def _record_tool_diagnostics(
                 "request_id": request_id,
                 "tool_name": name,
                 "tool_round": round_index,
+                "tool_call_id": normalized[index]["id"],
             }
         else:
             fields = {
@@ -2206,6 +2214,7 @@ def _record_tool_diagnostics(
                 "tool_name": str(item.get("name") or "unknown"),
                 "tool_round": round_index,
                 "tool_ok": item.get("ok") is True,
+                "tool_call_id": normalized[index]["id"],
             }
         diagnostics.record(
             session_id,
@@ -2312,6 +2321,8 @@ def create_app(
         directory=runtime.session_log_dir,
         ttl_s=runtime.session_log_ttl_s,
     )
+    tool_traces = SessionToolTraces(ttl_s=runtime.session_log_ttl_s, redactions=(runtime.access_token,))
+    app.extensions["tool_traces"] = tool_traces
     documents = SessionDocumentStore(ttl_s=runtime.session_log_ttl_s)
     repository_root = Path(os.environ.get("OMNI_REPO_ROOT") or ".").expanduser()
     default_delivery_roots = (
@@ -3655,6 +3666,8 @@ def create_app(
             requests=inference_queue.snapshot(),
         )
         snapshot["memory"]["episodic"] = episodic_memory.snapshot(session_id) if episodic_memory else {"enabled": False}
+        if request.args.get("activity") == "1":
+            snapshot["activity_sources"] = episodic_memory.activity(session_id) if episodic_memory else {"sources": [], "scope": "this browser", "available": False}
         snapshot["memory"]["behaviors"] = {"session": behaviors.view(session_id),
             "device": behaviors.view(tool_harness.conversation_history_owner,
                 include_content=session_id == tool_harness.conversation_history_owner)}
@@ -3662,6 +3675,20 @@ def create_app(
         snapshot["agent"] = runtime_agent_identity()
         snapshot["weights"] = observatory_models.snapshot()
         return jsonify(snapshot)
+
+    @app.get("/api/observatory/tool-call")
+    def observatory_tool_call():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        try:
+            round_index = int(request.args.get("round", "0"))
+        except ValueError:
+            return jsonify({"error": "Provide a tool round"}), 400
+        value = tool_traces.get(request_session_id(), request.args.get("request_id", "")[:128],
+            round_index, request.args.get("call_id", "")[:80])
+        if value is None:
+            return jsonify({"error": "No retained call details in this session; they may have expired"}), 404
+        return jsonify(value)
 
     @app.route("/api/agent-identity", methods=["GET", "PUT"])
     def agent_identity():
@@ -3755,6 +3782,7 @@ def create_app(
         session_id = request_session_id()
         if request.method == "DELETE":
             diagnostics.clear(session_id)
+            tool_traces.clear(session_id)
             documents.clear(session_id)
             if episodic_memory is not None:
                 episodic_memory.clear(session_id)
@@ -3918,6 +3946,7 @@ def create_app(
         ticket: _InferenceTicket | None = None
         session_id = request_session_id()
         request_id = secrets.token_urlsafe(9)
+        tool_traces.begin(session_id, request_id)
         started = time.monotonic()
         request_logged = False
         outcome_status = 500
@@ -4146,6 +4175,7 @@ def create_app(
                         round_index,
                         "started",
                         calls,
+                        details_store=tool_traces,
                     )
                 followup, round_tools, _made_progress = _tool_followup(
                     current_payload,
@@ -4198,6 +4228,7 @@ def create_app(
                     round_index,
                     "completed",
                     round_tools,
+                    details_store=tool_traces,
                 )
                 current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
                 _repacked, repack_summary = safe_repack_virtual_followup(
@@ -4233,6 +4264,7 @@ def create_app(
         finally:
             if ticket is not None:
                 inference_queue.release(ticket)
+            tool_traces.finish(session_id, request_id)
             if request_logged:
                 diagnostics.record(
                     session_id,
@@ -4415,8 +4447,10 @@ def create_app(
         except PortalRequestError as exc:
             return jsonify({"error": str(exc)}), 400
         queue_started = time.monotonic()
+        tool_traces.begin(session_id, request_id)
         ticket = inference_queue.acquire(session_id, runtime.timeout_s)
         if ticket is None:
+            tool_traces.finish(session_id, request_id)
             if continuation_enabled:
                 continuations.event(
                     session_id,
@@ -4461,11 +4495,14 @@ def create_app(
                     yield (json.dumps({"type": "error", "error": str(exc)[:500]}) + "\n").encode()
                 finally:
                     inference_queue.release(ticket)
+                    tool_traces.finish(session_id, request_id)
                     diagnostics.record(session_id, "request_complete", {
                         "request_id": request_id, "status": final_status,
                         "total_ms": (time.monotonic() - started) * 1000}, request_id=request_id)
-            return Response(stream_with_context(relay_native_task()), mimetype="application/x-ndjson",
-                            headers={"X-Omni-Request-ID": request_id, "Cache-Control": "no-store"})
+            response = Response(stream_with_context(relay_native_task()), mimetype="application/x-ndjson",
+                headers={"X-Omni-Request-ID": request_id, "Cache-Control": "no-store"})
+            response.call_on_close(lambda: tool_traces.finish(session_id, request_id))
+            return response
 
         try:
             upstream_request = session.build_request(
@@ -4484,6 +4521,7 @@ def create_app(
             )
         except httpx.HTTPError as exc:
             inference_queue.release(ticket)
+            tool_traces.finish(session_id, request_id)
             if continuation_enabled:
                 continuations.event(
                     session_id,
@@ -4711,6 +4749,7 @@ def create_app(
                                 round_index,
                                 "started",
                                 calls,
+                                details_store=tool_traces,
                             )
                             yield event_bytes(
                                 {
@@ -4784,6 +4823,7 @@ def create_app(
                             round_index,
                             "completed",
                             round_tools,
+                            details_store=tool_traces,
                         )
                         yield event_bytes(
                             {
@@ -4829,6 +4869,7 @@ def create_app(
             finally:
                 current_upstream.close()
                 inference_queue.release(ticket)
+                tool_traces.finish(session_id, request_id)
                 diagnostics.record(
                     session_id,
                     "request_complete",
@@ -4873,7 +4914,7 @@ def create_app(
         else:
             response_iterable = stream_with_context(relay())
 
-        return Response(
+        response = Response(
             response_iterable,
             status=upstream.status_code,
             content_type=upstream.headers.get(
@@ -4889,6 +4930,9 @@ def create_app(
                 ),
             },
         )
+        if not continuation_enabled:
+            response.call_on_close(lambda: tool_traces.finish(session_id, request_id))
+        return response
 
     return app
 

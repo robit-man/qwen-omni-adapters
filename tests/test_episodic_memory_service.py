@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from portal.app import _InferenceQueue
-from portal.episodic_memory import AdapterMemoryEncoder, EpisodicMemoryService
+from portal.episodic_memory import AdapterMemoryEncoder, EpisodicMemoryService, MemoryCapture
 
 
 def service(root, **overrides):
@@ -18,6 +18,39 @@ def service(root, **overrides):
 def capture(memory, session, text, *, generation=None):
     return memory.capture(session, generation=memory.generation(session) if generation is None else generation,
         episode="episode", key=text[:20], modality="text", authority="user_statement", actor="user", text=text)
+
+
+def test_states_activity_preserves_transcript_attribution_tool_outcomes_and_generated_speech(tmp_path):
+    memory = service(tmp_path)
+    turn = MemoryCapture(memory, "one", "request-one", user_text="Typed input", live_turn=True)
+    turn.observation({"transcript": "heard exact words", "speech_addressee": "OTHER",
+        "evidence_provenance": {"current_media_modalities": ["audio"], "current_visual_input": False}})
+    turn.tool("mcp_call", {"ok": False}, ok=False)
+    turn.response({"message": {"content": "Reply with formatting", "thinking": "hidden reasoning marker",
+        "audio": {"transcript": "Exact synthesized words"}},
+        "adapter": {"speech_synthesized": True, "speech_addressee": "OTHER"}})
+    capture(memory, "owner", "private owner marker")
+    capture(memory, "two", "other browser marker")
+    activity = memory.activity("one")
+    assert {item["lane"] for item in activity["sources"]} == {"heard", "done", "said"}
+    speech = next(item for item in activity["sources"] if item["text"] == "heard exact words")
+    assert speech["actor"].startswith("speaker:") and speech["addressee"] == "OTHER"
+    assert any(item["text"] == "mcp_call · failed" for item in activity["sources"])
+    reply = next(item for item in activity["sources"] if item["lane"] == "said")
+    assert reply["text"] == "Exact synthesized words" and reply["audio_generated"] is True
+    assert reply["playback_verified"] is False
+    assert all(marker not in json.dumps(activity) for marker in ["hidden reasoning marker", "private owner marker", "other browser marker"])
+    memory.clear("one")
+    assert memory.activity("one")["sources"] == []
+    memory.close()
+
+
+def test_reported_speech_cannot_masquerade_as_validated_transcript(tmp_path):
+    memory = service(tmp_path)
+    memory.capture("one", generation=0, episode="report", key="report", modality="speech", authority="client_report",
+        actor="client", text="reported words", provenance={"origin": "client_event"})
+    assert memory.activity("one")["sources"][0]["label"] == "Reported speech"
+    memory.close()
 
 
 def test_foreground_cancels_optional_encoding_even_at_full_admission_capacity():
