@@ -240,13 +240,14 @@ def _harness_projection(path: Path) -> dict[str, Any]:
     }
 
 
-def _passive_memory_projection(path: Path, *, limit: int = 24) -> dict[str, Any]:
+def _passive_memory_projection(path: Path, *, limit: int = 24, include_content: bool = False) -> dict[str, Any]:
     base: dict[str, Any] = {
         "available": False,
         "scope": "durable_host",
         "entries": 0,
         "recent": [],
         "kinds": {},
+        "content_available": include_content,
     }
     if not path.is_file():
         return {**base, "reason": "memory store not present"}
@@ -299,8 +300,67 @@ def _passive_memory_projection(path: Path, *, limit: int = 24) -> dict[str, Any]
                 "uses": int(row["uses"] or 0),
                 "strength": round(float(row["strength"] or 0.0), 3),
             }
-            for row in recent_rows
+            for row in recent_rows if include_content
         ],
+    }
+
+
+def _durable_memory_projection(path: Path) -> dict[str, Any]:
+    """Aggregate source/index structure without exposing the owner voice archive."""
+
+    base: dict[str, Any] = {"available": False, "scope": "device_aggregate"}
+    if not path.is_file():
+        return {**base, "reason": "Source archive not present"}
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True, timeout=0.1)
+        connection.row_factory = sqlite3.Row
+        connection.execute("BEGIN")
+        counts = connection.execute(
+            "SELECT COUNT(*) AS events, SUM(vector IS NOT NULL) AS indexed, "
+            "MIN(occurred_at) AS oldest, MAX(occurred_at) AS newest FROM history_events"
+        ).fetchone()
+        kinds = connection.execute(
+            "SELECT kind, COUNT(*) AS total FROM history_events GROUP BY kind ORDER BY total DESC LIMIT 16"
+        ).fetchall()
+        windows = connection.execute(
+            "SELECT COUNT(*) AS total, SUM(dirty != 0) AS pending FROM history_buckets"
+        ).fetchone()
+        recent = connection.execute(
+            "SELECT bucket, start, end, dirty, substr(source_ids,1,65537) AS source_ids "
+            "FROM history_buckets ORDER BY start DESC LIMIT 16"
+        ).fetchall()
+        links = connection.execute(
+            "SELECT l.memory_id, COUNT(*) AS sources FROM history_links l "
+            "JOIN history_events e ON e.id=l.event_id JOIN memories m ON m.id=l.memory_id "
+            "GROUP BY l.memory_id ORDER BY sources DESC LIMIT 64"
+        ).fetchall()
+    except (OSError, sqlite3.DatabaseError):
+        return {**base, "reason": "Source archive unavailable"}
+    finally:
+        if connection is not None:
+            connection.close()
+    temporal = []
+    for row in recent:
+        try:
+            members = json.loads(row["source_ids"] or "null")
+        except (TypeError, ValueError):
+            members = None
+        temporal.append({
+            "unit": _bounded_text(str(row["bucket"]).split(":", 1)[0], 16),
+            "start_at": _iso_from_epoch(row["start"]), "end_at": _iso_from_epoch(row["end"]),
+            "pending": bool(row["dirty"]),
+            "sources": len(members) if isinstance(members, list) else None,
+        })
+    events, indexed = int(counts["events"] or 0), int(counts["indexed"] or 0)
+    return {
+        **base, "available": True, "events": events, "indexed_events": indexed,
+        "unindexed_events": events - indexed,
+        "oldest_at": _iso_from_epoch(counts["oldest"]), "newest_at": _iso_from_epoch(counts["newest"]),
+        "kinds": {_bounded_text(row["kind"], 48): int(row["total"]) for row in kinds},
+        "windows": int(windows["total"] or 0), "pending_windows": int(windows["pending"] or 0),
+        "recent_windows": temporal,
+        "cluster_sources": [{"memory_id": int(row["memory_id"]), "sources": int(row["sources"])} for row in links],
     }
 
 
@@ -522,11 +582,13 @@ class ObservatoryReader:
         location: Mapping[str, Any],
         services: Mapping[str, Any],
         requests: Mapping[str, Any],
+        conversation: Mapping[str, Any] | None = None,
+        owner_authorized: bool = False,
     ) -> dict[str, Any]:
         daemon_path = self.state_root / "daemon-status.json"
         harness_path = self.state_root / "harness-status.json"
         archive_path = self.state_root / "background-task-archive.log"
-        memory = _passive_memory_projection(self.memory_path)
+        memory = _passive_memory_projection(self.memory_path, include_content=owner_authorized)
         archive = _archive_projection(archive_path)
         task_list = [dict(item) for item in tasks if isinstance(item, Mapping)]
         live_tasks = [
@@ -569,7 +631,9 @@ class ObservatoryReader:
             },
             "memory": {
                 "passive": memory,
+                "durable": _durable_memory_projection(self.memory_path),
                 "session": dict(session_memory),
+                "conversation": dict(conversation or {}),
                 "virtual_context": dict(virtual_context),
                 "virtual_storage": _virtual_storage_projection(self.virtual_context_root),
             },

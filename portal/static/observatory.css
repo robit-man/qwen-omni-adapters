@@ -122,13 +122,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex="0"]:foc
 .archive-item { display: grid; grid-template-columns: 100px 1fr 150px; gap: 16px; border-bottom: 1px solid var(--lcd-rule); padding: 12px 0; }
 .archive-item p { margin: 0; overflow-wrap: anywhere; }
 .archive-item time { color: var(--lcd-muted); font-size: 17px; }
-.memory-strength { display: grid; grid-template-columns: 180px minmax(0, 1fr) 60px; gap: 16px; align-items: center; margin: 26px 0; color: var(--lcd-muted); font-size: 18px; }
-.memory-strength .t { position: relative; height: 14px; border: 1px solid var(--lcd); }
-.memory-strength .f { position: absolute; top: 2px; bottom: 2px; left: 2px; width: 0; background: repeating-linear-gradient(-45deg, var(--lcd) 0 2px, transparent 2px 6px); }
-.memory-strength strong { color: var(--lcd); font-weight: 400; text-align: right; }
-.memory-item { padding: 16px 0; border-bottom: 1px solid var(--lcd-rule); }
-.memory-item p { max-width: 80ch; margin: 0 0 8px; overflow-wrap: anywhere; }
-.memory-vitals { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 17px; color: var(--lcd-muted); }
 .panel-empty { padding: 22px 0; color: var(--lcd-muted); }
 .observatory-error { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 0; border-bottom: 1px solid currentColor; }
 .observatory-error strong { font-weight: 400; font-size: 24px; }
@@ -214,11 +207,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex="0"]:foc
 .store-readout { display: grid; gap: 20px; padding: 26px; }
 .store-readout strong { font-size: clamp(24px, 3.5vw, 60px); line-height: 1.2; overflow-wrap: anywhere; }
 .store-readout .store-status { font: 22px/1.2 var(--label); }
-.memory-plot-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; }
-.memory-plot { position: relative; height: clamp(220px, 32vh, 380px); border: 1px solid var(--lcd-rule); background: repeating-linear-gradient(0deg, transparent 0 calc(25% - 1px), var(--lcd-rule) calc(25% - 1px) 25%), repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--lcd-rule) calc(10% - 1px) 10%); }
-.memory-point { position: absolute; width: 24px; height: 24px; padding: 0; background: transparent; border: 0; color: var(--lcd); cursor: pointer; transform: translate(-50%, 50%); }
-.memory-point::after { content: ""; position: absolute; inset: 7px; border: 1px solid currentColor; background: currentColor; box-shadow: var(--bloom); }
-.memory-point:hover::after, .memory-point:focus-visible::after { inset: 3px; }
 .plot-axis-label { position: absolute; padding: 2px 6px; color: var(--lcd-muted); background: var(--lcd-bg); font-size: 16px; pointer-events: none; }
 .plot-axis-label.top { top: 5px; left: 5px; }
 .plot-axis-label.bottom { bottom: 5px; left: 5px; }
@@ -276,8 +264,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex="0"]:foc
   .service-table td, .service-table th { padding-right: 8px; }
   .timeline-item, .archive-item { grid-template-columns: 1fr; gap: 4px; }
   .timeline-source { grid-column: 1; }
-  .memory-strength { grid-template-columns: 1fr 60px; gap: 8px; }
-  .memory-strength > span { grid-column: 1 / -1; }
   .observatory-error { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
@@ -322,10 +308,9 @@ html { height: 100%; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
 .events-visual .scope-note { margin-top: 12px; }
 .states-visual { align-content: start; gap: 28px; }
 .state-step { padding-block: 20px; gap: 14px; }
-.memory-visual { gap: 18px; display: flex; flex-direction: column; }
+.memory-visual { gap: 18px; display: flex; flex-direction: column; container-type: inline-size; }
 .store-readout { padding: 18px; gap: 12px; }
 .store-readout strong { font-size: clamp(22px, 3vw, 46px); }
-.memory-plot { flex: 1 0 150px; height: auto; min-height: 150px; }
 .memory-visual .scope-note { margin: 0; }
 .review-details { flex: 0 0 auto; min-height: 0; margin-bottom: 8px; border: 1px solid var(--lcd-rule); }
 .review-details > summary { padding: 10px 14px; color: var(--lcd-muted); cursor: pointer; font-size: 18px; }
@@ -382,9 +367,6 @@ html { height: 100%; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
   .store-readout { padding: 14px 8px; gap: 10px; }
   .store-readout .field-label, .store-readout .muted { font-size: 14px; }
   .store-readout strong { font-size: clamp(16px, 4.5vw, 25px); }
-  .memory-plot { min-height: 140px; flex-basis: 140px; }
-  .memory-plot-heading { font-size: 17px; }
-  .memory-plot-heading .muted { font-size: 15px; }
   .scope-note { font-size: 15px; }
   .review-details > summary { padding: 8px 10px; font-size: 16px; }
   .detail-scroll { max-height: 30dvh; padding-inline: 10px; }
@@ -430,4 +412,54 @@ html { height: 100%; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
 @media (forced-colors: active) {
   .lcd-render-surface, .lcd-render-fallback::after, .observatory-page::before { display: none; }
   .observatory-shell { animation: none; }
+}
+.memory-scope-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.memory-scope-controls > span { flex: 1 1 240px; text-align: right; font-size: 17px; }
+.memory-visual .store-readouts { gap: 24px; }
+.memory-visual .store-readout { padding: 12px 0; border-bottom: 1px solid var(--lcd-rule); gap: 10px; }
+.memory-workbench { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(230px, .8fr); flex: 1 0 350px; gap: 24px; min-height: 350px; }
+.memory-map { display: flex; flex-direction: column; min-width: 0; }
+.memory-map-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 18px; }
+.memory-map-heading h3, .memory-inspector h3 { margin: 0; font-size: 24px; font-weight: 400; }
+.memory-map-heading > span { font-size: 16px; }
+.memory-graph { position: relative; display: grid; flex: 1 0 auto; min-height: 300px; align-items: center; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 32px; padding: 8px 0; container-type: inline-size; }
+.memory-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.memory-links path { fill: none; stroke: var(--lcd-rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.memory-links path.is-selected { stroke: var(--lcd); filter: drop-shadow(0 0 2px var(--lcd)); }
+.memory-graph-node { min-width: 0; width: 100%; min-height: 112px; padding: 14px 10px; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; align-items: start; text-align: left; cursor: pointer; background: var(--black, #000); color: var(--lcd-muted); box-shadow: none; border-color: var(--lcd-rule); }
+.memory-graph-node:hover, .memory-graph-node[aria-pressed="true"] { color: var(--lcd); border-color: var(--lcd); background: #0c0800; }
+.memory-graph-node[aria-pressed="true"] .memory-node-name { text-decoration: underline; text-underline-offset: 4px; }
+.memory-node-name { font: 19px/1.1 var(--label); overflow-wrap: anywhere; }
+.memory-graph-node strong { font-size: clamp(20px, 5cqi, 38px); font-weight: 400; line-height: 1.15; max-width: 100%; overflow-wrap: anywhere; }
+.memory-graph-node .muted { font-size: 15px; line-height: 1.1; }
+.memory-graph-node .memory-node-unavailable { font-family: var(--label); }
+.memory-map-key { padding-top: 18px; font-size: 16px; }
+.memory-inspector { min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--lcd-rule); }
+.memory-inspector > summary { padding: 12px 14px; font-size: 18px; color: var(--lcd-muted); cursor: pointer; }
+.memory-inspector-scroll { padding: 8px 16px 18px; overflow: auto; max-height: max(300px, 49dvh); overscroll-behavior: contain; scrollbar-gutter: stable; }
+.memory-inspector .facts { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 20px 0; }
+.memory-inspector .facts > div { min-width: 0; display: grid; gap: 5px; }
+.memory-inspector .facts dt { font-size: 15px; }
+.memory-inspector .facts dd { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.memory-inspector h4 { margin: 22px 0 10px; font-size: 18px; font-weight: 400; }
+.memory-edge-list, .memory-node-records { list-style: none; margin: 0; padding: 0; }
+.memory-edge-list { display: grid; gap: 10px; font-size: 16px; overflow-wrap: anywhere; }
+.memory-node-records { margin-top: 20px; }
+.memory-record { padding: 16px 0; border-top: 1px solid var(--lcd-rule); }
+.memory-record strong { font-size: 17px; font-weight: 400; }
+.memory-record p { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; white-space: pre-wrap; margin: 10px 0; }
+.memory-record > span { font-size: 15px; }
+.memory-guide p { max-width: 80ch; font-size: 18px; line-height: 1.35; }
+@container (max-width: 900px) {
+  .memory-workbench { grid-template-columns: minmax(0, 1fr); }
+  .memory-inspector-scroll { max-height: 280px; }
+}
+@media (max-width: 600px) {
+  .memory-scope-controls > span { text-align: left; font-size: 15px; }
+  .memory-visual .store-readouts { gap: 14px; }
+  .memory-visual .store-readout .muted { font-size: 14px; }
+  .memory-workbench { gap: 18px; }
+  .memory-graph { gap: 24px 22px; }
+  .memory-graph-node { padding: 12px; gap: 10px; }
+  .memory-node-name { font-size: 18px; }
 }

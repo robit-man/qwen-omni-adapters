@@ -1093,6 +1093,23 @@ class SessionMemoryStore:
             }
 
 
+    def inspection(self, session_id: str) -> dict[str, Any]:
+        """Bounded notes for this cookie; never joins another session's memory."""
+        now = time.monotonic()
+        with self._lock:
+            self._expire_locked(now)
+            session = self._sessions.get(_session_key(session_id))
+            entries = list(session.entries.values()) if session is not None else []
+            if session is not None:
+                session.last_seen = now
+            return {
+                "entries": len(entries), "chars": sum(len(item.value) for item in entries),
+                "scope": "browser_session", "ttl_seconds": self.ttl_s,
+                "recent": [{"topic": item.topic, "key": item.key, "value": item.value[:1000],
+                    "saved_at": item.saved_at} for item in sorted(entries, key=lambda item: item.saved_at, reverse=True)[:16]],
+            }
+
+
 def _default_resolver(hostname: str) -> list[str]:
     return sorted(
         {
@@ -2396,6 +2413,7 @@ class PortalToolHarness:
         self.terminals = TerminalStore()
         self.conversation_history_path = conversation_history_path
         self.conversation_history_owner = conversation_history_owner
+        self.episodic_memory = None
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
         self.web = WebToolSuite(
             ttl_s=ttl_s,
@@ -2465,6 +2483,9 @@ class PortalToolHarness:
     def memory_stats(self, session_id: str) -> dict[str, int]:
         return self.memory.stats(session_id)
 
+    def memory_snapshot(self, session_id: str) -> dict[str, Any]:
+        return self.memory.inspection(session_id)
+
     def web_stats(self, session_id: str) -> dict[str, int]:
         return self.web.stats(session_id)
 
@@ -2497,6 +2518,7 @@ class PortalToolHarness:
         session_id: str,
         name: str,
         arguments: Mapping[str, Any],
+        *, memory_episode: str | None = None,
     ) -> dict[str, Any]:
         try:
             # Resource admission is declarative tool metadata, not a growing
@@ -2666,6 +2688,26 @@ class PortalToolHarness:
                 )
             elif name == "ocr_pdf":
                 result = self.documents.ocr_pdf(session_id, arguments.get("document_id"), arguments.get("language"), _bounded_integer(arguments.get("max_pages"), default=20, minimum=1, maximum=50), arguments.get("force") is True)
+            elif name == "episodic_search":
+                if self.episodic_memory is None:
+                    raise ToolInputError("Episodic memory is disabled")
+                from harness.history import time_window
+                window = time_window(arguments.get("period", "all"), zone=arguments.get("timezone"),
+                    start_at=arguments.get("start_at"), end_at=arguments.get("end_at"))
+                query = str(arguments.get("query") or "").strip()
+                if len(query) > 500:
+                    raise ToolInputError("query exceeds 500 characters")
+                modalities = arguments.get("modalities", [])
+                if not isinstance(modalities, list) or len(modalities) > 9:
+                    raise ToolInputError("modalities must be a bounded array")
+                plan = arguments.get("after_retrieval", "continue")
+                kind = arguments.get("kind", "conversation")
+                if plan not in {"answer", "continue"} or kind not in {"conversation", "all"}:
+                    raise ToolInputError("invalid retrieval plan or kind")
+                result = self.episodic_memory.search(session_id, query, start=window["start"], end=window["end"],
+                    modalities=modalities, conversation_only=kind == "conversation", exclude_episode=memory_episode,
+                    limit=_bounded_integer(arguments.get("max_results"), default=6, minimum=1, maximum=12))
+                result.update(window=window, after_retrieval=plan, trust="untrusted_historical_evidence")
             elif name == "conversation_search":
                 if not self.can_read_conversation_history(session_id):
                     raise ToolInputError("Voice archive is available only to its local device-owner session")

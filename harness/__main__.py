@@ -36,6 +36,7 @@ from harness.residency import (
 from harness.respeaker import find_source
 from harness.update import RepositoryUpdateManager
 from portal.background_tasks import BackgroundTaskStore
+from qwen_omni_adapters.accelerator import accelerator_profile
 from qwen_omni_adapters.service_control import VoiceServiceControl
 from qwen_omni_adapters.voice_profiles import IndicatorVoiceManager
 
@@ -112,6 +113,18 @@ def _published_access_url(repo_root: Path) -> str:
 
 def _repo_root() -> Path:
     return Path(os.environ.get("OMNI_REPO_ROOT") or Path(__file__).resolve().parents[1])
+
+
+def _memory_calibration_path(repo_root: Path) -> str:
+    explicit = os.environ.get("OMNI_COMPREHENSION_CALIBRATION_FILE", "").strip()
+    if explicit:
+        return explicit
+    if accelerator_profile().get("gpu_memory_model") == "unified":
+        return str(repo_root / "runtime-data/state/comprehension-memory.json")
+    # KV and the encoder share the host pool on unified-memory systems. A
+    # discrete GPU has a separate pool; its optional encoder remains gated by
+    # the live memory governor and the model server's own admission policy.
+    return ""
 
 
 def _available_token(explicit: str | None) -> str:
@@ -393,10 +406,7 @@ def main(argv: list[str] | None = None) -> int:
         client_location_reader=client_location.get,
         memory_path="" if args.no_memory else args.memory_path,
         memory_calibration_path=(
-            ""
-            if args.no_memory
-            else os.environ.get("OMNI_COMPREHENSION_CALIBRATION_FILE")
-            or str(_repo_root() / "runtime-data/state/comprehension-memory.json")
+            "" if args.no_memory else _memory_calibration_path(_repo_root())
         ),
         background_task_path=(
             ""

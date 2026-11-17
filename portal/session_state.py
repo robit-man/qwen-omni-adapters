@@ -338,6 +338,24 @@ class SessionContinuationStore:
                 "task_ids": task_ids,
             }
 
+    def observatory_snapshot(self, session_id: str) -> dict[str, Any]:
+        """Inspect this cookie's retained turns without media, tools or reasoning."""
+        with self._lock:
+            turns = self._load_locked(self._key(session_id))["turns"]
+            return {
+                "scope": "browser_session", "turns": len(turns), "limit": MAX_TURNS,
+                "active": sum(item.get("status") == "running" for item in turns),
+                "messages": sum(bool(item.get(role, {}).get("content"))
+                    for item in turns for role in ("user", "assistant")),
+                "recent": [{
+                    "id": hashlib.sha256(str(item.get("turn_id") or "").encode()).hexdigest()[:16],
+                    "number": number, "status": item.get("status"),
+                    "started_at": item.get("started_at"), "updated_at": item.get("updated_at"),
+                    "user": _bounded_text(item.get("user", {}).get("content"), 700),
+                    "assistant": _bounded_text(item.get("assistant", {}).get("content"), 700),
+                } for number, item in list(enumerate(turns, 1))[-12:]],
+            }
+
     def clear(self, session_id: str) -> None:
         key = self._key(session_id)
         with self._lock:

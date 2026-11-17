@@ -2512,7 +2512,12 @@ def execute_stream(
         executed.append("comprehension")
         observation, live_route = _validated_live_observation(observation, parsed, config, client)
         transcript = _observation_transcript(observation)
-        values: dict[str, Any] = {"content": observation}
+        values: dict[str, Any] = {"content": observation,
+            "evidence_provenance": {
+                "current_media_modalities": [kind for kind in parsed.input_modalities if kind in {"audio", "image", "video"}],
+                "current_visual_input": any(kind in {"image", "video"} for kind in parsed.input_modalities),
+                "tool_data_is_visual_input": False, "prior_dialogue_is_current_observation": False},
+            "speech_addressee": live_route.addressee if live_route is not None else None}
         if transcript:
             values["transcript"] = transcript
         audio_observation = _observation_audio(observation)

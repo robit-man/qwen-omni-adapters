@@ -98,6 +98,16 @@ def test_local_voice_payload_supplies_sanitized_location_to_the_portal() -> None
     ) is None
 
 
+def test_semantic_encoder_calibration_follows_the_observed_memory_pool(tmp_path, monkeypatch):
+    monkeypatch.delenv("OMNI_COMPREHENSION_CALIBRATION_FILE", raising=False)
+    monkeypatch.setattr(harness_main, "accelerator_profile", lambda: {"gpu_memory_model": "discrete"})
+    assert harness_main._memory_calibration_path(tmp_path) == ""
+    monkeypatch.setattr(harness_main, "accelerator_profile", lambda: {"gpu_memory_model": "unified"})
+    assert harness_main._memory_calibration_path(tmp_path) == str(tmp_path / "runtime-data/state/comprehension-memory.json")
+    monkeypatch.setenv("OMNI_COMPREHENSION_CALIBRATION_FILE", "/configured/reserve.json")
+    assert harness_main._memory_calibration_path(tmp_path) == "/configured/reserve.json"
+
+
 def test_harness_status_is_private_and_contains_only_bounded_liveness(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

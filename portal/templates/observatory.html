@@ -108,18 +108,19 @@
       <section id="view-memory" class="review-view" role="tabpanel" aria-labelledby="tab-memory" tabindex="0" hidden>
         <header class="section-heading"><h2>Memory</h2><p id="memory-meta">Durable &amp; session stores</p></header>
         <div class="visualization memory-visual">
+          <div class="memory-scope-controls" role="group" aria-label="Memory scope"><button class="chip" type="button" data-memory-scope="durable" aria-pressed="true">Device memory</button><button class="chip" type="button" data-memory-scope="session" aria-pressed="false">This browser</button><span id="memory-index-status" class="muted" role="status">Reading memory structure…</span></div>
           <div class="store-readouts" id="store-readouts"></div>
-          <div class="memory-plot-heading"><span>Retained memory strength</span><span id="memory-plot-range" class="muted">Source timestamps</span></div>
-          <div class="memory-plot" id="memory-plot" aria-label="Passive memories by source time and strength"></div>
-          <p id="memory-focus" class="scope-note" role="status">Select a retained memory to inspect it.</p>
-          <div class="instrument-bars" id="memory-budget-bars"></div>
+          <p id="memory-structure-empty" class="scope-note" hidden></p>
+          <div class="memory-workbench">
+            <section class="memory-map" aria-labelledby="memory-structure-title"><div class="memory-map-heading"><h3 id="memory-structure-title">Memory structure</h3><span class="muted">Select a node</span></div><div class="memory-graph" id="memory-graph" role="group" aria-label="Memory stores and recorded relationships"><svg class="memory-links" id="memory-links" aria-hidden="true"></svg></div><p class="scope-note memory-map-key">Lines show store membership and reported source links. Layout distance carries no similarity score.</p></section>
+            <details class="memory-inspector" open><summary>Inspect selected node</summary><div class="memory-inspector-scroll"><h3 id="memory-detail-title">Source archive</h3><dl class="facts" id="memory-node-facts"></dl><h4>Reported relationships</h4><ul id="memory-edge-list" class="memory-edge-list"></ul><ol id="memory-node-records" class="memory-node-records"></ol><p class="scope-note" id="memory-record-empty"></p></div></details>
+          </div>
+          <p class="sr-only" role="status" id="memory-selection-status"></p>
         </div>
-        <details class="review-details"><summary>Memory stores & retained records</summary><div class="detail-scroll">
-        <dl class="facts" id="memory-stores"></dl>
-        <div class="memory-strength"><span>Mean passive strength</span><div class="t" aria-hidden="true"><div class="f" id="memory-strength-fill"></div></div><strong id="memory-strength-value">—</strong></div>
-        <ol class="memory-list" id="memory-list"></ol>
-        <p class="panel-empty" id="memory-empty" hidden>No retained passive memories in this snapshot.</p>
-        <p class="scope-note">Passive memory is durable and relevance-decayed. Session memory stays isolated to this browser. Working context is retained until explicit session clear.</p>
+        <details class="review-details"><summary>Memory types & retention</summary><div class="detail-scroll memory-guide">
+        <p><strong>Source archive.</strong> Committed device events survive delays in semantic indexing. Heard fragments and sound observations keep their recorded attribution.</p>
+        <p><strong>Derived views.</strong> Temporal views carry source references. The semantic cache groups indexed sources and has a decaying retention weight. Cache strength is separate from factual confidence.</p>
+        <p><strong>This browser.</strong> Retained conversation turns, explicit saved notes, and working context have separate lifetimes. Other browser sessions stay private. Trash clears this session.</p>
         </div></details>
       </section>
     </section>
@@ -134,7 +135,8 @@
     <footer class="observatory-footer"><span>RETAINED EVIDENCE</span><div><button class="text-button open-chat" type="button" aria-controls="observatory-chat" aria-expanded="false">Open chat</button><a id="chat-link" href="/">Chat in new tab</a></div></footer>
   </main>
   <p class="sr-only" id="observatory-announcer" aria-live="polite"></p>
-  <script src="/assets/observatory.js?v=20261116-windowed" defer></script>
+  <script src="/assets/memory-graph.js?v=20261116-structure" defer></script>
+  <script src="/assets/observatory.js?v=20261116-memory" defer></script>
   <script src="/assets/lcd-surface.js?v=20261116-glass" defer></script>
 </body>
 </html>

@@ -78,6 +78,12 @@ def stream_call(
                         validate=True,
                     )
                 )
+            if event.get("type") == "observation" and "evidence_provenance" in event:
+                provenance = event["evidence_provenance"]
+                if not isinstance(provenance, dict) or provenance.get("tool_data_is_visual_input") is not False:
+                    raise RuntimeError("stream observation lacks bounded evidence provenance")
+                if event.get("visual_observation") and provenance.get("current_visual_input") is not True:
+                    raise RuntimeError("stream visual observation has no current visual source")
             events.append(event)
     finals = [event.get("response") for event in events if event.get("type") == "final"]
     if len(finals) != 1 or not isinstance(finals[0], dict):

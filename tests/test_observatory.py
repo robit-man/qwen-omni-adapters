@@ -15,9 +15,12 @@ from portal.observatory import (
     OBSERVATORY_SCHEMA,
     ObservatoryReader,
     RuntimeModelReader,
+    _durable_memory_projection,
     _harness_projection,
     _timeline,
 )
+from portal.session_state import SessionContinuationStore
+from portal.tools import SessionMemoryStore
 
 
 def _memory_store(path: Path) -> None:
@@ -110,6 +113,7 @@ def test_observatory_projects_existing_stores_without_sensitive_daemon_fields(
         location={"available": False},
         services={"adapter": {"ok": True, "status": 200}},
         requests={"active": 1, "queued": 0},
+        owner_authorized=True,
     )
 
     assert snapshot["schema"] == OBSERVATORY_SCHEMA
@@ -187,6 +191,56 @@ def test_microphone_freshness_uses_capture_heartbeat_without_moving_transition_t
     stale = _harness_projection(tmp_path / HARNESS_STATUS_FILE)
     assert not stale["fresh"] and not stale["capture_fresh"]
     assert stale["updated_at"] == transition_at
+
+
+def test_durable_structure_retains_sources_when_semantic_cache_is_empty(tmp_path):
+    from harness.history import ConversationHistory
+
+    path = tmp_path / "memory.sqlite3"
+    _memory_store(path)
+    connection = sqlite3.connect(path)
+    connection.execute("DELETE FROM memories")
+    connection.commit()
+    connection.close()
+    archive = ConversationHistory(path)
+    # A real source row, with private source content deliberately absent from the projection.
+    with archive._db:
+        archive._db.execute(
+            "INSERT INTO history_events(event_key,text,kind,occurred_at,recorded_at,source_json,content_sha256) VALUES(?,?,?,?,?,?,?)",
+            ("private-key", "private voice marker", "heard", time.time(), time.time(), '{"speaker":"private-person"}', "source-hash"),
+        )
+    before = path.read_bytes()
+    projection = _durable_memory_projection(path)
+    assert projection["events"] == 1
+    assert projection["unindexed_events"] == 1
+    assert projection["indexed_events"] == 0
+    assert projection["kinds"] == {"heard": 1}
+    assert projection["cluster_sources"] == []
+    assert "private" not in json.dumps(projection)
+    assert "source-hash" not in json.dumps(projection)
+    assert path.read_bytes() == before
+    archive.close()
+
+
+def test_session_inspection_is_cookie_scoped_bounded_and_cleared(tmp_path):
+    notes = SessionMemoryStore(ttl_s=300)
+    notes.write("one", "project", "task", "one-marker")
+    notes.write("two", "project", "task", "two-marker")
+    journal = SessionContinuationStore(tmp_path / "sessions")
+    journal.begin("one", "private-turn-id", "request-one", "one conversation")
+    journal.event("one", "private-turn-id", {"type": "delta", "message": {"content": "one reply", "thinking": "hidden reasoning"}})
+    journal.begin("two", "other-turn", "request-two", "two conversation")
+    first = {"notes": notes.inspection("one"), "conversation": journal.observatory_snapshot("one")}
+    text = json.dumps(first)
+    assert "one-marker" in text and "one conversation" in text
+    assert first["conversation"]["messages"] == 2
+    assert "two-marker" not in text and "two conversation" not in text
+    assert "hidden reasoning" not in text and "private-turn-id" not in text
+    notes.clear("one")
+    journal.clear("one")
+    assert notes.inspection("one")["recent"] == []
+    assert journal.observatory_snapshot("one")["recent"] == []
+    assert notes.inspection("two")["entries"] == 1
 
 
 def test_worker_inventory_reads_actual_loaded_artifacts_without_starting_models(tmp_path):

@@ -3636,7 +3636,8 @@
         streaming: false,
       });
     };
-    const applyCallVisualEvidence = visualObservationValue => {
+    const applyCallVisualEvidence = (visualObservationValue, provenance) => {
+      if (provenance && provenance.current_visual_input !== true) return;
       const visualObservation = String(visualObservationValue || "").trim();
       if (frame && visualObservation) inputVisualObservation = visualObservation;
     };
@@ -3665,7 +3666,7 @@
           onEvent: event => {
             if (event.type === "observation") {
               applyCallAudioEvidence(event.transcript, event.audio_observation);
-              applyCallVisualEvidence(event.visual_observation);
+              applyCallVisualEvidence(event.visual_observation, event.evidence_provenance);
               const classification = callQueue.classifyObservation(
                 event.transcript,
                 event.audio_observation,
@@ -3754,7 +3755,7 @@
         (data.adapter || {}).input_transcript,
         (data.adapter || {}).audio_observation,
       );
-      applyCallVisualEvidence((data.adapter || {}).visual_observation);
+      applyCallVisualEvidence((data.adapter || {}).visual_observation, (data.adapter || {}).evidence_provenance);
       if (!inputTranscript) {
         if (!turn.soundOnly) rememberCallAudioContext(call, inputAudioObservation);
         turn.soundOnly = true;
@@ -4080,6 +4081,7 @@
       display: typed || (audioOnly ? "Audio clip" : (documents.length ? "Attached document" : "Attached media")),
       message,
       payload: {
+        portal_user_text: typed,
         model: MODEL,
         messages,
         omni: { schema: SCHEMA, task, include_audio_from_video: true },
@@ -4174,7 +4176,8 @@
         });
       }
     };
-    const applyInputVisualEvidence = visualObservationValue => {
+    const applyInputVisualEvidence = (visualObservationValue, provenance) => {
+      if (provenance && provenance.current_visual_input !== true) return;
       const visualObservation = String(visualObservationValue || "").trim();
       if (built.hasVisualMedia && visualObservation) inputVisualObservation = visualObservation;
     };
@@ -4237,7 +4240,7 @@
           if (requestSequence !== state.requestSequence) return;
           if (event.type === "observation") {
             applyInputAudioEvidence(event.transcript, event.audio_observation);
-            applyInputVisualEvidence(event.visual_observation);
+            applyInputVisualEvidence(event.visual_observation, event.evidence_provenance);
           } else if (event.type === "reset") {
             streamedContent = "";
             streamedThinking = "";
@@ -4310,7 +4313,7 @@
         (data.adapter || {}).input_transcript,
         (data.adapter || {}).audio_observation,
       );
-      applyInputVisualEvidence((data.adapter || {}).visual_observation);
+      applyInputVisualEvidence((data.adapter || {}).visual_observation, (data.adapter || {}).evidence_provenance);
       if (built.wantsSpeech && !(reply.audio && reply.audio.data)) {
         throw new Error("Spoken replies are enabled, but TTS returned no audio");
       }

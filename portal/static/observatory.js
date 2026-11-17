@@ -337,46 +337,7 @@
     if (!transitions.length) $("state-history").append(create("p", "muted", "Chat and daemon transitions appear here as activity is observed."));
   }
   function renderMemoryInstrument(snapshot) {
-    const memory = snapshot.memory || {};
-    const passive = memory.passive || {};
-    const stores = [["Passive memory", passive.available ? count(passive.entries) : "OFFLINE", "Durable · relevance-decayed"], ["Session memory", count(memory.session?.entries), "This browser only"], ["Working corpus", count(memory.virtual_context?.chunks), `${memory.virtual_context?.mode || "off"} · session scoped`]];
-    $("store-readouts").replaceChildren(...stores.map(([label, value, detail]) => {
-      const box = create("div", "frame store-readout");
-      box.append(create("span", "field-label", label), create("strong", /^\d/.test(value) ? "d7 lit" : "store-status", value), create("span", "muted", detail));
-      return box;
-    }));
-    const memories = (passive.recent || []).slice(0, 24).filter(item => parsedDate(item.created_at));
-    const plot = $("memory-plot");
-    const focusIndex = document.activeElement?.dataset.memoryIndex;
-    plot.replaceChildren();
-    if (memories.length) {
-      const dates = memories.map(item => new Date(item.created_at).getTime());
-      const min = Math.min(...dates), max = Math.max(...dates);
-      $("memory-plot-range").textContent = `${timestamp(new Date(min).toISOString())} → ${timestamp(new Date(max).toISOString())}`;
-      memories.forEach((item, index) => {
-        const point = create("button", "memory-point");
-        point.type = "button";
-        point.dataset.memoryIndex = String(index);
-        point.style.left = `${5 + (max === min ? .5 : (dates[index] - min) / (max - min)) * 90}%`;
-        point.style.bottom = `${8 + Math.max(0, Math.min(1, Number(item.strength || 0))) * 82}%`;
-        point.setAttribute("aria-label", `${item.kind || "Memory"}: ${item.text || "Retained source"}; strength ${item.strength}`);
-        point.addEventListener("click", () => { $("memory-focus").textContent = `${item.text || "Retained memory"} · strength ${Number(item.strength || 0).toFixed(3)} · ${item.uses || 0} recalls · ${timestamp(item.created_at)}`; });
-        plot.append(point);
-      });
-      plot.append(create("span", "plot-axis-label top", "Strength 1.0"), create("span", "plot-axis-label bottom", "0.0 · source time →"));
-    } else {
-      $("memory-plot-range").textContent = "No passive source points";
-      plot.append(create("p", "plot-empty", passive.available ? "No retained passive memories yet. New memories appear here at their source time and recall strength." : "Passive store is offline. Session and working-corpus counts are shown above."));
-    }
-    if (focusIndex) plot.querySelector(`[data-memory-index="${focusIndex}"]`)?.focus({ preventScroll: true });
-    const bars = [];
-    if (numeric(passive.mean_strength) && passive.available) bars.push(meter("Mean recall strength", Number(passive.mean_strength), 1, Number(passive.mean_strength).toFixed(3)));
-    if (numeric(memory.virtual_storage?.bytes)) {
-      const storage = create("div", "storage-fact");
-      storage.append(create("span", "", "Retained corpus storage"), create("span", "muted", `${formatBytes(memory.virtual_storage.bytes)} · ${count(memory.virtual_storage.corpora)} corpora`));
-      bars.push(storage);
-    }
-    $("memory-budget-bars").replaceChildren(...bars);
+    window.OmniMemoryGraph?.render(snapshot);
   }
 
   function renderWeights(snapshot) {
@@ -480,33 +441,6 @@
     if (!archived.length) $("archive-list").append(create("li", "panel-empty", archive.available ? "No records in the retained archive tail." : "Work archive unavailable."));
   }
 
-  function renderMemory(snapshot) {
-    const memory = snapshot.memory || {};
-    const passive = memory.passive || {};
-    const virtual = memory.virtual_context || {};
-    facts("memory-stores", [
-      ["Passive · durable host", passive.available ? `${count(passive.entries)} memories` : "Unavailable"],
-      ["Session · this browser", `${count(memory.session?.entries)} entries`],
-      ["Working context", `${count(virtual.chunks)} chunks · ${virtual.mode || "mode unreported"}`],
-      ["Retained corpora · host", count(memory.virtual_storage?.corpora)],
-    ]);
-    const strength = passive.available && numeric(passive.mean_strength) ? Math.max(0, Math.min(1, Number(passive.mean_strength))) : null;
-    $("memory-strength-fill").style.width = `calc((100% - 4px) * ${strength ?? 0})`;
-    $("memory-strength-value").textContent = strength === null ? "—" : strength.toFixed(3);
-    $("memory-meta").textContent = passive.available ? `${count(passive.entries)} durable memories · latest ${Math.min(16, passive.recent?.length || 0)} shown` : passive.reason || "Passive memory unavailable";
-    const memories = (passive.recent || []).slice(0, 16);
-    $("memory-list").replaceChildren(...memories.map(item => {
-      const row = create("li", "memory-item");
-      row.append(create("p", "", item.text || "Retained memory"));
-      const vitals = create("div", "memory-vitals");
-      vitals.append(create("span", "", item.kind || "turn"), create("time", "", timestamp(item.created_at)),
-        create("span", "", numeric(item.strength) ? `Strength ${Number(item.strength).toFixed(3)}` : "Strength unreported"), create("span", "", `${count(item.uses)} recalls`), create("span", "", "Passive semantic memory · durable host"));
-      row.append(vitals);
-      return row;
-    }));
-    $("memory-empty").hidden = memories.length > 0;
-    $("memory-empty").textContent = passive.available ? "No retained passive memories in this snapshot." : "Passive memory is unavailable. Session and working-context counts remain separate above.";
-  }
 
   function showError(message) {
     $("observatory-error-message").textContent = message;
@@ -545,7 +479,6 @@
       renderWeights(snapshot);
       renderEvents(snapshot);
       renderStates(snapshot);
-      renderMemory(snapshot);
       $("review-loading").hidden = true;
       $("review").setAttribute("aria-busy", "false");
       updateFreshness();

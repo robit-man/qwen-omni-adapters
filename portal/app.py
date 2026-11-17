@@ -71,6 +71,7 @@ try:
     from portal.deliveries import FileDeliveryError, SessionFileDeliveryStore
     from portal.documents import DocumentError, SessionDocumentStore
     from portal.environment import portal_behavior_system_message, runtime_environment_snapshot
+    from portal.episodic_memory import MemoryCapture, create_memory_service
     from portal.gpu_lease import RequestDrainGate
     from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
     from portal.observatory import ObservatoryReader, RuntimeModelReader
@@ -99,6 +100,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from deliveries import FileDeliveryError, SessionFileDeliveryStore
     from documents import DocumentError, SessionDocumentStore
     from environment import portal_behavior_system_message, runtime_environment_snapshot
+    from episodic_memory import MemoryCapture, create_memory_service
     from gpu_lease import RequestDrainGate
     from native_ui import native_task_scope_sha256, normalize_native_task_scope
     from observatory import ObservatoryReader, RuntimeModelReader
@@ -406,6 +408,8 @@ class PortalConfig:
     file_delivery_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
     file_delivery_max_bytes: int = 128 * 1024 * 1024
     tool_workspace_root: Path | None = None
+    episodic_memory_enabled: bool = False
+    episodic_memory_root: Path | None = None
     remote_camera_enabled: bool = True
     remote_camera_devices: tuple[str, ...] = ()
 
@@ -422,6 +426,7 @@ class PortalConfig:
             )
         ).expanduser()
         return cls(
+            episodic_memory_enabled=os.environ.get("OMNI_EPISODIC_MEMORY", "1").lower() not in {"0", "false", "off", "no"},
             adapter_url=adapter_url,
             adapter_health_url=os.environ.get(
                 "OMNI_ADAPTER_HEALTH_URL", "http://127.0.0.1:8910/healthz"
@@ -666,6 +671,7 @@ def _virtual_memory_session_id(session_id: str, *, internal_background: bool) ->
 class _InferenceTicket:
     session_id: str
     released: bool = False
+    background_cancel: threading.Event | None = None
 
 
 class _InferenceQueue:
@@ -676,31 +682,61 @@ class _InferenceQueue:
         self.max_inflight = max(self.slots, max_inflight)
         self._gate = threading.BoundedSemaphore(self.slots)
         self._lock = threading.Lock()
+        self._changed = threading.Condition(self._lock)
         self._inflight = 0
         self._active = 0
         self._sessions: dict[str, int] = {}
+        self._background: dict[int, threading.Event] = {}
+        self._foreground_waiters = 0
 
     def acquire(self, session_id: str, timeout_s: float) -> _InferenceTicket | None:
-        with self._lock:
-            if self._inflight >= self.max_inflight:
-                return None
-            self._inflight += 1
-            self._sessions[session_id] = self._sessions.get(session_id, 0) + 1
-        if not self._gate.acquire(timeout=timeout_s):
+        deadline = time.monotonic() + timeout_s
+        with self._changed:
+            self._foreground_waiters += 1
+            try:
+                for cancellation in self._background.values():
+                    cancellation.set()
+                while self._inflight >= self.max_inflight and self._background:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        return None
+                    self._changed.wait(remaining)
+                if self._inflight >= self.max_inflight:
+                    return None
+                self._inflight += 1
+                self._sessions[session_id] = self._sessions.get(session_id, 0) + 1
+            finally:
+                self._foreground_waiters -= 1
+        if not self._gate.acquire(timeout=max(0, deadline - time.monotonic())):
             self._remove_inflight(session_id)
             return None
         with self._lock:
             self._active += 1
         return _InferenceTicket(session_id=session_id)
 
-    def _remove_inflight(self, session_id: str) -> None:
+    def acquire_background(self, session_id: str, cancellation: threading.Event) -> _InferenceTicket | None:
+        """An optional encoding pass yields its lane to an incoming person."""
         with self._lock:
+            if self._inflight or self._foreground_waiters or not self._gate.acquire(blocking=False):
+                return None
+            ticket = _InferenceTicket(session_id=session_id, background_cancel=cancellation)
+            self._inflight += 1
+            self._active += 1
+            self._sessions[session_id] = self._sessions.get(session_id, 0) + 1
+            self._background[id(ticket)] = cancellation
+            return ticket
+
+    def _remove_inflight(self, session_id: str, background_id: int | None = None) -> None:
+        with self._changed:
+            if background_id is not None:
+                self._background.pop(background_id, None)
             self._inflight -= 1
             remaining = self._sessions.get(session_id, 1) - 1
             if remaining > 0:
                 self._sessions[session_id] = remaining
             else:
                 self._sessions.pop(session_id, None)
+            self._changed.notify_all()
 
     def release(self, ticket: _InferenceTicket) -> None:
         with self._lock:
@@ -709,11 +745,11 @@ class _InferenceQueue:
             ticket.released = True
             self._active -= 1
         self._gate.release()
-        self._remove_inflight(ticket.session_id)
+        self._remove_inflight(ticket.session_id, id(ticket))
 
     def snapshot(self) -> dict[str, int]:
         with self._lock:
-            return {
+            result = {
                 "users": len(self._sessions),
                 "inflight": self._inflight,
                 "active": self._active,
@@ -721,6 +757,9 @@ class _InferenceQueue:
                 "slots": self.slots,
                 "limit": self.max_inflight,
             }
+            if self._background:
+                result["background"] = len(self._background)
+            return result
 
 
 @dataclass
@@ -1646,6 +1685,7 @@ def _tool_followup(
     *,
     allowed_tools: frozenset[str] | None = None,
     ui_history: ServerUiHistory | None = None,
+    memory_capture: MemoryCapture | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
     message = response.get("message")
     if not isinstance(message, Mapping):
@@ -1757,7 +1797,7 @@ def _tool_followup(
         else:
             made_progress = True
             with scoped_tool_user_context(_latest_user_context(messages)):
-                result = harness.execute(session_id, name, arguments)
+                result = harness.execute(session_id, name, arguments, **({"memory_episode": memory_capture.episode} if memory_capture and memory_capture.service else {}))
             if name == "get_portal_capabilities" and allowed_tools is not None:
                 result = {**result, "safe_tools": [item for item in result.get("safe_tools", [])
                                                   if item in allowed_tools]}
@@ -1831,6 +1871,8 @@ def _tool_followup(
                             if str(item) in known_names
                         )
         content, result_images = _model_tool_result(result, tool_name=name)
+        if memory_capture is not None and not blocked:
+            memory_capture.tool(name, result, ok=isinstance(result, Mapping) and result.get("ok") is not False, model_text=content, family=next((family for family, definition in TOOL_FAMILIES.items() if name in definition["tools"]), None))
         tool_message: dict[str, Any] = {
             "role": "tool",
             "tool_name": name or "unknown",
@@ -1971,11 +2013,11 @@ def _tool_followup(
         followup["tool_choice"] = "required"
     if len(executed) == 1:
         completed = executed[0]
-        if (completed["name"] == "conversation_search" and completed["ok"]
+        if (completed["name"] in {"conversation_search", "episodic_search"} and completed["ok"]
                 and completed["arguments"].get("after_retrieval") == "answer"):
             receipt = json.loads(completed["result"])
             if (isinstance(receipt, Mapping)
-                    and receipt.get("schema") == "robit.omni.conversation-history.v1"
+                    and receipt.get("schema") in {"robit.omni.conversation-history.v1", "robit.omni.episodic-memory.v1"}
                     and receipt.get("retrieval_complete") is True
                     and receipt.get("after_retrieval") == "answer"):
                 # Honor the model's explicit finite lookup -> answer plan.
@@ -2925,6 +2967,13 @@ def create_app(
         conversation_history_owner=hashlib.sha256(
             b"omni-voice-session\0" + runtime.access_token.encode("utf-8")).hexdigest(),
     )
+    episodic_memory = (create_memory_service(runtime, state_root, inference_queue,
+        token_counter=virtual_token_counter, governor=tool_harness.memory_governor,
+        owner_session=tool_harness.conversation_history_owner,
+        legacy_archive=tool_harness.conversation_history_path)
+        if runtime.episodic_memory_enabled else None)
+    tool_harness.episodic_memory = episodic_memory
+    app.extensions["episodic_memory"] = episodic_memory
     app.config["MAX_CONTENT_LENGTH"] = runtime.max_body_bytes
 
     def authorized() -> bool:
@@ -3550,11 +3599,14 @@ def create_app(
             diagnostics=diagnostics.observatory_snapshot(),
             tasks=background_tasks.list() if background_tasks is not None else [],
             virtual_context=virtual_context.stats(session_id),
-            session_memory=tool_harness.memory_stats(session_id),
+            session_memory=tool_harness.memory_snapshot(session_id),
+            conversation=continuations.observatory_snapshot(session_id),
+            owner_authorized=tool_harness.can_read_conversation_history(session_id),
             location=tool_harness.client_location(session_id),
             services=stages,
             requests=inference_queue.snapshot(),
         )
+        snapshot["memory"]["episodic"] = episodic_memory.snapshot(session_id) if episodic_memory else {"enabled": False}
         snapshot["agent"] = runtime_agent_identity()
         snapshot["weights"] = observatory_models.snapshot()
         return jsonify(snapshot)
@@ -3652,6 +3704,8 @@ def create_app(
         if request.method == "DELETE":
             diagnostics.clear(session_id)
             documents.clear(session_id)
+            if episodic_memory is not None:
+                episodic_memory.clear(session_id)
             tool_harness.clear(session_id)
             virtual_context.clear(session_id)
             continuations.clear(session_id)
@@ -3708,7 +3762,12 @@ def create_app(
             return jsonify({"error": "arguments must be an object"}), 400
         session_id = request_session_id()
         started = time.monotonic()
+        if episodic_memory is not None:
+            episodic_memory.cancel_encoding()
         result = tool_harness.execute(session_id, name, arguments)
+        capture = MemoryCapture(episodic_memory, session_id, secrets.token_urlsafe(12))
+        content, _images = _model_tool_result(result, tool_name=name)
+        capture.tool(name, result, ok=result.get("ok") is not False, model_text=content, family=next((family for family, definition in TOOL_FAMILIES.items() if name in definition["tools"]), None))
         return jsonify(
             {
                 "schema": ADAPTER_SCHEMA,
@@ -3717,6 +3776,24 @@ def create_app(
                 "elapsed_ms": (time.monotonic() - started) * 1000,
             }
         )
+
+    @app.post("/api/memory/events")
+    def append_memory_event():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if episodic_memory is None:
+            return jsonify({"error": "episodic memory is disabled"}), 503
+        value = request.get_json(silent=True)
+        from qwen_omni_adapters.episodic_memory import MODALITIES
+        if not isinstance(value, dict) or value.get("modality") not in MODALITIES or not isinstance(value.get("text"), str) or not 1 <= len(value["text"]) <= 24000:
+            return jsonify({"error": "provide a supported modality and 1–24000 characters of text"}), 400
+        identity = request_session_id()
+        episode = secrets.token_urlsafe(12)
+        ids = episodic_memory.capture(identity, generation=episodic_memory.generation(identity),
+            episode=episode, key=episode, modality=value["modality"], text=value["text"],
+            actor="authenticated_event_client", authority="client_report",
+            provenance={"origin": "authenticated_event_submission", "timestamp_origin": "portal_received_at"})
+        return jsonify({"event_ids": ids, "episode": episode, "authority": "client_report", "historical": True}), 201
 
     @app.get("/api/files/<delivery_id>")
     def download_file(delivery_id: str):
@@ -3763,6 +3840,7 @@ def create_app(
             live_turn = (isinstance(payload.get("omni"), Mapping)
                          and payload["omni"].get("require_speech") is True)
             raw_messages = copy.deepcopy(list(payload.get("messages") or []))
+            memory_user_text = payload.pop("portal_user_text", None)
             auto_tools = payload.pop("portal_auto_tools", False) is True
             allowed_tools = _pop_tool_allowlist(payload)
             native_window_scope = _pop_native_task_scope(payload)
@@ -3859,6 +3937,18 @@ def create_app(
                         raw_messages,
                         query_override=virtual_query_override,
                     )
+            if episodic_memory is not None:
+                episodic_memory.cancel_encoding()
+            context_text = _latest_user_context(raw_messages)
+            has_media = any(diagnostic_fields.get(f"has_{kind}_input") for kind in ("audio", "image", "video", "document"))
+            if episodic_memory is not None and not internal_background:
+                episodic_memory.restore_conversation(session_id, continuations.snapshot(session_id)["turns"])
+            memory_capture = MemoryCapture(episodic_memory, session_id,
+                request_id,
+                user_text=(str(memory_user_text) if isinstance(memory_user_text, str) else context_text if not has_media else ""),
+                context_text=context_text if has_media else "", media=diagnostic_fields, live_turn=live_turn,
+                internal_background=internal_background, synthesis_only=synthesis_only(payload), media_receipts=diagnostic_media_ids)
+            memory_capture.documents(accepted_documents)
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -3903,6 +3993,7 @@ def create_app(
                         native_final = event["response"]
                 if native_final is None:
                     raise PortalError("native task ended without a terminal response")
+                memory_capture.response(native_final)
                 native_final["portal"]["schema"] = "robit.omni-phone-portal.v1"
                 native_final["portal"]["tool_allowlist"] = sorted(
                     {"native_ui", "memory_write", "memory_search"} &
@@ -3923,6 +4014,7 @@ def create_app(
             while True:
                 upstream = session.post(runtime.adapter_url, json=current_payload)
                 data = _json_object(upstream, "adapter")
+                memory_capture.observation_from_response(data)
                 if upstream.status_code >= 400:
                     outcome_status = upstream.status_code
                     response = jsonify(data)
@@ -3981,6 +4073,7 @@ def create_app(
                     ),
                     allowed_tools=allowed_tools,
                     ui_history=ui_history,
+                    memory_capture=memory_capture,
                 )
                 recovery_transition = _tool_recovery_transition(round_tools)
                 if recovery_transition is not None:
@@ -4029,6 +4122,7 @@ def create_app(
                 )
                 virtual_summary.update(repack_summary)
 
+            memory_capture.response(data)
             data["portal"] = {
                 "schema": "robit.omni-phone-portal.v1",
                 "safe_tools_executed": _tool_trace(executed),
@@ -4078,6 +4172,7 @@ def create_app(
         portal_display = str(payload.pop("portal_display", "") or "").strip()
         if detached_turn and not re.fullmatch(r"[A-Za-z0-9_-]{12,96}", supplied_turn_id):
             return jsonify({"error": "detached portal turn requires a valid turn ID"}), 400
+        memory_user_text = payload.pop("portal_user_text", None)
         auto_tools = payload.pop("portal_auto_tools", False) is True
         try:
             allowed_tools = _pop_tool_allowlist(payload)
@@ -4189,6 +4284,18 @@ def create_app(
                         raw_messages,
                         query_override=virtual_query_override,
                     )
+            if episodic_memory is not None:
+                episodic_memory.cancel_encoding()
+            context_text = _latest_user_context(raw_messages)
+            has_media = any(diagnostic_fields.get(f"has_{kind}_input") for kind in ("audio", "image", "video", "document"))
+            if episodic_memory is not None and not internal_background:
+                episodic_memory.restore_conversation(session_id, continuations.snapshot(session_id)["turns"])
+            memory_capture = MemoryCapture(episodic_memory, session_id,
+                supplied_turn_id if continuation_enabled else request_id,
+                user_text=(str(memory_user_text) if isinstance(memory_user_text, str) else context_text if not has_media else ""),
+                context_text=context_text if has_media else "", media=diagnostic_fields, live_turn=live_turn,
+                internal_background=internal_background, synthesis_only=synthesis_only(payload), media_receipts=diagnostic_media_ids)
+            memory_capture.documents(accepted_documents)
             diagnostics.begin_request(
                 session_id,
                 request_id,
@@ -4372,6 +4479,10 @@ def create_app(
                         if not isinstance(event, Mapping):
                             stream_error = "adapter returned a non-object stream event"
                             break
+                        if event.get("type") == "stage":
+                            memory_capture.stage(str(event.get("stage")))
+                        elif event.get("type") == "observation":
+                            memory_capture.observation(event)
                         if event.get("type") == "stage" and event.get("stage") in {"comprehension", "language", "tts"}:
                             diagnostics.record(session_id, "inference_stage", {
                                 "request_id": request_id, "stage": event["stage"],
@@ -4391,6 +4502,7 @@ def create_app(
                             candidate = event.get("response")
                             if isinstance(candidate, dict):
                                 final_response = candidate
+                                memory_capture.observation_from_response(candidate)
                             continue
                         if event.get("type") == "error":
                             stream_error = str(
@@ -4535,6 +4647,7 @@ def create_app(
                                 ),
                                 allowed_tools=allowed_tools,
                                 ui_history=ui_history,
+                                memory_capture=memory_capture,
                             )
                     recovery_transition = _tool_recovery_transition(round_tools)
                     if recovery_transition is not None:
@@ -4562,6 +4675,7 @@ def create_app(
                         )
                         recovery_retry = True
                     if followup is None:
+                        memory_capture.response(final_response)
                         final_response["portal"] = {
                             "schema": "robit.omni-phone-portal.v1",
                             "safe_tools_executed": _tool_trace(executed),

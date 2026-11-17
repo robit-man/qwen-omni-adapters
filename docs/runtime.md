@@ -12,6 +12,20 @@ semantic topic and explicit calendar/elapsed time. See
 source attribution, isolation and research scope. Browser session memory remains
 separate.
 
+## Cross-modal episodic memory
+
+The portal defaults `OMNI_EPISODIC_MEMORY=1`. It synchronously journals new
+interactions and validated sensory observations in private scoped databases
+under `runtime-data/state/episodic-memory`, then encodes source-backed relations
+with the installed model when foreground work is idle. `episodic_search` exposes
+historical cross-modal recall through the explicit tool opt-in. The existing
+`OMNI_MEMORY_EMBED_MODEL` selects an already installed embedding model; no model
+is automatically downloaded. Set `OMNI_EPISODIC_MEMORY=0` to disable this layer.
+Browser Trash removes only that browser's graph. The owner voice archive and its
+verified backup remain durable. Observatory shows source counts, pending work,
+entity relations and exact supporting quotations within the authorized scope.
+See [design, research and validation boundaries](research/graph-memory-and-planning.md).
+
 ## Bounded virtual context
 
 Compact audio-bridge profiles default to a 16,384-token physical context. The

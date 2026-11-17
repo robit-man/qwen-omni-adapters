@@ -1408,6 +1408,8 @@ def test_stream_exposes_visual_observation_only_for_current_visual_input() -> No
     observation = next(event for event in events if event["type"] == "observation")
     expected = "Three red markers and two white markers are on the desk."
     assert observation["visual_observation"] == expected
+    assert observation["evidence_provenance"]["current_visual_input"] is True
+    assert observation["evidence_provenance"]["current_media_modalities"] == ["image"]
     final = events[-1]["response"]
     assert final["adapter"]["visual_observation"] == expected
     assert final["adapter"]["evidence_provenance"]["current_visual_input"] is True

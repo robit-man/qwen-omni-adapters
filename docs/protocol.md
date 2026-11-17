@@ -122,6 +122,13 @@ not evidence of speaker identity. The Python chat client accepts
 `--require-speech` and `--[no-]live-engaged`; the JavaScript client accepts
 `OMNI_REQUIRE_SPEECH=true` and `OMNI_LIVE_ENGAGED=true|false`.
 
+The streaming `observation` event includes `evidence_provenance` with
+`current_media_modalities`, `current_visual_input`,
+`tool_data_is_visual_input:false`, and
+`prior_dialogue_is_current_observation:false`, matching final adapter metadata.
+It also carries the validated `speech_addressee` when available. Clients must
+preserve these fields when retaining historical observations.
+
 The streaming `observation` event and authoritative final adapter metadata MAY
 expose `input_transcript`, `audio_observation`, and `visual_observation` as
 separate fields. `visual_observation` MUST be populated only when the current
@@ -599,3 +606,19 @@ were the user. The recorded addressee is a routing decision, not an identity.
 Required structured-tool decision passes default to temperature zero. Explicit
 caller temperatures remain authoritative. Ordinary answer passes retain their
 normal sampling defaults; the runtime does not force a tool for ordinary chat.
+
+## Portal episodic event ingestion
+
+Authenticated `POST /api/memory/events` accepts `modality` (text, speech, sound,
+image, video, tool, sensor, environment or other) and 1–24000 characters of
+`text`. The server supplies the ingestion time and always assigns
+`authority=client_report`; callers cannot forge a trusted producer or user
+identity. The response identifies committed event IDs and an episode. Scope is
+the caller's cookie; no raw media is accepted here. Chat's optional
+`portal_user_text` carries exact typed words separately from transport/display
+placeholders and is consumed before adapter transport.
+
+`episodic_search` uses explicit query, modality, IANA time-window and
+conversation/all filters, preserves historical source authority and returns
+quoted graph support. A complete successful `after_retrieval=answer` lookup
+enters the same closed `tool_choice=none` answer phase as conversation_search.
