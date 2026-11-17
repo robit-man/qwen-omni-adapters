@@ -480,11 +480,32 @@ class EpisodicMemoryService:
                     encoded = self.generate(key, json.dumps(packet, ensure_ascii=False), cancellation)
                     if encoded is None:
                         raise InterruptedError
-                    with current.lock:
-                        if current.closed:
-                            return False
-                        current.store.apply_encoding([source["event_id"]], encoded,
-                            context_event_ids=[item["event_id"] for item in packet["historical_context"]], complete=complete)
+                    for attempt in range(2):
+                        try:
+                            with current.lock:
+                                if current.closed:
+                                    return False
+                                current.store.apply_encoding([source["event_id"]], encoded,
+                                    context_event_ids=[item["event_id"] for item in packet["historical_context"]], complete=complete)
+                            break
+                        except ValueError as error:
+                            if attempt or cancellation.is_set():
+                                raise
+                            repair = {**packet, "encoding_validation": {
+                                "error": str(error), "allowed_event_ids": [source["event_id"], *[item["event_id"] for item in packet["historical_context"]]],
+                                "instruction": "Regenerate the encoding from the original sources. Cite only allowed event IDs with exact quotations. Reuse the supplied canonical subject and predicate for a correction; supersede only matching same-authority facts. Otherwise retain a source-grounded new fact without claiming supersession."}}
+                            while self.cost(ENCODING_POLICY + json.dumps(repair, ensure_ascii=False)) > self.prompt_budget:
+                                if repair["existing_facts"]:
+                                    repair["existing_facts"].pop(0)
+                                elif repair["historical_context"]:
+                                    repair["historical_context"].pop(0)
+                                else:
+                                    raise ValueError("encoding repair exceeds the admitted context") from None
+                            repair["encoding_validation"]["allowed_event_ids"] = [source["event_id"], *[item["event_id"] for item in repair["historical_context"]]]
+                            packet = repair
+                            encoded = self.generate(key, json.dumps(repair, ensure_ascii=False), cancellation)
+                            if encoded is None:
+                                raise InterruptedError from None
             if vector is None:
                 with current.lock:
                     if not current.closed:

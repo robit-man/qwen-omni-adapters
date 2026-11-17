@@ -44,6 +44,10 @@ def _expire_stores() -> None:
 class PeripheralError(ValueError):
     """A bounded transport or device-access failure, never fabricated evidence."""
 
+class PeripheralTransportUnsupported(PeripheralError):
+    """Observed path is not a hardware TTY; discovery may choose another transport."""
+
+
 
 def _number(value: Any, name: str, low: float, high: float) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= high:
@@ -228,9 +232,9 @@ class PeripheralStore:
             raise PeripheralError("device must be a path from peripheral_inventory")
         path = Path(value).resolve(strict=True)
         if path.parent != self.dev.resolve() or not stat.S_ISCHR(path.stat().st_mode):
-            raise PeripheralError("device must resolve to a physical serial character device")
+            raise PeripheralTransportUnsupported("device must resolve to a physical serial character device; use a generic terminal or shell for a user-owned pseudo-terminal")
         if not (self.sys / "class/tty" / path.name / "device").exists():
-            raise PeripheralError("device is not a hardware TTY")
+            raise PeripheralTransportUnsupported("device is not a hardware TTY; use a generic terminal or shell for a user-owned pseudo-terminal")
         try:
             consoles = {
                 line.split()[0]

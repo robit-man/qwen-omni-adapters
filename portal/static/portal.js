@@ -1431,7 +1431,7 @@
   }
 
   function fileDeliveryFromTrace(item) {
-    if (String((item || {}).name || "") !== "file_deliver") return null;
+    if (!["file_deliver", "capture_view"].includes(String((item || {}).name || ""))) return null;
     const result = (item || {}).resultJson;
     if (!result || typeof result !== "object") return null;
     const url = String(result.download_url || "");

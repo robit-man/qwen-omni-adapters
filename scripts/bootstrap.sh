@@ -61,6 +61,10 @@ desktop_harness_dependencies_ready() {
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Atspi", "2.0")
+gi.require_version("Gst", "1.0")
+from gi.repository import Gst
+Gst.init(None)
+assert all(Gst.ElementFactory.find(name) is not None for name in ("pipewiresrc", "pngenc", "videoconvert"))
 try:
     gi.require_version("AyatanaAppIndicator3", "0.1")
 except ValueError:
@@ -82,7 +86,8 @@ if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
     fi
     sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y \
       python3-gi gir1.2-gtk-3.0 gir1.2-atspi-2.0 "$indicator_package" pulseaudio-utils \
-      xdotool x11-utils imagemagick
+      xdotool x11-utils imagemagick gir1.2-gstreamer-1.0 gstreamer1.0-tools \
+      gstreamer1.0-pipewire gstreamer1.0-plugins-base gstreamer1.0-plugins-good
   fi
   desktop_harness_dependencies_ready || {
     printf 'Desktop harness dependencies remain unavailable after installation.\n' >&2

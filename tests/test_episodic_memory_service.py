@@ -287,3 +287,24 @@ def test_episodic_answer_plan_closes_dispatch_and_preserves_historical_sources(t
     assert receipt["retrieval_complete"] is True and receipt["source_is_current_visual_evidence"] is False
     assert receipt["results"][0]["text"] == "The amber box belongs to Nia"
     memory.close()
+
+
+def test_invalid_encoding_gets_one_source_bounded_repair_and_keeps_source_vectors(tmp_path):
+    attempts = []
+    def generate(_scope, packet, _cancel):
+        value = json.loads(packet)
+        attempts.append(value)
+        current = value["current"]
+        reference = {"event_id": current["event_id"] if len(attempts) > 1 else 9999, "quote": current["text"]}
+        return {"entities": [{"name": "Aster", "aliases": [], "support": [reference]}], "facts": []}
+    memory = EpisodicMemoryService(tmp_path, owner_session="owner", generate=generate,
+        embed=lambda _: [1.0, 0.0], admit=lambda: True, start_worker=False)
+    capture(memory, "one", "The recorder is Aster")
+    key = memory._key("one")
+    assert memory._encode_one(key, memory._scope(key)) is True
+    assert len(attempts) == 2
+    assert attempts[1]["encoding_validation"]["allowed_event_ids"] == [1]
+    view = memory.snapshot("one")["session"]
+    assert view["events"] == view["vectors"] == view["entities"] == 1
+    assert view["encoding_pending"] == 0
+    memory.close()

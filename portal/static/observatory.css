@@ -463,3 +463,36 @@ html { height: 100%; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
   .memory-graph-node { padding: 12px; gap: 10px; }
   .memory-node-name { font-size: 18px; }
 }
+.execution-overview { min-width: 0; border-top: 1px solid var(--lcd-rule); padding-top: 22px; }
+.plan-heading { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin-bottom: 18px; }
+.plan-heading h3 { font-size: 26px; font-weight: 400; margin: 0; }
+.plan-heading label { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.plan-heading select { min-width: 0; max-width: min(360px, 64cqi); }
+.plan-heading > .muted { flex-basis: 100%; }
+.plan-workbench { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(230px, 1fr); gap: 26px; align-items: start; }
+.plan-steps, .plan-requirements, .mcp-server-list { margin: 0; padding: 0; list-style: none; }
+.plan-steps { max-height: 450px; overflow: auto; overscroll-behavior: contain; padding-right: 10px; scrollbar-gutter: stable; }
+.plan-step { position: relative; padding-bottom: 22px; }
+.plan-step:not(:last-child)::after { content: ""; height: 22px; border-left: 1px solid var(--lcd-rule); position: absolute; left: 20px; bottom: 0; }
+.plan-step button { width: 100%; min-width: 0; display: grid; gap: 8px; text-align: left; padding: 12px 16px; background: var(--lcd-bg); color: var(--lcd-muted); border: 1px solid var(--lcd-rule); font: inherit; cursor: pointer; }
+.plan-step button strong { font-size: 21px; font-weight: 400; overflow-wrap: anywhere; }
+.plan-step button[aria-pressed="true"], .plan-step.is-current button { border-color: var(--lcd); color: var(--lcd); }
+.plan-step-status { text-transform: uppercase; font-size: 17px; }
+.plan-step.is-verified .plan-step-status { text-decoration: underline; text-underline-offset: 4px; }
+.plan-inspector { min-width: 0; max-height: 450px; overflow: auto; overscroll-behavior: contain; padding: 0 10px; scrollbar-gutter: stable; }
+.plan-inspector h4 { font-size: 23px; font-weight: 400; margin: 0 0 18px; }
+.plan-inspector .facts { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.plan-inspector .facts dd { font-size: 19px; }
+.plan-requirements { display: grid; gap: 12px; margin-top: 24px; font-size: 18px; overflow-wrap: anywhere; }
+.connections-panel { border-top: 1px solid var(--lcd-rule); padding-top: 18px; }
+.connections-panel summary { cursor: pointer; font-size: 23px; }
+.mcp-connect-form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 16px; align-items: end; margin: 22px 0 12px; }
+.mcp-connect-form label { min-width: 0; display: grid; gap: 8px; font-size: 18px; }
+.mcp-connect-form input, .mcp-connect-form select, .plan-heading select { color: var(--lcd); background: var(--lcd-bg); border: 1px solid var(--lcd-rule); font: 18px var(--label); padding: 8px; border-radius: 0; width: 100%; }
+.mcp-connect-form input::placeholder { color: var(--lcd-muted); }
+.mcp-connect-form button { min-height: 38px; }
+.mcp-server-list { display: grid; gap: 16px; }
+.mcp-server-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--lcd-rule); }
+.mcp-server-list li > span { flex: 1 1 220px; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .plan-workbench { grid-template-columns: minmax(0, 1fr); } .mcp-connect-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .mcp-connect-form { grid-template-columns: minmax(0, 1fr); } .plan-heading label { width: 100%; } .plan-heading select { max-width: 100%; } }

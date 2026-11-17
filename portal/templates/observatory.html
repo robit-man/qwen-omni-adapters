@@ -96,7 +96,7 @@
 
       <section id="view-states" class="review-view" role="tabpanel" aria-labelledby="tab-states" tabindex="0" hidden>
         <header class="section-heading"><h2>States</h2><p>Runtime, voice loop &amp; work ledger</p></header>
-        <div class="visualization states-visual"><div class="state-flow" id="state-flow" aria-label="Voice loop states"></div><div class="state-meter-grid" id="state-meters"></div><div class="state-history" id="state-history" aria-label="Observed state transitions"></div></div>
+        <div class="visualization states-visual"><div class="state-flow" id="state-flow" aria-label="Voice loop states"></div><div class="state-meter-grid" id="state-meters"></div><section class="execution-overview" aria-labelledby="plan-heading"><header class="plan-heading"><h3 id="plan-heading">Execution plan</h3><label>Task <select id="plan-task" aria-label="Task to inspect"></select></label><span id="plan-meta" class="muted"></span></header><p id="plan-empty" class="scope-note">Committed steps appear when a task starts. Discovery alone does not count as completion.</p><div class="plan-workbench" id="plan-workbench" hidden><ol id="plan-steps" class="plan-steps" aria-label="Committed plan steps"></ol><section class="plan-inspector" tabindex="0" role="region" aria-labelledby="plan-step-title"><h4 id="plan-step-title"></h4><dl class="facts" id="plan-step-facts"></dl><ul id="plan-requirements" class="plan-requirements"></ul></section></div><p class="sr-only" role="status" id="plan-announcement"></p></section><details class="connections-panel" id="mcp-connections"><summary>MCP connections <span id="mcp-count"></span></summary><p class="scope-note">Add an MCP endpoint and optional API key. Device connections are available to the daemon; browser connections stay with this browser.</p><form id="mcp-connect-form" class="mcp-connect-form"><label>Endpoint <input name="endpoint" type="url" autocomplete="off" required placeholder="https://service.example/mcp"></label><label>API key <input name="key" type="password" autocomplete="off" placeholder="Optional"></label><label>Available to <select name="scope"><option value="device">Device and daemon</option><option value="session">This browser</option></select></label><button class="chip" type="submit">Connect</button></form><p id="mcp-message" role="status"></p><ul id="mcp-server-list" class="mcp-server-list"></ul></details><div class="state-history" id="state-history" aria-label="Observed state transitions"></div></div>
         <details class="review-details"><summary>State details & work ledger</summary><div class="detail-scroll">
         <dl class="facts state-facts" id="live-readout"></dl>
         <h3 class="subheading">Current work</h3><div id="work-current"></div>
@@ -113,7 +113,7 @@
           <p id="memory-structure-empty" class="scope-note" hidden></p>
           <div class="memory-workbench">
             <section class="memory-map" aria-labelledby="memory-structure-title"><div class="memory-map-heading"><h3 id="memory-structure-title">Memory structure</h3><span class="muted">Select a node</span></div><div class="memory-graph" id="memory-graph" role="group" aria-label="Memory stores and recorded relationships"><svg class="memory-links" id="memory-links" aria-hidden="true"></svg></div><p class="scope-note memory-map-key">Lines show store membership and reported source links. Layout distance carries no similarity score.</p></section>
-            <details class="memory-inspector" open><summary>Inspect selected node</summary><div class="memory-inspector-scroll"><h3 id="memory-detail-title">Source archive</h3><dl class="facts" id="memory-node-facts"></dl><h4>Reported relationships</h4><ul id="memory-edge-list" class="memory-edge-list"></ul><ol id="memory-node-records" class="memory-node-records"></ol><p class="scope-note" id="memory-record-empty"></p></div></details>
+            <details class="memory-inspector" open><summary>Inspect selected node</summary><div class="memory-inspector-scroll" tabindex="0" role="region" aria-labelledby="memory-detail-title"><h3 id="memory-detail-title">Source archive</h3><dl class="facts" id="memory-node-facts"></dl><h4>Reported relationships</h4><ul id="memory-edge-list" class="memory-edge-list"></ul><ol id="memory-node-records" class="memory-node-records"></ol><p class="scope-note" id="memory-record-empty"></p></div></details>
           </div>
           <p class="sr-only" role="status" id="memory-selection-status"></p>
         </div>
@@ -135,6 +135,8 @@
     <footer class="observatory-footer"><span>RETAINED EVIDENCE</span><div><button class="text-button open-chat" type="button" aria-controls="observatory-chat" aria-expanded="false">Open chat</button><a id="chat-link" href="/">Chat in new tab</a></div></footer>
   </main>
   <p class="sr-only" id="observatory-announcer" aria-live="polite"></p>
+  <script src="/assets/task-plan.js?v=20261117" defer></script>
+  <script src="/assets/mcp-connections.js?v=20261117" defer></script>
   <script src="/assets/memory-graph.js?v=20261116-structure" defer></script>
   <script src="/assets/observatory.js?v=20261116-memory" defer></script>
   <script src="/assets/lcd-surface.js?v=20261116-glass" defer></script>

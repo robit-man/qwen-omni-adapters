@@ -8,6 +8,7 @@ import io
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -179,11 +180,12 @@ class GuiAutomation:
         return width, height, self._active_window()
 
     def _snapshot(self, coordinate_space: str = "active_window") -> dict[str, Any]:
-        if not shutil.which("xdotool"):
-            raise GuiAutomationError("xdotool is not installed")
-        if not shutil.which("gnome-screenshot"):
-            raise GuiAutomationError("gnome-screenshot is not installed")
-        width, height, active_window = self._desktop_state()
+        try:
+            width, height, active_window = self._desktop_state()
+        except GuiAutomationError:
+            if coordinate_space != "screen":
+                raise
+            width, height, active_window = 0, 0, None
         window_crop = coordinate_space == "active_window" and active_window is not None
         with tempfile.NamedTemporaryFile(
             prefix="omni-desktop-", suffix=".png", delete=False
@@ -194,8 +196,25 @@ class GuiAutomation:
             # -w` omits window-manager decorations on common X11 desktops, while
             # xdotool reports the outer window geometry. Advertising the latter as
             # coordinates for the former silently offsets every pointer action.
-            self._run(["gnome-screenshot", "-f", str(path)])
-            captured = Image.open(path).convert("RGB")
+            capture_environment = desktop_subprocess_environment()
+            if shutil.which("gnome-screenshot") and not capture_environment.get("WAYLAND_DISPLAY"):
+                self._run(["gnome-screenshot", "-f", str(path)])
+                captured = Image.open(path).convert("RGB")
+            else:
+                # Pillow's XCB capture is already part of the runtime. Keep
+                # display authentication in the recovered subprocess scope,
+                # without changing this multithreaded process's environment.
+                code = "import sys;from portal.desktop_capture import capture;sys.stdout.buffer.write(capture(int(sys.argv[1]),int(sys.argv[2])))"
+                try:
+                    result = subprocess.run([sys.executable, "-c", code, str(width), str(height)], capture_output=True,
+                        timeout=self.timeout_s, env=capture_environment, check=False)
+                    if result.returncode or len(result.stdout) > 32 * 1024 * 1024:
+                        raise GuiAutomationError("Desktop capture backend is unavailable in the current graphical session")
+                    captured = Image.open(io.BytesIO(result.stdout)).convert("RGB")
+                except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+                    raise GuiAutomationError("Desktop capture could not read the current display") from error
+            if not width or not height:
+                width, height = captured.size
             if window_crop:
                 bounds = active_window["bounds"]
                 left = bounds["x"]

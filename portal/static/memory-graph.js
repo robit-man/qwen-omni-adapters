@@ -182,7 +182,7 @@
     for (const [index, item] of model.nodes.entries()) {
       const button = [...graph.querySelectorAll("[data-memory-node]")].find(button => button.dataset.memoryNode === item.id);
       button.style.gridColumn = narrow ? index === 0 ? "1 / -1" : String((index - 1) % 2 + 1) : String(item.column + 1);
-      button.style.gridRow = String(narrow ? index === 0 ? 1 : Math.floor((index - 1) / 2) + 2 : item.row + 1);
+      button.style.gridRow = !narrow && index === 0 ? `1 / span ${Math.max(2, Math.ceil((model.nodes.length - 1) / 2))}` : String(narrow ? index === 0 ? 1 : Math.floor((index - 1) / 2) + 2 : item.row + 1);
     }
     const svg = $("memory-links"), root = graph.getBoundingClientRect();
     svg.setAttribute("viewBox", `0 0 ${root.width} ${root.height}`);

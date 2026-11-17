@@ -57,9 +57,11 @@ tool_families:
   shell: [shell]
   math: [safe_math_eval]
   browser: [browser_interact]
-  desktop: [gui_interact]
+  desktop: [native_ui, capture_view, gui_interact]
   web: [web_search, web_fetch, web_crawl]
   documents: [document_search, structured_read, ocr_pdf]
+  episodic: [episodic_search]
+  mcp: [mcp_connections, mcp_catalog, mcp_call, mcp_resource]
   memory: [conversation_search, memory_read, memory_search, memory_write]
   system: [get_current_time, get_system_snapshot, get_user_location, get_portal_capabilities]
   camera: [request_camera_view]
@@ -155,6 +157,8 @@ decisions:
       desktop: operate visible desktop applications or windows outside page-level browser controls
       web: search or fetch public web information without interactive control
       documents: inspect attached or indexed document contents
+      episodic: recall linked historical experiences across sensory and textual sources
+      mcp: discover and invoke registered MCP tools, resources or prompts
       memory: store or retrieve durable conversational memory
       system: inspect current host/runtime state, time, or capabilities
       camera: obtain current physical visual evidence

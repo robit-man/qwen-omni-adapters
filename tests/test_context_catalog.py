@@ -286,11 +286,11 @@ def test_ui_routing_preserves_existing_app_and_browser_ownership() -> None:
     }
     discovery = functions["tool_search"]["parameters"]["properties"]["family"]["description"]
 
-    assert families["desktop"]["tools"] == ["native_ui", "gui_interact"]
+    assert families["desktop"]["tools"] == ["native_ui", "capture_view", "gui_interact"]
     assert families["browser"]["tools"] == ["browser_interact", "computer_use"]
     for family, ownership in (
-        ("desktop", "actual apps and existing signed-in browser pages"),
-        ("browser", "requested runtime-owned isolated browser"),
+        ("desktop", "actual apps and signed-in browser"),
+        ("browser", "owned isolated browser"),
     ):
         choice = families[family]["choice"]
         assert ownership in choice

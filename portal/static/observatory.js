@@ -397,6 +397,8 @@
   }
 
   function renderStates(snapshot) {
+    window.OmniTaskPlan?.render(snapshot);
+    window.OmniMCPConnections?.render(snapshot, state.token);
     const live = snapshot.live || {};
     const harness = live.harness || {};
     const daemon = live.daemon || {};
@@ -518,6 +520,7 @@
   }
 
   function initialize() {
+    window.addEventListener("omni-connections-changed", () => refresh());
     const supplied = new URLSearchParams(location.hash.slice(1)).get("access");
     state.token = supplied || "";
     try {

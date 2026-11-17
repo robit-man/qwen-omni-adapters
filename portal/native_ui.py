@@ -1592,11 +1592,34 @@ def _capture_window(identity: Mapping[str, Any], environment: Mapping[str, str])
         raise NativeUiUnavailable("native_capture_window_changed")
     # IM6 XImportImage's -screen path reads root pixels, then CropImage clips the
     # requested client rectangle to that root without scaling (6.9.12-98).
-    result = subprocess.run(  # noqa: S603 - current screen pixels, cropped by the exact foreground XID.
-        ["import", "+frame", "+border", "-screen", "-window", identity["window_id"], "png:-"], capture_output=True,
-        timeout=5, check=False, env=dict(environment),
-    )
-    raw = result.stdout
+    compositor = bool(environment.get("WAYLAND_DISPLAY"))
+    if compositor:
+        import io
+        import sys
+
+        from PIL import Image
+        code = "import sys;from portal.desktop_capture import capture;sys.stdout.buffer.write(capture(int(sys.argv[1]),int(sys.argv[2])))"
+        result = subprocess.run([sys.executable, "-c", code, str(root["geometry"]["width"]), str(root["geometry"]["height"])],
+            capture_output=True, timeout=10, check=False, env=dict(environment))
+        if result.returncode:
+            raise NativeUiUnavailable("native_window_capture_unavailable")
+        try:
+            with Image.open(io.BytesIO(result.stdout)) as source:
+                if source.size != (root["geometry"]["width"], root["geometry"]["height"]):
+                    raise ValueError("compositor geometry mismatch")
+                pixels = source.convert("RGB").crop((image_geometry["x"], image_geometry["y"],
+                    image_geometry["x"] + image_geometry["width"], image_geometry["y"] + image_geometry["height"]))
+                output = io.BytesIO()
+                pixels.save(output, format="PNG")
+                raw = output.getvalue()
+        except Exception:
+            raise NativeUiUnavailable("native_capture_geometry_mismatch") from None
+    else:
+        result = subprocess.run(  # noqa: S603 - current screen pixels, cropped by the exact foreground XID.
+            ["import", "+frame", "+border", "-screen", "-window", identity["window_id"], "png:-"], capture_output=True,
+            timeout=5, check=False, env=dict(environment),
+        )
+        raw = result.stdout
     if result.returncode or not 33 <= len(raw) <= 8 * 1024 * 1024 or raw[:8] != b"\x89PNG\r\n\x1a\n" or raw[12:16] != b"IHDR":
         raise NativeUiUnavailable("native_window_capture_unavailable")
     width, height = struct.unpack(">II", raw[16:24])
@@ -1606,7 +1629,7 @@ def _capture_window(identity: Mapping[str, Any], environment: Mapping[str, str])
             or _x11_foreground(environment) != identity or _process_start(identity["process_id"]) != process_start):
         raise NativeUiUnavailable("native_capture_window_changed")
     return {"image": raw, "sha256": hashlib.sha256(raw).hexdigest(), "geometry": geometry, "identity": dict(identity),
-            "process_start": process_start, "capture_source": "x11_root_screen", "capture_root": root,
+            "process_start": process_start, "capture_source": "wayland_compositor" if compositor else "x11_root_screen", "capture_root": root,
             "image_geometry": image_geometry,
             "pixel_offset": {"x": image_geometry["x"] - geometry["x"], "y": image_geometry["y"] - geometry["y"]}}
 

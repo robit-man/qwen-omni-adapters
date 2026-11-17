@@ -404,3 +404,22 @@ def test_harness_routes_generic_hardware_without_changing_private_system_snapsho
     )
     snapshot = tools.execute("owner", "get_system_snapshot", {})
     assert "serial" not in snapshot and "usb" not in snapshot
+
+
+def test_pseudo_terminal_preserves_hardware_guard_and_offers_generic_transports():
+    tools = PortalToolHarness(SessionDocumentStore())
+    master, slave = pty.openpty()
+    try:
+        result = tools.execute(
+            "owner", "serial_io",
+            {"action": "open", "device": os.ttyname(slave), "baudrate": 115200},
+        )
+        assert result["error"] == "PeripheralTransportUnsupported"
+        assert result["failure_scope"] == "capability"
+        assert result["disposition"] == "change_capability"
+        assert result["task_blocked"] is False and result["retryable"] is False
+        assert result["alternative_tools"] == ["terminal_session", "shell"]
+        assert not tools.peripherals._ports
+    finally:
+        os.close(master)
+        os.close(slave)

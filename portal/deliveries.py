@@ -98,7 +98,22 @@ class SessionFileDeliveryStore:
     def _expire(self, delivery_id: str) -> None:
         self._remove(delivery_id)
 
-    def stage(self, session_id: str, source_path: Any, download_name: Any = None) -> dict[str, Any]:
+    def stage_bytes(self, session_id: str, data: bytes, download_name: str) -> dict[str, Any]:
+        """Stage bytes produced by a real tool without exposing arbitrary paths."""
+        if not isinstance(data, bytes) or not 1 <= len(data) <= self.max_bytes:
+            raise FileDeliveryError("generated artifact exceeds the file-delivery bound")
+        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.directory.chmod(0o700)
+        source = self.directory / f".generated-{secrets.token_hex(16)}"
+        descriptor = os.open(source, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(data)
+            return self.stage(session_id, source, download_name, _generated=True)
+        finally:
+            source.unlink(missing_ok=True)
+
+    def stage(self, session_id: str, source_path: Any, download_name: Any = None, *, _generated: bool = False) -> dict[str, Any]:
         raw_path = str(source_path or "").strip()
         if not raw_path or len(raw_path) > 4096:
             raise FileDeliveryError("path must be a non-empty host path")
@@ -106,7 +121,7 @@ class SessionFileDeliveryStore:
             source = Path(raw_path).expanduser().resolve(strict=True)
         except (OSError, RuntimeError) as exc:
             raise FileDeliveryError("delivery source does not exist") from exc
-        if not self._allowed_source(source):
+        if not self._allowed_source(source) and not (_generated and source.parent == self.directory and source.name.startswith(".generated-")):
             raise FileDeliveryError("delivery source is outside the configured roots")
         name = self._download_name(source, download_name)
 

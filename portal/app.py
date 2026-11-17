@@ -73,6 +73,7 @@ try:
     from portal.environment import portal_behavior_system_message, runtime_environment_snapshot
     from portal.episodic_memory import MemoryCapture, create_memory_service
     from portal.gpu_lease import RequestDrainGate
+    from portal.mcp_bridge import MCPBridgeError, RemoteMCPRegistry
     from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
     from portal.observatory import ObservatoryReader, RuntimeModelReader
     from portal.session_state import SessionContinuationStore
@@ -102,6 +103,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from environment import portal_behavior_system_message, runtime_environment_snapshot
     from episodic_memory import MemoryCapture, create_memory_service
     from gpu_lease import RequestDrainGate
+    from mcp_bridge import MCPBridgeError, RemoteMCPRegistry
     from native_ui import native_task_scope_sha256, normalize_native_task_scope
     from observatory import ObservatoryReader, RuntimeModelReader
     from session_state import SessionContinuationStore
@@ -408,6 +410,8 @@ class PortalConfig:
     file_delivery_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
     file_delivery_max_bytes: int = 128 * 1024 * 1024
     tool_workspace_root: Path | None = None
+    mcp_enabled: bool = False
+    mcp_root: Path | None = None
     episodic_memory_enabled: bool = False
     episodic_memory_root: Path | None = None
     remote_camera_enabled: bool = True
@@ -426,6 +430,7 @@ class PortalConfig:
             )
         ).expanduser()
         return cls(
+            mcp_enabled=os.environ.get("OMNI_MCP_ENABLED", "1").lower() not in {"0", "false", "off", "no"},
             episodic_memory_enabled=os.environ.get("OMNI_EPISODIC_MEMORY", "1").lower() not in {"0", "false", "off", "no"},
             adapter_url=adapter_url,
             adapter_health_url=os.environ.get(
@@ -1635,6 +1640,25 @@ def _model_tool_result(
             compact["data"] = "attached_as_current_tool_image"
         textual["screenshot"] = compact
 
+    if tool_name in {"mcp_call", "mcp_resource"}:
+        def remote_content(value):
+            if isinstance(value, list):
+                return [remote_content(item) for item in value]
+            if not isinstance(value, Mapping):
+                return value
+            binary_key = "data" if value.get("type") == "image" else "blob"
+            data, mime = value.get(binary_key), value.get("mimeType")
+            if isinstance(data, str) and mime in {"image/png", "image/jpeg", "image/webp"} and len(images) < 4:
+                try:
+                    decoded = base64.b64decode(data, validate=True)
+                    if len(decoded) <= 8 * 1024 * 1024:
+                        images.append({"mime_type": mime, "encoding": "base64", "data": data})
+                        return {**value, binary_key: "attached_as_remote_tool_image", "authority": "untrusted_remote_tool"}
+                except (ValueError, TypeError):
+                    pass
+            return {key: remote_content(item) for key, item in value.items()}
+        textual = remote_content(textual)
+
     fingerprint = textual.get("visual_fingerprint")
     if isinstance(fingerprint, Mapping):
         compact_fingerprint = copy.deepcopy(dict(fingerprint))
@@ -1910,7 +1934,7 @@ def _tool_followup(
         display_arguments = copy.deepcopy(
             {key: value for key, value in arguments.items() if key != "context"}
         )
-        ok = "error" not in result
+        ok = "error" not in result and result.get("ok") is not False
         if name == "shell":
             ok = (
                 ok
@@ -2030,6 +2054,15 @@ def _tool_followup(
                     messages[0]["content"] = directive + "\n\n" + str(messages[0].get("content") or "")
                 else:
                     messages.insert(0, {"role": "system", "content": directive})
+    if len(executed) == 1 and executed[0]["name"] == "capture_view" and executed[0]["ok"] and executed[0]["arguments"].get("after_capture") == "answer":
+        receipt = json.loads(executed[0]["result"])
+        if receipt.get("staged_copy") is True and receipt.get("evidence_authority") == "captured_snapshot" and receipt.get("after_capture") == "answer":
+            followup.pop("tools", None)
+            followup["tool_choice"] = "none"
+            messages = _without_media(messages)
+            directive = context_text("directives", "capture_reply_ready")
+            messages.insert(0, {"role": "system", "content": directive})
+            followup["messages"] = messages
     return followup, executed, made_progress
 
 
@@ -2972,6 +3005,12 @@ def create_app(
         owner_session=tool_harness.conversation_history_owner,
         legacy_archive=tool_harness.conversation_history_path)
         if runtime.episodic_memory_enabled else None)
+    remote_mcp = RemoteMCPRegistry(runtime.mcp_root or state_root / "mcp") if runtime.mcp_enabled else None
+    tool_harness.remote_mcp = remote_mcp
+    app.extensions["remote_mcp"] = remote_mcp
+    if remote_mcp is not None:
+        import atexit
+        atexit.register(remote_mcp.close)
     tool_harness.episodic_memory = episodic_memory
     app.extensions["episodic_memory"] = episodic_memory
     app.config["MAX_CONTENT_LENGTH"] = runtime.max_body_bytes
@@ -3282,7 +3321,8 @@ def create_app(
             # _tool_followup sets this standard field only after the model's
             # completed archive -> answer handoff. Repacking starts from the
             # admission contract and would otherwise erase the new phase.
-            system_contract = context_text("directives", "conversation_reply_ready") + "\n\n" + system_contract
+            phase = "capture_reply_ready" if any(isinstance(item, Mapping) and item.get("role") == "system" and "<capture_reply_ready>" in str(item.get("content") or "") for item in payload.get("messages", [])) else "conversation_reply_ready"
+            system_contract = context_text("directives", phase) + "\n\n" + system_contract
         try:
             prepared = virtual_context.repack_followup(
                 virtual_session_id or session_id,
@@ -3607,6 +3647,7 @@ def create_app(
             requests=inference_queue.snapshot(),
         )
         snapshot["memory"]["episodic"] = episodic_memory.snapshot(session_id) if episodic_memory else {"enabled": False}
+        snapshot["connections"] = {"mcp_enabled": remote_mcp is not None, "servers": remote_mcp.list(session_id) if remote_mcp else []}
         snapshot["agent"] = runtime_agent_identity()
         snapshot["weights"] = observatory_models.snapshot()
         return jsonify(snapshot)
@@ -3776,6 +3817,42 @@ def create_app(
                 "elapsed_ms": (time.monotonic() - started) * 1000,
             }
         )
+
+    @app.route("/api/mcp/servers", methods=["GET", "POST"])
+    def mcp_servers():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if remote_mcp is None:
+            return jsonify({"error": "MCP connections are disabled"}), 503
+        identity = request_session_id()
+        if request.method == "GET":
+            response = jsonify({"servers": remote_mcp.list(identity)})
+            response.set_cookie(SESSION_COOKIE_NAME, identity, max_age=BROWSER_SESSION_COOKIE_MAX_AGE_SECONDS, secure=request.is_secure or request.host.split(":", 1)[0] not in {"127.0.0.1", "localhost"}, httponly=True, samesite="Lax", path="/")
+            return response
+        value = request.get_json(silent=True)
+        if not isinstance(value, dict):
+            return jsonify({"error": "Provide an endpoint and optional API key"}), 400
+        try:
+            result = remote_mcp.register(identity, value.get("endpoint"), key=value.get("key", ""),
+                name=value.get("name", ""), scope=value.get("scope", "session"))
+        except MCPBridgeError as error:
+            return jsonify({"error": str(error)}), 400
+        response = jsonify(result)
+        response.set_cookie(SESSION_COOKIE_NAME, identity, max_age=BROWSER_SESSION_COOKIE_MAX_AGE_SECONDS, secure=request.is_secure or request.host.split(":", 1)[0] not in {"127.0.0.1", "localhost"}, httponly=True, samesite="Lax", path="/")
+        return response, 201
+
+    @app.route("/api/mcp/servers/<server_id>", methods=["DELETE", "POST"])
+    def mcp_server_control(server_id):
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if remote_mcp is None:
+            return jsonify({"error": "MCP connections are disabled"}), 503
+        try:
+            result = (remote_mcp.remove(request_session_id(), server_id) if request.method == "DELETE"
+                else remote_mcp.refresh(request_session_id(), server_id))
+            return jsonify(result)
+        except MCPBridgeError as error:
+            return jsonify({"error": str(error)}), 400
 
     @app.post("/api/memory/events")
     def append_memory_event():

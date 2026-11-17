@@ -155,6 +155,18 @@ Source counts remain separate from graph encoding and semantic indexing. The sta
 
 The map and inspector retain the amber frames, VT323 labels and DSEG7 counts. Selected state adds an underline and text feedback rather than relying on color alone. The workbench places map and inspector side by side, stacking them when its container is at most 900px wide, including beside chat. The graph reflows from three to two columns below 600px of available width, with its source root spanning both columns. The visualization and inspector scroll internally; on narrow workbenches the inspector is capped at 280px. Long labels and quoted text wrap without expanding the app frame. The separate retention guide keeps its existing bounded detail scroller.
 
+### States execution plan
+
+States keeps its voice-loop and admission instruments and adds a task selector with the controller's current committed frontier. The header reports task status, phase, next transition, plan revision and environment version. Connected step cards show explicit states: planned, evidence acquired, awaiting verification, verified, or a reported action/effect/verification failure. Current and selected steps use amber borders; verified status also gains an underline. A selected step exposes its tool family, operation, retained selection explanation, expected effect, target, acceptance test, verification family and executor receipt IDs, alongside requirement statuses and their evidence. This makes tool choice and substep completion inspectable without displaying private reasoning. Missing plans, explanations or receipts have explicit text; discovery and command success alone never become invented progress or completion.
+
+The step list and evidence inspector each scroll within a 450px bound inside the existing States visualization. Their two-column workbench stacks at viewport widths of 900px or less. Labels and evidence wrap within the app frame; the four peer tabs and whole-window scrolling contract remain unchanged.
+
+### MCP connections
+
+The collapsible **MCP connections** section stays within States. Its form has a labeled endpoint, optional password-style API key, **Available to** scope selector and Connect action. Connection discovery, success and failure appear in a live status region; unavailable service disables the form. The server list reports name, transport, whether a key is configured, and scope, with explicit Refresh and Remove actions. The key field clears after either submission outcome. Credentials remain private server-side and are omitted from the public connection list; Remove deletes the registration and its credential.
+
+**Device and daemon** connections persist for the shared runtime. **This browser** connections belong to the cookie-scoped session and clear with its Trash action; they do not become another browser's connections. The form retains square amber controls and VT323 labels, reflows to two columns at 900px and one at 480px, and scrolls with the bounded States instrument rather than expanding the document.
+
 ## Do's and Don'ts
 
 - **Do:** Keep privacy-sensitive camera activation behind an explicit source and device choice.

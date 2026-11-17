@@ -681,6 +681,9 @@ apply the length correction through the normal native builders.
 
 ## Response and observability
 
+For endpoint/key MCP registration, current desktop captures and the Observatory
+execution display, see [MCP and capability execution](mcp-and-capability-execution.md).
+
 The response keeps Ollama's normal fields and adds an `adapter` trace and, when
 requested, `message.audio`. Logs may record bundle digest, route, media sizes,
 durations, frame counts, stage timings, and device placement. They must not log

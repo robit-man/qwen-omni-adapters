@@ -12,6 +12,13 @@ from portal.gui import GuiAutomation
 from runtime.verify_gui_action_loop import ChallengeState, _is_stale_gui_fixture, _page
 
 
+@pytest.fixture(autouse=True)
+def synthetic_x11_capture_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    # SyntheticDesktop supplies its own X11 screenshot pixels. Never capture
+    # the developer's real Wayland desktop while exercising this fixture.
+    monkeypatch.setattr("portal.gui.desktop_subprocess_environment", lambda: {"DISPLAY": ":fixture"})
+
+
 def test_gui_fixture_reclaims_only_its_own_stale_task() -> None:
     fixture = {
         "status": "running",

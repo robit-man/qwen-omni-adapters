@@ -16,6 +16,7 @@ import binascii
 import hashlib
 import hmac
 import html
+import io
 import ipaddress
 import json
 import math
@@ -39,6 +40,7 @@ from typing import Any
 from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit
 
 import httpx
+from PIL import Image
 
 from qwen_omni_adapters.applications import discover_applications
 from qwen_omni_adapters.computer_use import ComputerUseError
@@ -63,7 +65,7 @@ try:
     from portal.environment import runtime_environment_snapshot
     from portal.gui import GuiAutomation, GuiAutomationError
     from portal.native_ui import NativeUiUnavailable
-    from portal.peripherals import PeripheralError, PeripheralStore
+    from portal.peripherals import PeripheralError, PeripheralStore, PeripheralTransportUnsupported
     from portal.terminals import TerminalError, TerminalStore
 except ModuleNotFoundError:  # Direct script execution from portal/.
     from background_tasks import TERMINAL_STATUSES, BackgroundTaskStore
@@ -79,7 +81,7 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from environment import runtime_environment_snapshot
     from gui import GuiAutomation, GuiAutomationError
     from native_ui import NativeUiUnavailable
-    from peripherals import PeripheralError, PeripheralStore
+    from peripherals import PeripheralError, PeripheralStore, PeripheralTransportUnsupported
     from terminals import TerminalError, TerminalStore
 
 MAX_SEARCH_RESULTS = 8
@@ -2414,6 +2416,7 @@ class PortalToolHarness:
         self.conversation_history_path = conversation_history_path
         self.conversation_history_owner = conversation_history_owner
         self.episodic_memory = None
+        self.remote_mcp = None
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
         self.web = WebToolSuite(
             ttl_s=ttl_s,
@@ -2458,6 +2461,8 @@ class PortalToolHarness:
                     and self.conversation_history_path.is_file())
 
     def clear(self, session_id: str) -> None:
+        if self.remote_mcp is not None:
+            self.remote_mcp.clear(session_id)
         self.peripherals.clear(session_id)
         self.terminals.clear(session_id)
         self.memory.clear(session_id)
@@ -2574,8 +2579,36 @@ class PortalToolHarness:
                     "tasks": ["chat", "transcribe", "describe", "synthesize"],
                     "safe_tools": [item["function"]["name"] for item in SAFE_TOOLS],
                     "memory_scope": "browser_session",
+                    "tool_families": [{"name": name, "purpose": definition["description"], "tools": definition["tools"]} for name, definition in TOOL_FAMILIES.items()],
+                    "mcp": {"enabled": self.remote_mcp is not None, "servers": self.remote_mcp.list(session_id) if self.remote_mcp else [],
+                        "registration": "Observatory Connections or POST /api/mcp/servers; optional API key stays private"},
+                    "execution_contract": "Read exact schemas and observed IDs. Inspect uncertainty, act, verify effects. Research and shell can discover alternate mechanisms; missing tools in a bounded prompt are undiscovered capabilities, not proof of inability.",
                     "web_access": "duckduckgo_html_discovery_fetch_crawl_and_session_index",
                 }
+            elif name in {"mcp_catalog", "mcp_call", "mcp_resource", "mcp_connections"}:
+                if self.remote_mcp is None:
+                    raise ToolInputError("MCP connections are disabled")
+                from portal.mcp_bridge import MCPBridgeError
+                try:
+                    server = arguments.get("server_id")
+                    if name == "mcp_catalog":
+                        result = self.remote_mcp.catalog(session_id, server, kind=arguments.get("kind", "tools"),
+                            cursor=arguments.get("cursor", 0), limit=arguments.get("limit", 8), name=arguments.get("name"))
+                    elif name == "mcp_call":
+                        result = self.remote_mcp.call(session_id, server, arguments.get("name"), arguments.get("arguments", {}))
+                    elif name == "mcp_resource":
+                        result = self.remote_mcp.resource(session_id, server, uri=arguments.get("uri"),
+                            prompt=arguments.get("prompt"), arguments=arguments.get("arguments"))
+                    elif arguments.get("action", "list") == "refresh":
+                        result = self.remote_mcp.refresh(session_id, server)
+                    elif arguments.get("action", "list") == "remove":
+                        result = self.remote_mcp.remove(session_id, server)
+                    elif arguments.get("action", "list") == "connect":
+                        result = self.remote_mcp.register(session_id, arguments.get("endpoint"), name=arguments.get("name", ""))
+                    else:
+                        result = {"servers": self.remote_mcp.list(session_id)}
+                except (MCPBridgeError, TypeError, ValueError) as error:
+                    raise ToolInputError(str(error)) from None
             elif name == "request_camera_view":
                 mode = str(arguments.get("mode") or "still").strip()
                 if mode not in {"still", "motion"}:
@@ -2631,6 +2664,44 @@ class PortalToolHarness:
                     arguments.get("max_length"),
                     arguments.get("format"),
                 )
+            elif name == "capture_view":
+                after_capture = arguments.get("after_capture", "continue")
+                if after_capture not in {"answer", "continue"}:
+                    raise ToolInputError("after_capture must be answer or continue")
+                surface = arguments.get("surface", "desktop")
+                if surface == "desktop":
+                    coordinate_space = arguments.get("scope", "screen")
+                    if coordinate_space not in {"screen", "active_window"}:
+                        raise ToolInputError("scope must be screen or active_window")
+                    result = self.gui._snapshot(coordinate_space)
+                elif surface == "browser":
+                    result = self.browser.act(session_id, {"action": "snapshot"})
+                else:
+                    raise ToolInputError("surface must be desktop or browser")
+                if self.file_deliveries is None:
+                    raise ToolInputError("screenshot delivery is not configured")
+                image = result.get("screenshot")
+                if not isinstance(image, Mapping) or image.get("encoding") != "base64":
+                    raise ToolInputError("The selected surface returned no screenshot")
+                raw = base64.b64decode(str(image.get("data") or ""), validate=True)
+                suffix = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}.get(image.get("mime_type"))
+                if suffix is None:
+                    raise ToolInputError("The selected surface returned an unsupported image")
+                delivery = self.file_deliveries.stage_bytes(session_id, raw, f"{surface}-capture{suffix}")
+                # Preserve the full artifact; bound only the model's overview.
+                with Image.open(io.BytesIO(raw)) as source:
+                    if max(source.size) > 1536:
+                        preview = source.convert("RGB")
+                        original_size = preview.size
+                        preview.thumbnail((1536, 1536), Image.Resampling.LANCZOS)
+                        output = io.BytesIO()
+                        preview.save(output, format="PNG")
+                        result["screenshot"] = {"encoding": "base64", "mime_type": "image/png", "data": base64.b64encode(output.getvalue()).decode(),
+                            "preview_width": preview.width, "preview_height": preview.height,
+                            "source_width": original_size[0], "source_height": original_size[1], "source_sha256": delivery["sha256"]}
+                result = {**result, **delivery, "after_capture": after_capture, "producing_tool": "capture_view", "source_surface": surface,
+                    "evidence_authority": "captured_snapshot", "physical_camera_input": False,
+                    "claim_limits": "Observed snapshot at this source time; verify fresh state before pointer actions"}
             elif name == "browser_interact":
                 result = self.browser.act(session_id, dict(arguments))
             elif name in {"computer_use", "native_ui"}:
@@ -2970,6 +3041,10 @@ class PortalToolHarness:
                 "retryable": True,
                 "message": "The runtime deferred this operation to preserve memory headroom.",
             }
+        except GuiAutomationError as exc:
+            result = {"error": type(exc).__name__, "message": str(exc)[:500],
+                "failure_scope": "capability", "task_blocked": False, "retryable": False,
+                "disposition": "change_capability", "alternative_tools": ["native_ui", "shell"]}
         except BrowserDesktopUnavailable as exc:
             result = {
                 "error": type(exc).__name__,
@@ -2979,6 +3054,10 @@ class PortalToolHarness:
                 "disposition": "change_capability",
                 "alternative_tools": ["native_ui"],
             }
+        except PeripheralTransportUnsupported as exc:
+            result = {"error": type(exc).__name__, "message": str(exc)[:500], "failure_scope": "capability",
+                "task_blocked": False, "disposition": "change_capability", "retryable": False,
+                "alternative_tools": ["terminal_session", "shell"]}
         except (ToolInputError, PeripheralError, TerminalError) as exc:
             result = {"error": type(exc).__name__, "message": str(exc)[:500]}
             if name == "web_fetch":
@@ -3019,7 +3098,6 @@ class PortalToolHarness:
         except (
             ComputerUseError,
             BrowserAutomationError,
-            GuiAutomationError,
             DocumentError,
             httpx.HTTPError,
         ) as exc:

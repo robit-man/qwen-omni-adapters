@@ -1066,6 +1066,7 @@ def test_gui_snapshot_crops_to_active_window_and_reports_its_frame(
             return ""
 
     monkeypatch.setattr("portal.gui.shutil.which", lambda _name: "/usr/bin/tool")
+    monkeypatch.setattr("portal.gui.desktop_subprocess_environment", lambda: {"DISPLAY": ":fixture"})
     gui = Gui()
     result = gui._snapshot()
 
@@ -7372,3 +7373,74 @@ def test_virtual_correction_pack_retains_host_format_directive_without_mutating_
                                                         {"role": "user", "content": "Inspect the document."}])
     assert response.status_code == 200 and len(requests) == 2
     assert "<structured_call_recovery>" not in json.dumps(requests[0])
+
+
+def test_capture_view_delivers_actual_generated_image_without_guessing_host_paths(tmp_path, monkeypatch):
+    image = io.BytesIO()
+    Image.new("RGB", (24, 16), "orange").save(image, format="PNG")
+    data = image.getvalue()
+    store = SessionFileDeliveryStore(tmp_path / "staged", allowed_roots=(tmp_path / "allowed",))
+    harness = PortalToolHarness(SessionDocumentStore(), file_deliveries=store)
+    scopes = []
+    def snapshot(scope):
+        scopes.append(scope)
+        return {"screenshot": {"encoding": "base64", "mime_type": "image/png", "data": base64.b64encode(data).decode()}}
+    monkeypatch.setattr(harness.gui, "_snapshot", snapshot)
+    result = harness.execute("one", "capture_view", {"surface": "desktop", "scope": "screen"})
+    assert scopes == ["screen"]
+    assert result["physical_camera_input"] is False and result["media_type"] == "image/png"
+    assert store.resolve("one", result["delivery_id"])["path"].read_bytes() == data
+    with pytest.raises(FileDeliveryError):
+        store.resolve("two", result["delivery_id"])
+    projected, images = _model_tool_result(result, tool_name="capture_view")
+    assert images[0]["data"] == base64.b64encode(data).decode()
+    assert images[0]["data"] not in projected
+    store.clear("one")
+
+
+def test_mcp_images_are_consumed_as_tool_images_and_never_serialized_into_model_text():
+    data = base64.b64encode(b"synthetic image bytes").decode()
+    result = {"ok": True, "result": {"content": [{"type": "image", "mimeType": "image/png", "data": data},
+        {"type": "text", "text": "Remote screenshot"}]}}
+    text, images = _model_tool_result(result, tool_name="mcp_call")
+    assert images == [{"mime_type": "image/png", "encoding": "base64", "data": data}]
+    assert data not in text and "untrusted_remote_tool" in text
+
+
+def test_unavailable_capture_retires_that_route_and_exposes_executable_alternatives(tmp_path, monkeypatch):
+    store = SessionFileDeliveryStore(tmp_path / "captures", allowed_roots=(tmp_path,))
+    harness = PortalToolHarness(SessionDocumentStore(), file_deliveries=store)
+    def unavailable(_scope):
+        raise GuiAutomationError("Current compositor does not provide a frame")
+    monkeypatch.setattr(harness.gui, "_snapshot", unavailable)
+    result = harness.execute("one", "capture_view", {"surface": "desktop"})
+    assert result["failure_scope"] == "capability"
+    assert result["task_blocked"] is False and result["disposition"] == "change_capability"
+    assert set(result["alternative_tools"]) == {"native_ui", "shell"}
+
+
+@pytest.mark.parametrize("plan", ["answer", "continue"])
+def test_capture_completion_plan_closes_only_the_declared_answer_phase(plan):
+    from portal.app import _tool_followup
+    from portal.tools import tool_schemas
+    class Capture:
+        def execute(self, _session, name, arguments):
+            assert name == "capture_view"
+            return {"staged_copy": True, "evidence_authority": "captured_snapshot", "after_capture": arguments["after_capture"],
+                "download_url": "/api/files/fixture-capture-709", "sha256": "a" * 64}
+    payload = {"messages": [{"role": "user", "content": "Give me a desktop screenshot"}], "tools": tool_schemas(["capture_view"])}
+    response = {"message": {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "capture_view", "arguments": {"surface": "desktop", "after_capture": plan}}}]}}
+    followup, executed, _ = _tool_followup(payload, response, Capture(), "one")
+    assert executed[0]["ok"] is True
+    if plan == "answer":
+        assert followup["tool_choice"] == "none" and "tools" not in followup
+        assert "<capture_reply_ready>" in followup["messages"][0]["content"]
+    else:
+        assert followup.get("tool_choice") != "none" and followup["tools"]
+
+
+def test_mcp_resource_image_blobs_use_actual_image_channel():
+    data = base64.b64encode(b"synthetic resource image").decode()
+    text, images = _model_tool_result({"result": {"contents": [{"uri": "fixture://image", "mimeType": "image/png", "blob": data}]}}, tool_name="mcp_resource")
+    assert images[0]["data"] == data
+    assert data not in text and "fixture://image" in text

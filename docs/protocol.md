@@ -622,3 +622,20 @@ placeholders and is consumed before adapter transport.
 conversation/all filters, preserves historical source authority and returns
 quoted graph support. A complete successful `after_retrieval=answer` lookup
 enters the same closed `tool_choice=none` answer phase as conversation_search.
+
+## Portal MCP registration and capture
+
+The authenticated portal extension supports `GET/POST /api/mcp/servers` and
+`POST/DELETE /api/mcp/servers/<id>`. Registration accepts `endpoint`, optional
+`key` and `name`, and `scope=session|device` (default session). Credentials are
+not returned to the model. These routes and their cookie/retention semantics
+are described in [MCP and capability execution](mcp-and-capability-execution.md).
+They do not change the portable adapter envelope or automatically execute
+client-supplied adapter tools.
+
+The server-pinned `capture_view` tool accepts `surface=desktop|browser` and the
+typed `after_capture=answer|continue` plan. A successful staged capture exposes
+an authenticated session-owned artifact URL, hash and dimensions. Only a
+successful capture with `answer` enters the closed answer phase; errors and
+`continue` preserve tool chaining. Captured desktop/browser imagery carries its
+computer-surface authority and does not establish a current physical view.

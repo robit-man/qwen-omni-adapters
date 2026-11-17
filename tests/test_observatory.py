@@ -287,3 +287,21 @@ def test_timeline_keeps_typed_sensory_and_inference_events_without_content():
 def test_noise_only_observation_never_becomes_heard_speech():
     result = _timeline({"events": [{"event": "perception_observed", "speech_present": False, "audio_observation_present": True}]}, [], {}, {})
     assert [item["signal"] for item in result] == ["audio"]
+
+
+def test_plan_projection_preserves_receipt_states_and_does_not_infer_completion():
+    from portal.observatory import _task_plan_projection
+    task = {"task_id": "plan", "objective": "Acquire, change and verify", "status": "running", "task_state": {
+        "requirements": [{"text": "Observed result must match", "status": "pending", "evidence_ids": []}],
+        "environment": {"version": 7}, "controller": {"phase": "audit", "next_transition": "verify", "frontier_generation": 2,
+            "frontier": {"steps": [{"contract_id": "read", "subtask": "Inspect current state", "decision": "retrieve", "status": "evidence_acquired", "evidence_id": "receipt-read"},
+                {"contract_id": "write", "subtask": "Change the declared target", "decision": "act", "status": "planned"}]},
+            "pending_contract": {"contract_id": "write", "status": "awaiting_audit", "action_evidence_id": "receipt-action", "capability_family": "shell", "reason": "The declared target is a file", "acceptance_test": "Exact bytes", "environment_version_after_action": 7}},
+        "audit_reports": [{"contract_id": "write", "executor_succeeded": True, "contract_satisfied": False, "authority": "mutation", "private_thought": "never expose"}]}}
+    plan = _task_plan_projection(task)
+    assert plan["edges"] == [{"from": "read", "to": "write", "kind": "committed successor"}]
+    assert plan["nodes"][1]["status"] == "awaiting_audit"
+    assert plan["nodes"][1]["active"] is True
+    assert plan["requirements"][0]["status"] == "pending"
+    assert plan["nodes"][1]["selection_reason"] == "The declared target is a file"
+    assert "never expose" not in json.dumps(plan)

@@ -364,6 +364,54 @@ def _durable_memory_projection(path: Path) -> dict[str, Any]:
     }
 
 
+def _task_plan_projection(task: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose committed controller contracts and receipts, never infer progress."""
+    state = task.get("task_state") or {}
+    controller = state.get("controller") or {}
+    frontier = controller.get("frontier") or {}
+    contracts = [dict(item) for item in frontier.get("steps", [])[:16] if isinstance(item, Mapping)]
+    for field in ("last_contract", "pending_contract"):
+        item = controller.get(field)
+        if not isinstance(item, Mapping) or not item.get("contract_id"):
+            continue
+        found = next((index for index, old in enumerate(contracts) if old.get("contract_id") == item["contract_id"]), None)
+        if found is None:
+            contracts.append(dict(item))
+        else:
+            contracts[found].update(item)
+    pending = controller.get("pending_contract") or {}
+    nodes = []
+    for item in contracts[:18]:
+        evidence = [str(item[key])[:128] for key in ("evidence_id", "action_evidence_id", "verification_evidence_id") if item.get(key)]
+        nodes.append({"id": str(item.get("contract_id") or "")[:128],
+            "subtask": _bounded_text(item.get("subtask"), 300), "decision": _bounded_text(item.get("decision"), 24),
+            "family": _bounded_text(item.get("capability_family"), 40), "operation": _bounded_text(item.get("executor_operation"), 40),
+            "status": _bounded_text(item.get("status") or "planned", 40),
+            "active": item.get("contract_id") == pending.get("contract_id"),
+            "target": _bounded_text(item.get("effect_target"), 300),
+            "expected_effect": _bounded_text(item.get("expected_effect"), 40),
+            "acceptance": _bounded_text(item.get("acceptance_test"), 500),
+            "verification_family": _bounded_text(item.get("verification_family"), 40),
+            "selection_reason": _bounded_text(item.get("reason"), 300), "evidence_ids": evidence,
+            "planned_environment_version": item.get("environment_version_at_plan"),
+            "action_environment_version": item.get("environment_version_after_action")})
+    ids = {node["id"] for node in nodes}
+    steps = [str(item.get("contract_id") or "") for item in frontier.get("steps", [])[:16] if isinstance(item, Mapping)]
+    edges = [{"from": first, "to": second, "kind": "committed successor"}
+        for first, second in zip(steps, steps[1:], strict=False) if first in ids and second in ids]
+    reports = [item for item in state.get("audit_reports", [])[-8:] if isinstance(item, Mapping)]
+    return {"schema": "robit.omni.task-plan.v1", "task_id": _bounded_text(task.get("task_id"), 64),
+        "objective": _bounded_text(task.get("objective"), 500), "status": _bounded_text(task.get("status"), 40),
+        "phase": _bounded_text(controller.get("phase"), 40), "next_transition": _bounded_text(controller.get("next_transition"), 40),
+        "revision": controller.get("frontier_generation", 0), "environment_version": (state.get("environment") or {}).get("version", 0),
+        "nodes": nodes, "edges": edges,
+        "requirements": [{"text": _bounded_text(item.get("text"), 300), "status": _bounded_text(item.get("status"), 40),
+            "evidence_ids": [str(value)[:128] for value in item.get("evidence_ids", [])[:8]]}
+            for item in state.get("requirements", [])[:12] if isinstance(item, Mapping)],
+        "audits": [{key: item.get(key) for key in ("evidence_id", "contract_id", "executor_succeeded", "contract_satisfied", "authority", "environment_version_after", "milestone_progress") if key in item} for item in reports],
+        "coverage": "Current committed frontier and bounded audit tail; no private reasoning or inferred completion"}
+
+
 def _archive_projection(path: Path) -> dict[str, Any]:
     base: dict[str, Any] = {
         "available": False,
@@ -479,7 +527,7 @@ def _timeline(
                 "detail": detail,
                 "source": "session diagnostic journal",
                 "retention": "session · short-lived",
-                "status": "error" if "error" in event_name else "ok",
+                "status": "error" if event.get("tool_ok") is False or "error" in event_name else "ok",
             })
     for task in tasks:
         task_id = _bounded_text(task.get("task_id"), 64)
@@ -638,6 +686,7 @@ class ObservatoryReader:
                 "virtual_storage": _virtual_storage_projection(self.virtual_context_root),
             },
             "work": {
+                "plans": [_task_plan_projection(item) for item in task_list[-24:][::-1]],
                 "live": live_tasks,
                 "recent": task_list[-24:][::-1],
                 "archive": archive,
