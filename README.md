@@ -513,6 +513,11 @@ once in the pinned system contract rather than duplicating it in a recurrent
 checkpoint. If an omitted record's evidence ID is no longer resident,
 `task_expand` also accepts a distinctive exact path, URL, symbol, error, or
 other query and returns the highest-scoring immutable receipts.
+Reopened file and fetched-page receipts carry the recorded source digest and
+latest observation ID. A later digest marks an older version as superseded.
+A later shell receipt reporting a change to the file or an ancestor marks it
+for recheck until a new file observation is recorded. These comparisons use
+task-local history. Use fresh tool evidence when current source state matters.
 It is a one-shot page-in, never capability discovery: after either a successful
 expansion or `evidence_not_found`, it leaves the next action surface until a new
 concrete result makes older evidence relevant again. Missing tool schemas route

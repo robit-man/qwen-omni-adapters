@@ -711,7 +711,8 @@ def _workspace_file(
             offset_chars, default=0, minimum=0, maximum=100_000_000
         )
         try:
-            source = target.read_text(encoding="utf-8")
+            source_bytes = target.read_bytes()
+            source = source_bytes.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
         except UnicodeDecodeError as exc:
             raise ToolInputError("path is not UTF-8 text") from exc
         segment = source[offset : offset + limit]
@@ -723,7 +724,7 @@ def _workspace_file(
             "next_offset_chars": offset + len(segment),
             "total_chars": len(source),
             "truncated": offset + len(segment) < len(source),
-            "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+            "sha256": hashlib.sha256(source_bytes).hexdigest(),
             "task_progress": False,
             "evidence_authority": "inspection",
         }
@@ -781,14 +782,15 @@ def _workspace_file(
             os.unlink(temporary)
         except FileNotFoundError:
             pass
-    after_sha256 = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    written_bytes = source.replace("\n", os.linesep).encode("utf-8")
+    after_sha256 = hashlib.sha256(written_bytes).hexdigest()
     changed = not existed or before_sha256 != after_sha256
     return {
         "action": operation,
         "path": str(target),
         "created": not existed,
         "chars": len(source),
-        "bytes": len(source.encode("utf-8")),
+        "bytes": len(written_bytes),
         "sha256": after_sha256,
         "validation": validation,
         "task_progress": changed,

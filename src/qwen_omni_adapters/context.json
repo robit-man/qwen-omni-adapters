@@ -388,7 +388,7 @@
       "type": "function",
       "function": {
         "name": "task_expand",
-        "description": "Page exact retained tool receipts back into working context after compaction. Use evidence_ids for a tagged resident item, or query to locate omitted immutable evidence by exact path, URL, symbol, error, or other distinctive text. This retrieves prior task evidence only: it never discovers a tool or schema, never changes external state, and is not new progress. Use tool_search for a missing interaction capability.",
+        "description": "Page a receipt from this task after compaction. Use evidence_ids or query by exact path, URL, symbol, or diagnostic. Version status reflects recorded history. A superseded source or needs_recheck calls for fresh evidence if current state matters. Paging is not progress or verification. Use tool_search for missing capabilities.",
         "parameters": {
           "type": "object",
           "properties": {

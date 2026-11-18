@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import threading
@@ -78,7 +79,6 @@ from harness.background_agent import (
     _recovery_required,
     _retired_action_families,
     _sanitize_checkpoint_history,
-    _search_task_evidence,
     _seen_tool_fingerprints,
     _source_receipt_has_evidence,
     _stream_error,
@@ -4929,9 +4929,13 @@ def test_focus_memory_does_not_promote_discovery_or_blank_browser_state() -> Non
     assert "blank-snapshot" not in sources
 
 
-def test_nonresident_task_evidence_can_be_found_without_an_evidence_id() -> None:
-    task = {
-        "evidence_records": [
+def test_nonresident_task_evidence_can_be_found_without_an_evidence_id(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task = store.create("Retain the plan and its verification.")
+    assert store.claim_next("worker") is not None
+    store.compact_context(
+        task["task_id"], "worker", messages=[], receipt={},
+        evidence_records=[
             {
                 "evidence_id": "old-plan",
                 "tool": "workspace_file",
@@ -4950,15 +4954,75 @@ def test_nonresident_task_evidence_can_be_found_without_an_evidence_id() -> None
                 "arguments": '{"path":"/tmp/app/docs/plan.md"}',
                 "result": '{"sha256":"new"}',
             },
-        ]
-    }
-
-    plan = _search_task_evidence(task, "/tmp/app/docs/plan.md")
-    auth = _search_task_evidence(task, "test_auth.py 4 passed")
+        ],
+    )
+    reopened = BackgroundTaskStore(store.path)
+    assert "evidence_records" not in (reopened.get(task["task_id"]) or {})
+    plan = reopened.expand_evidence(task["task_id"], [], query="/tmp/app/docs/plan.md")
+    auth = reopened.expand_evidence(task["task_id"], [], query="test_auth.py 4 passed")
 
     assert [item["evidence_id"] for item in plan] == ["new-plan", "old-plan"]
     assert [item["evidence_id"] for item in auth] == ["auth-test"]
-    assert _search_task_evidence(task, "unrelated missing phrase") == []
+    assert reopened.expand_evidence(task["task_id"], [], query="unrelated missing phrase") == []
+    other = reopened.create("A separate task.")
+    assert reopened.expand_evidence(other["task_id"], ["old-plan"], query="plan.md") == []
+
+
+def test_reopened_receipts_identify_changed_files_and_preserve_exact_versions(tmp_path: Path) -> None:
+    store = BackgroundTaskStore(tmp_path / "tasks.json")
+    task_id = store.create("Verify the current report.")["task_id"]
+    assert store.claim_next("first-worker") is not None
+    tools = PortalToolHarness(SessionDocumentStore())
+    report = tmp_path / "Report.txt"
+    report.write_bytes(b"approved\r\n")
+    original = tools.execute("owner", "workspace_file", {"action": "read", "path": str(report)})
+    assert original["sha256"] == hashlib.sha256(b"approved\r\n").hexdigest()
+    unrelated = tmp_path / "report.txt"
+    unrelated.write_text("unrelated")
+
+    def record(store, owner, evidence_id, tool, result):
+        body = json.dumps(result, ensure_ascii=False)
+        store.record_action(
+            task_id, owner, call_id=evidence_id, tool=tool, arguments="{}", outcome=body,
+            ok=True, evidence_record={
+                "evidence_id": evidence_id, "tool": tool, "arguments": "{}",
+                "result": body, "result_sha256": hashlib.sha256(body.encode()).hexdigest(),
+            },
+        )
+        return body
+
+    body = record(store, "first-worker", "original", "workspace_file", original)
+    record(store, "first-worker", "unrelated", "workspace_file",
+           tools.execute("owner", "workspace_file", {"action": "read", "path": str(unrelated)}))
+    store.compact_context(task_id, "first-worker", messages=[], receipt={"reason": "context_limit"})
+    store.release_owner("first-worker")
+    reopened = BackgroundTaskStore(store.path)
+    assert reopened.claim_next("resumed-worker") is not None
+    selected = reopened.expand_evidence(task_id, [], query=str(report))[0]
+    assert selected["evidence_id"] == "original"
+    assert selected["result"] == body
+    assert selected["source_version"]["status"] == "latest_observed"
+
+    changed = tools.execute("owner", "shell", {
+        "intent": "mutate_filesystem",
+        "command": "printf 'approved\\n' > Report.txt",
+        "cwd": str(tmp_path), "mutation_paths": [str(report)],
+    })
+    assert changed["effect_receipt"]["changed_paths"] == [str(report)]
+    record(reopened, "resumed-worker", "update", "shell", changed)
+    stale = reopened.expand_evidence(task_id, ["original"])[0]["source_version"]
+    assert stale["status"] == "needs_recheck"
+    assert stale["changed_by_evidence_id"] == "update"
+
+    checked = tools.execute("owner", "workspace_file", {"action": "read", "path": str(report)})
+    assert checked["content"] == original["content"]
+    assert checked["sha256"] != original["sha256"]
+    record(reopened, "resumed-worker", "checked", "workspace_file", checked)
+    stale = reopened.expand_evidence(task_id, ["original"])[0]
+    assert stale["result"] == body
+    assert stale["source_version"]["status"] == "superseded"
+    assert stale["source_version"]["latest_evidence_id"] == "checked"
+    assert reopened.expand_evidence(task_id, ["checked"])[0]["source_version"]["status"] == "latest_observed"
 
 
 def test_checkpoint_prose_is_removed_from_recurrent_and_durable_history() -> None:

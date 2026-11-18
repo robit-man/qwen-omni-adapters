@@ -14,6 +14,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import secrets
 import tempfile
 import time
@@ -30,6 +31,123 @@ MAX_TASK_STATE_RECORDS = 128
 STAGNANT_ACTION_RETIRE_THRESHOLD = 2
 CONTROLLER_CONTRACT_PROTOCOL = 2
 MAX_FRONTIER_STEPS = 8
+
+
+def _find_evidence(
+    archive: list[Mapping[str, Any]], requested: set[str], query: str
+) -> list[Mapping[str, Any]]:
+    selected = [record for record in archive if record.get("evidence_id") in requested]
+    exact = query.strip()[:500]
+    text = " ".join(exact.casefold().split())
+    if not text or len(selected) >= 8:
+        return selected
+    terms = set(re.findall(r"[a-z0-9_./:@+-]{2,}", text))
+    scored = []
+    for index, record in enumerate(archive):
+        if record.get("evidence_id") in requested:
+            continue
+        rendered = json.dumps(dict(record), ensure_ascii=False, sort_keys=True)
+        normalized = rendered.casefold()
+        score = sum(term in normalized for term in terms)
+        if score or text in normalized:
+            scored.append((exact in rendered, text in normalized, score, index))
+    scored.sort(reverse=True)
+    return selected + [archive[index] for _, _, _, index in scored[:8 - len(selected)]]
+
+
+def _source_observation(
+    tool: str, result: Mapping[str, Any]
+) -> tuple[str, str, str, float] | None:
+    """Extract source identity only from the producing tool's receipt fields."""
+    observed_at = 0.0
+    if tool == "workspace_file" and result.get("action") in {"read", "write", "replace"}:
+        kind, locator, digest = "workspace_file", result.get("path"), result.get("sha256")
+    elif tool == "web_fetch":
+        receipt = result.get("receipt")
+        if (
+            not isinstance(receipt, Mapping)
+            or receipt.get("schema") != "robit.omni.web-fetch-receipt.v1"
+            or receipt.get("link_status") != "retrieved"
+        ):
+            return None
+        kind, locator, digest = "web_page", receipt.get("final_url"), receipt.get("response_sha256")
+        try:
+            observed_at = datetime.fromisoformat(str(receipt.get("fetched_at") or "")).timestamp()
+        except (ValueError, OSError, OverflowError):
+            return None
+    else:
+        return None
+    if not isinstance(locator, str) or not locator or not isinstance(digest, str):
+        return None
+    if not re.fullmatch(r"[a-f0-9]{64}", digest):
+        return None
+    return kind, locator, digest, observed_at
+
+
+def _evidence_with_source_versions(
+    archive: list[Mapping[str, Any]], selected: list[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Compare archived versions inside one task snapshot without reading sources."""
+    if not selected:
+        return []
+    requested = {record["evidence_id"] for record in selected}
+    observations = {}
+    latest = {}
+    mutations: dict[Path, tuple[int, str]] = {}
+    for index, record in enumerate(archive):
+        tool = str(record.get("tool") or "")
+        if tool not in {"workspace_file", "web_fetch", "shell"}:
+            continue
+        try:
+            result = json.loads(str(record.get("result") or ""))
+        except ValueError:
+            continue
+        if not isinstance(result, dict) or result.get("error"):
+            continue
+        evidence_id = record["evidence_id"]
+        if tool == "shell":
+            effect = result.get("effect_receipt")
+            if isinstance(effect, Mapping) and effect.get("filesystem_change_verified") is True:
+                paths = effect.get("changed_paths")
+                if isinstance(paths, list):
+                    for path in paths:
+                        if isinstance(path, str) and Path(path).is_absolute():
+                            mutations[Path(path)] = (index, evidence_id)
+            continue
+        source = _source_observation(tool, result)
+        if source is None:
+            continue
+        kind, locator, digest, observed_at = source
+        key = (kind, locator)
+        if evidence_id in requested:
+            observations[evidence_id] = (key, digest)
+        version = (observed_at, index, evidence_id, digest)
+        if key not in latest or version[:2] > latest[key][:2]:
+            latest[key] = version
+
+    expanded = []
+    for record in selected:
+        copy_record = copy.deepcopy(dict(record))
+        observation = observations.get(record["evidence_id"])
+        if observation:
+            (kind, locator), digest = observation
+            _, latest_index, latest_id, latest_digest = latest[(kind, locator)]
+            version_info = {
+                "kind": kind, "locator": locator, "sha256": digest,
+                "status": "latest_observed" if digest == latest_digest else "superseded",
+                "latest_evidence_id": latest_id, "latest_sha256": latest_digest,
+            }
+            if kind == "workspace_file":
+                path = Path(locator)
+                changed_index, changed_id = max(
+                    (mutations.get(parent, (-1, "")) for parent in (path, *path.parents)),
+                    default=(-1, ""),
+                )
+                if changed_index > latest_index:
+                    version_info.update(status="needs_recheck", changed_by_evidence_id=changed_id)
+            copy_record["source_version"] = version_info
+        expanded.append(copy_record)
+    return expanded
 
 
 def _initial_task_state(
@@ -1257,22 +1375,26 @@ class BackgroundTaskStore:
         return self._mutate(compact)
 
     def expand_evidence(
-        self, task_id: str, evidence_ids: list[str]
+        self, task_id: str, evidence_ids: list[str], *, query: str = ""
     ) -> list[dict[str, Any]]:
-        """Page immutable pre-compaction tool receipts by original call ID."""
+        """Page one task's receipts and their recorded source versions."""
 
         requested = {str(value) for value in evidence_ids if str(value)}
+        if not requested and not query.strip():
+            return []
 
         def expand(value: dict[str, Any]) -> list[dict[str, Any]]:
             for item in value.get("tasks", []):
                 if item.get("task_id") != task_id:
                     continue
-                return [
-                    copy.deepcopy(dict(record))
+                archive = [
+                    record
                     for record in item.get("evidence_records", [])
-                    if isinstance(record, Mapping)
-                    and str(record.get("evidence_id") or "") in requested
+                    if isinstance(record, Mapping) and isinstance(record.get("evidence_id"), str)
                 ]
+                return _evidence_with_source_versions(
+                    archive, _find_evidence(archive, requested, query)
+                )
             return []
 
         return self._inspect(expand)
