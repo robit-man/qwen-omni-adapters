@@ -15,6 +15,9 @@ py -3 -m venv $Venv
 $Python = Join-Path $Venv "Scripts\python.exe"
 & $Python -m pip install --upgrade pip setuptools wheel
 & $Python -m pip install -e "$RepoRoot[dev]"
+if ($LASTEXITCODE -ne 0) { throw "Core runtime Python installation failed" }
+& $Python -m pip install -e "$RepoRoot[pdf]"
+if ($LASTEXITCODE -ne 0) { Write-Warning "Optional PDF layout parser could not be installed. Continuing bootstrap." }
 
 if (-not $SkipLaya) {
   $LayaVenv = if ($env:OMNI_LAYA_VENV) { $env:OMNI_LAYA_VENV } else { Join-Path $RepoRoot ".laya-venv" }

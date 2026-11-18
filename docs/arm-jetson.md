@@ -84,6 +84,12 @@ unit and waits for the portal in parallel. Generation smoke is not part of
 guided readiness. `cloudflared` is optional; without it the portal stays on
 loopback.
 
+Bootstrap reuses the runtime virtual environment and exposes the host's
+PyGObject binding for the desktop harness. Pip resolves runtime dependencies
+inside the virtual environment. If the optional PDF layout parser cannot be
+installed, bootstrap warns and continues. PDF text search and OCR use separate
+host tools.
+
 The board proves each optional worker's Tegra GPU handles while that request is
 active, but it does not generate text or speech before exposing the portal. Set
 `OMNI_STARTUP_SMOKE=1` for the blocking ASR → cloned-TTS → ASR and on-demand residency

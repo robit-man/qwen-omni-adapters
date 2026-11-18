@@ -19,13 +19,13 @@ dependencies = [
   "mcp>=1.26,<2",
   "numpy>=1.26",
   "Pillow>=10,<13",
-  "pdfplumber>=0.11.5,<0.12",
   "PyYAML>=6.0,<7",
   "waitress>=3.0,<4",
   "pywin32>=308; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]
+pdf = ["pdfplumber>=0.11.5,<0.12"]
 dev = [
   "jsonschema>=4,<5",
   "pytest>=8,<10",

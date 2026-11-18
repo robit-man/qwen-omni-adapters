@@ -57,7 +57,7 @@ desktop_harness_dependencies_ready() {
     && command -v xdotool >/dev/null 2>&1 \
     && command -v xwininfo >/dev/null 2>&1 \
     && command -v import >/dev/null 2>&1 \
-    && "$PYTHON" - <<'PY' >/dev/null 2>&1
+    && "$1" - <<'PY' >/dev/null 2>&1
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Atspi", "2.0")
@@ -73,7 +73,7 @@ PY
 }
 
 if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
-  if ! desktop_harness_dependencies_ready; then
+  if ! desktop_harness_dependencies_ready "$PYTHON"; then
     command -v apt-get >/dev/null 2>&1 || {
       printf 'Desktop harness dependencies are missing and apt-get is unavailable.\n' >&2
       exit 1
@@ -89,21 +89,31 @@ if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
       xdotool x11-utils imagemagick gir1.2-gstreamer-1.0 gstreamer1.0-tools \
       gstreamer1.0-pipewire gstreamer1.0-plugins-base gstreamer1.0-plugins-good
   fi
-  desktop_harness_dependencies_ready || {
+  desktop_harness_dependencies_ready "$PYTHON" || {
     printf 'Desktop harness dependencies remain unavailable after installation.\n' >&2
     exit 1
   }
 fi
 
-venv_options=()
+"$PYTHON" -m venv "$VENV"
 if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
-  # Ubuntu distributes PyGObject through apt. Expose that system binding to
-  # the venv while keeping venv-installed packages first on sys.path.
-  venv_options+=(--system-site-packages)
+  # Use the PyGObject binding from the matching host Python without exposing
+  # the host's Python distribution metadata to pip.
+  gi_package=$("$PYTHON" -c 'import gi; from pathlib import Path; print(Path(gi.__file__).resolve().parent)')
+  venv_site=$("$VENV/bin/python" -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
+  if [[ ! -e $venv_site/gi ]]; then
+    ln -sfnT -- "$gi_package" "$venv_site/gi"
+  fi
+  desktop_harness_dependencies_ready "$VENV/bin/python" || {
+    printf 'Desktop harness dependencies are unavailable in the runtime venv.\n' >&2
+    exit 1
+  }
 fi
-"$PYTHON" -m venv "${venv_options[@]}" "$VENV"
 "$VENV/bin/python" -m pip install --upgrade pip setuptools wheel
 "$VENV/bin/python" -m pip install -e "${REPO_ROOT}[dev]"
+if ! "$VENV/bin/python" -m pip install -e "${REPO_ROOT}[pdf]"; then
+  printf 'Optional PDF layout parser could not be installed. Continuing bootstrap.\n' >&2
+fi
 
 # Media capture and conversion need an ffmpeg with V4L2 input and swscale.
 # NVIDIA's JetPack 7 package is a hardware-decode build configured with

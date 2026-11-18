@@ -17,14 +17,22 @@ MAX_TABLES = 4
 MAX_COLUMNS = 16
 MAX_LINKS = 20
 MAX_RESULT_CHARS = 18_000
+PARSER_UNAVAILABLE = 2
 
 
 class PdfStructureError(ValueError):
     """A PDF could not be safely parsed within the extraction budget."""
 
 
+class PdfStructureUnavailable(PdfStructureError):
+    """The optional PDF parser could not be loaded."""
+
+
 def parse_pdf(source: Path, start_page: int, max_pages: int, max_rows: int) -> dict[str, Any]:
-    import pdfplumber
+    try:
+        import pdfplumber
+    except ImportError:
+        raise PdfStructureUnavailable("PDF layout extraction is unavailable on this host.") from None
 
     start_page = max(1, int(start_page))
     max_pages = max(1, min(5, int(max_pages)))
@@ -181,6 +189,8 @@ def read_pdf_structure(raw: bytes, start_page: int, max_pages: int, max_rows: in
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise PdfStructureError(f"PDF structure extraction failed: {type(exc).__name__}") from exc
+        if completed.returncode == PARSER_UNAVAILABLE:
+            raise PdfStructureUnavailable("PDF layout extraction is unavailable on this host.")
         if completed.returncode != 0 or not output.is_file():
             detail = completed.stderr.decode("utf-8", errors="replace")[-300:]
             raise PdfStructureError(f"PDF structure extraction failed: {detail}")
@@ -198,6 +208,8 @@ def main() -> int:
     try:
         result = parse_pdf(Path(sys.argv[1]), *(int(arg) for arg in sys.argv[3:6]))
         Path(sys.argv[2]).write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    except PdfStructureUnavailable:
+        return PARSER_UNAVAILABLE
     except Exception as exc:  # noqa: BLE001 - parser failures must not kill the portal
         print(f"{type(exc).__name__}: {str(exc)[:250]}", file=sys.stderr)
         return 1

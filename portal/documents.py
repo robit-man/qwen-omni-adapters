@@ -31,9 +31,9 @@ from typing import Any
 from xml.etree import ElementTree
 
 try:
-    from portal.pdf_structure import PdfStructureError, read_pdf_structure
+    from portal.pdf_structure import PdfStructureError, PdfStructureUnavailable, read_pdf_structure
 except ModuleNotFoundError:  # Direct script execution from portal/.
-    from pdf_structure import PdfStructureError, read_pdf_structure
+    from pdf_structure import PdfStructureError, PdfStructureUnavailable, read_pdf_structure
 
 try:
     import yaml
@@ -766,6 +766,13 @@ class SessionDocumentStore:
         if suffix == ".pdf":
             try:
                 value = read_pdf_structure(raw, start_page, max_pages, limit)
+            except PdfStructureUnavailable as exc:
+                return {
+                    "error": "pdf_parser_unavailable", "message": str(exc),
+                    "failure_scope": "capability", "disposition": "change_capability",
+                    "retryable": False, "task_blocked": False,
+                    "alternative_tools": ["document_search", "ocr_pdf"],
+                }
             except PdfStructureError as exc:
                 raise DocumentError(str(exc)) from exc
             with self._lock:

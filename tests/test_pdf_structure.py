@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+from importlib import import_module
 from pathlib import Path
 
 import httpx
@@ -15,6 +16,7 @@ from portal.app import DEFAULT_MODEL, PortalConfig, create_app
 from portal.documents import DocumentError, SessionDocumentStore
 from portal.pdf_structure import (
     MAX_RESULT_CHARS,
+    PARSER_UNAVAILABLE,
     PdfStructureError,
     _bound_result,
     read_pdf_structure,
@@ -35,6 +37,15 @@ def _store(name="evidence.pdf"):
     return store, accepted[0]["id"]
 
 
+@pytest.fixture
+def pdf_parser():
+    try:
+        import_module("pdfplumber")
+    except ImportError:
+        pytest.skip("Optional PDF layout parser unavailable")
+
+
+@pytest.mark.usefixtures("pdf_parser")
 def test_pdf_structure_preserves_tables_annotations_and_missing_text_layers():
     result = read_pdf_structure(FIXTURE.read_bytes(), 1, 2, 50)
     assert result["coverage"] == {
@@ -58,6 +69,7 @@ def test_pdf_structure_preserves_tables_annotations_and_missing_text_layers():
 
 
 @pytest.mark.parametrize("name", ["evidence.pdf", "mime-only-attachment"])
+@pytest.mark.usefixtures("pdf_parser")
 def test_pdf_structured_tool_reads_by_id_filename_and_path_with_provenance(name):
     store, document_id = _store(name)
     harness = PortalToolHarness(store)
@@ -77,6 +89,7 @@ def test_pdf_structured_tool_reads_by_id_filename_and_path_with_provenance(name)
     assert all_pages["quality"]["visual_elements_interpreted"] is False
 
 
+@pytest.mark.usefixtures("pdf_parser")
 def test_pdf_table_row_limit_and_global_budget_report_truncation():
     result = read_pdf_structure(FIXTURE.read_bytes(), 1, 1, 1)
     table = result["pages"][0]["tables"][0]
@@ -94,9 +107,13 @@ def test_pdf_table_row_limit_and_global_budget_report_truncation():
     assert dense["coverage"]["truncated"]
 
 
-def test_pdf_structure_rejects_invalid_pages_signatures_and_corrupt_files():
+def test_pdf_structure_rejects_invalid_signatures():
     with pytest.raises(PdfStructureError, match="signature"):
         read_pdf_structure(b"not a PDF", 1, 1, 50)
+
+
+@pytest.mark.usefixtures("pdf_parser")
+def test_pdf_structure_rejects_invalid_pages_and_corrupt_files():
     with pytest.raises(PdfStructureError, match="start_page"):
         read_pdf_structure(FIXTURE.read_bytes(), 9, 1, 50)
     with pytest.raises(PdfStructureError, match="extraction failed"):
@@ -115,6 +132,20 @@ def test_pdf_parser_timeout_is_an_explicit_tool_failure(monkeypatch):
     assert "TimeoutExpired" in result["message"]
 
 
+def test_pdf_missing_parser_offers_text_search_and_ocr(monkeypatch):
+    store, document_id = _store()
+
+    def unavailable(command, **_kwargs):
+        return subprocess.CompletedProcess(command, PARSER_UNAVAILABLE)
+
+    monkeypatch.setattr("portal.pdf_structure.subprocess.run", unavailable)
+    result = PortalToolHarness(store).execute("owner", "structured_read", {"document_id": document_id})
+    assert result["error"] == "pdf_parser_unavailable"
+    assert result["failure_scope"] == "capability"
+    assert result["alternative_tools"] == ["document_search", "ocr_pdf"]
+    assert not result["retryable"]
+
+
 def test_pdf_lookup_keeps_missing_format_and_other_session_errors_distinct():
     store, document_id = _store()
     harness = PortalToolHarness(store)
@@ -130,6 +161,7 @@ def test_pdf_lookup_keeps_missing_format_and_other_session_errors_distinct():
     assert "error" in harness.execute("owner", "structured_read", {"document_id": document_id})
 
 
+@pytest.mark.usefixtures("pdf_parser")
 def test_trash_during_pdf_parse_cannot_return_retired_session_evidence(monkeypatch):
     store, document_id = _store()
     parse = read_pdf_structure
@@ -186,6 +218,7 @@ def test_mixed_pdf_ocr_is_explicit_and_search_keeps_unverified_attribution():
     assert not harness.execute("stranger", "document_search", {"query": "cedar-nine"})["results"]
 
 
+@pytest.mark.usefixtures("pdf_parser")
 def test_portal_document_discovery_reads_pdf_and_pages_before_final_answer():
     token = "structured-pdf-test-token-with-24-characters"
     seen = []

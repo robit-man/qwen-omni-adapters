@@ -36,7 +36,7 @@ def test_linux_desktop_harness_requires_a_real_indicator_and_audio_stack() -> No
     assert "systemctl --user import-environment" in installer
     assert "DBUS_SESSION_BUS_ADDRESS" in installer
     assert "XDG_RUNTIME_DIR" in installer
-    assert "--system-site-packages" in bootstrap
+    assert 'desktop_harness_dependencies_ready "$VENV/bin/python"' in bootstrap
     assert "gir1.2-ayatanaappindicator3-0.1" in bootstrap
     assert "pulseaudio-utils" in bootstrap
 

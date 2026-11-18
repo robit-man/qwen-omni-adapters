@@ -382,6 +382,10 @@ it uses local CPU `pdfplumber` in a disposable subprocess, with a 30-second
 default timeout (`OMNI_PDF_TIMEOUT_S`, capped at 60 seconds), a bounded JSON
 output, and POSIX address-space/file-size limits. It never evaluates content,
 fetches annotation URLs, downloads model weights, or invokes CUDA.
+Bootstrap attempts to install the optional `pdf` extra. If the parser is
+unavailable, PDF layout requests return `pdf_parser_unavailable` with
+`document_search` and `ocr_pdf` as alternatives. Install or restore the
+parser with `python -m pip install -e '.[pdf]'` in the runtime environment.
 
 PDF calls accept `start_page` (one-based, default 1), `max_pages` (default 2,
 maximum 5), and `max_rows` (default 50, maximum 200 per detected table). Results
