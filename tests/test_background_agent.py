@@ -4559,6 +4559,29 @@ def test_shell_fingerprint_ignores_cwd_overridden_by_absolute_cd() -> None:
     )
 
 
+def test_duplicate_fingerprint_preserves_case_sensitive_targets_and_literal_input() -> None:
+    assert _call_fingerprint(
+        "workspace_file", {"action": "read", "path": "/tmp/Report.txt"}
+    ) != _call_fingerprint(
+        "workspace_file", {"action": "read", "path": "/tmp/report.txt"}
+    )
+    assert _call_fingerprint(
+        "web_fetch", {"url": "https://example.test/manual/SetUp"}
+    ) != _call_fingerprint(
+        "web_fetch", {"url": "https://example.test/manual/setup"}
+    )
+    assert _call_fingerprint(
+        "shell", {"command": "printf '%s' 'line  spacing'", "intent": "inspect"}
+    ) != _call_fingerprint(
+        "shell", {"command": "printf '%s' 'line spacing'", "intent": "inspect"}
+    )
+    assert _call_fingerprint(
+        "workspace_file", {"action": "read", "path": "/tmp/Report.txt"}
+    ) == _call_fingerprint(
+        "workspace_file", {"path": "/tmp/Report.txt", "action": "read"}
+    )
+
+
 def test_compaction_retains_typed_expandable_focus_records() -> None:
     task = {
         "actions": [

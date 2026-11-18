@@ -130,6 +130,15 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
             },
         ),
         (
+            "edit-markdown",
+            "workspace_file",
+            {
+                "action": "write",
+                "path": str(tmp_path / "plan.md"),
+                "content": "# PLAN\n\nCreated  from a spoken request.\n",
+            },
+        ),
+        (
             "write-json",
             "workspace_file",
             {
@@ -191,7 +200,8 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
                     "&& test \"$(python3 app.py)\" = \"sum=5\" "
                     "&& test \"$(jq -r .name data.json)\" = \"voice\" "
                     "&& test \"$(awk -F, 'NR==2 {print $2}' table.csv)\" = \"2\" "
-                    "&& grep -q '# Plan' plan.md"
+                    "&& grep -Fxq 'Created  from a spoken request.' plan.md "
+                    "&& grep -Fxq '# PLAN' plan.md"
                 ),
                 "cwd": str(tmp_path),
             },
@@ -212,6 +222,7 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
         harness=harness,
         evidence_ids=[
             "write-markdown",
+            "edit-markdown",
             "write-json",
             "write-csv",
             "edit-python",
@@ -219,12 +230,15 @@ def test_asr_style_file_creation_editing_and_coding_workflow(tmp_path: Path) -> 
         ],
     )
 
-    assert (tmp_path / "plan.md").read_text(encoding="utf-8").startswith("# Plan")
+    assert (tmp_path / "plan.md").read_text(encoding="utf-8") == (
+        "# PLAN\n\nCreated  from a spoken request.\n"
+    )
     assert json.loads((tmp_path / "data.json").read_text())["enabled"] is True
     assert (tmp_path / "table.csv").read_text().splitlines()[-1] == "two,2"
     assert "def add" in (tmp_path / "app.py").read_text()
     assert [item["tool"] for item in task["actions"]] == [
         "tool_search",
+        "workspace_file",
         "workspace_file",
         "workspace_file",
         "workspace_file",

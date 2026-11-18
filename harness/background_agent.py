@@ -2726,17 +2726,10 @@ def _call_fingerprint(name: str, arguments: Mapping[str, Any]) -> str:
         ):
             fingerprint_arguments.pop("cwd", None)
 
-    def normalized(value: Any) -> Any:
-        if isinstance(value, str):
-            return " ".join(value.casefold().split())
-        if isinstance(value, Mapping):
-            return {str(key): normalized(item) for key, item in sorted(value.items())}
-        if isinstance(value, list):
-            return [normalized(item) for item in value]
-        return value
-
+    # JSON key order is incidental. String bytes can identify distinct
+    # resources or change the requested effect.
     return hashlib.sha256(
-        f"{name}\0{json.dumps(normalized(fingerprint_arguments), sort_keys=True, default=str)}".encode()
+        f"{name}\0{json.dumps(fingerprint_arguments, sort_keys=True, default=str)}".encode()
     ).hexdigest()
 
 
