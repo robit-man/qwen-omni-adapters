@@ -548,6 +548,7 @@ def _timeline(
                 "request_id": _bounded_text(event.get("request_id"), 128),
                 "tool_round": event.get("tool_round") if isinstance(event.get("tool_round"), int) else None,
                 "tool_call_id": _bounded_text(event.get("tool_call_id"), 80),
+                **({"tool_ok": event["tool_ok"]} if isinstance(event.get("tool_ok"), bool) else {}),
                 **({"elapsed_ms": round(elapsed, 1)} if type(elapsed) in {int, float} and 0 <= elapsed <= 86_400_000 else {}),
             })
     for task in tasks:

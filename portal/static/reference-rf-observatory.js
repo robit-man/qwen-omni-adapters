@@ -21,6 +21,7 @@ const CHANNEL_Y = new Map(CHANNELS.map(([key, , y]) => [key, y]));
 const CHANNEL_NAMES = new Map(CHANNELS.map(([key, label]) => [key, label]));
 const RESOURCE_STEP = 5;
 const RESOURCE_COLUMNS = 36;
+const RAIL = { tip: 621, left: 637, right: 740, height: 34, panelLeft: 842 };
 
 
 const TIME_MARKS = [70, 245, 366, 426, 576];
@@ -216,7 +217,11 @@ function selectAnnotations(events,time,options={}){
 
 const clip=(x,a,b)=>Math.max(a,Math.min(x,b));
 class Renderer {
-  constructor(canvas,sim,settings){this.canvas=canvas;this.c=canvas.getContext('2d',{alpha:false});this.p=new Pixel(this.c);this.sim=sim;this.settings=settings;this.hits=[];this.hover=null;this.flash=0;this.noise=this.makeNoise();this.allEvents=[];this.selected=null}
+  constructor(canvas,sim,settings){
+    this.canvas=canvas;this.c=canvas.getContext('2d',{alpha:false});this.p=new Pixel(this.c);
+    this.sim=sim;this.settings=settings;this.hits=[];this.noise=this.makeNoise();
+    this.allEvents=[];this.selected=null;this.callouts=new Map();this.calloutFrame=0;
+  }
   makeNoise(){const c=document.createElement('canvas');c.width=512;c.height=512;const cx=c.getContext('2d');const im=cx.createImageData(512,512);let n=0x41ad203;for(let i=0;i<im.data.length;i+=4){n^=n<<13;n^=n>>>17;n^=n<<5;const v=(n>>>0)%100;im.data[i]=220;im.data[i+1]=110;im.data[i+2]=30;im.data[i+3]=v<4?15:0;}cx.putImageData(im,0,0);return c}
   render(){
     const c=this.c,p=this.p,s=this.settings;this.hits.length=0;
@@ -259,9 +264,10 @@ class Renderer {
     const p=this.p;
     const events=this.allEvents.filter(event=>this.sim.t-event.end<=this.settings.window && this.sim.t>=event.end);
     for(const [key,label,y] of CHANNELS){
+      if (this.openChannel === key) continue;
       const current=events.filter(event=>event.channel===key);
-      const active=this.settings.channel===key||this.openChannel===key||current.some(event=>this.sim.t-event.end<12);
-      const x1=621,x2=637,x3=740,h=34;
+      const active=this.settings.channel===key||current.some(event=>this.sim.t-event.end<12);
+      const {tip:x1,left:x2,right:x3,height:h}=RAIL;
       p.line(576,y,x1,y,active?PAL.orange:PAL.faint,2,active?.95:.75);
       p.poly([[x1,y],[x2,y-h/2],[x3,y-h/2],[x3,y+h/2],[x2,y+h/2],[x1,y]],
         active?PAL.bright:PAL.faint,active?3:2);
@@ -333,6 +339,10 @@ class Renderer {
   }
   drawCallouts(){
     const occupied=[];
+    const now = performance.now();
+    const elapsed = clip(now - this.calloutFrame, 1, 90);
+    this.calloutFrame = now;
+    const step = reduceMotion.matches || this.sim.paused ? 1 : 1 - Math.exp(-elapsed / 125);
     const live=this.allEvents.filter(e=>this.sim.t>=e.end && this.sim.t-e.end<=this.settings.window
       && (this.settings.channel==='all'||e.channel===this.settings.channel));
     const rows=selectAnnotations(live,this.sim.t,{
@@ -344,45 +354,62 @@ class Renderer {
       if(matching>=0)rows.splice(matching,1);
       rows.unshift({event:selected,life:{alpha:1,expansion:1,stage:'selected'}});
     }
+    const targets = new Map();
     for(const {event:e,life} of rows){
-
       const y=CHANNEL_Y.get(e.channel),ageEnd=e.end===null?0:this.sim.t-e.end;
       const anchorX=clip(ageX(ageEnd,this.settings.window),80,562);
       const rect=placeAnnotation(anchorX,y,life.expansion,occupied,{gap:this.settings.shyness});
-      if(!rect)continue; // Explicitly suppress instead of piling boxes over one another.
+      if(!rect)continue;
       occupied.push(rect);
-      this.drawCallout(e,rect,anchorX,y,life);
+      const target = { ...rect, alpha: life.alpha, expansion: life.expansion };
+      targets.set(e.key, target);
+      if (!this.callouts.has(e.key)) {
+        this.callouts.set(e.key, { event: e, box: { ...target, y: target.y + 11, alpha: 0 } });
+      }
     }
-    this.visibleAnnotations=occupied.length;
+    for (const [key, callout] of this.callouts) {
+      const { event, box } = callout;
+      if (!this.allEvents.some(item => item.key === key)) {
+        this.callouts.delete(key);
+        continue;
+      }
+      const target = targets.get(key) || { ...box, alpha: 0 };
+      for (const field of ["x", "y", "w", "h", "alpha", "expansion"]) {
+        box[field] += (target[field] - box[field]) * step;
+      }
+      if (box.alpha <= .02 && !targets.has(key)) {
+        this.callouts.delete(key);
+        continue;
+      }
+      const anchorX = clip(ageX(this.sim.t - event.end,this.settings.window),80,562);
+      this.drawCallout(event,box,anchorX,CHANNEL_Y.get(event.channel),targets.has(key));
+    }
   }
-  drawCallout(e,r,anchorX,anchorY,life){
+  drawCallout(e,r,anchorX,anchorY,interactive){
     const p=this.p,c=this.c;
-    const {x,y,w,h}=r,alpha=life.alpha,expanded=life.expansion;
+    const {x,y,w,h,alpha,expansion:expanded}=r;
     if(alpha<=.03)return;
     const connectorX=clip(anchorX,x+6,x+w-6);
-    const connectorY=y+h<anchorY?y+h:y;
-    p.poly([[connectorX,connectorY],[connectorX,connectorY+(connectorY<anchorY?9:-9)],
+    const connectorY=clip(anchorY,y,y+h);
+    p.poly([[connectorX,connectorY],[connectorX,connectorY+clip(anchorY-connectorY,-9,9)],
       [anchorX,anchorY]],PAL.primary,Math.max(1,1.5+expanded*.8),alpha*.67);
+    c.save();c.globalAlpha=alpha;
     p.dot(anchorX,anchorY,Math.max(1.5,2+expanded),PAL.bright,false);
+    c.restore();
     p.rect(x+2,y+2,w-4,h-4,PAL.black,.93*alpha);
     // Live SVG-like bracket morph: the full panel contracts into a single tiny tag.
     const k=Math.min(10,h*.27);
     p.poly([[x,y+k],[x,y],[x+w,y],[x+w,y+k]],PAL.bright,2+expanded*1.2,alpha);
     p.poly([[x,y+h-k],[x,y+h],[x+w,y+h],[x+w,y+h-k]],PAL.bright,2+expanded*1.2,alpha);
     c.save();c.beginPath();c.rect(x+3,y+2,w-6,h-4);c.clip();
-    if(expanded>.4){
-      const textScale=2.3+expanded*.6;
-      p.text(CHANNEL_NAMES.get(e.channel),x+8,y+9,textScale);
-      if(expanded>.76){
-        p.text(e.short,x+8,y+36,2.05);
-        if(e.measure)p.text(e.measure,x+8,y+62,1.9);
-      }
-    } else {
-      p.text(CHANNEL_NAMES.get(e.channel),x+5,y+5,1.45);
-    }
+    const titleSize = 1.45 + expanded * 1.45;
+    p.text(CHANNEL_NAMES.get(e.channel),x+5+3*expanded,y+5+4*expanded,titleSize,{alpha});
+    const detailAlpha = alpha * smooth((expanded - .38) / .55);
+    p.text(e.short,x+8,y+36,2.05,{alpha:detailAlpha});
+    if(e.measure)p.text(e.measure,x+8,y+62,1.9,{alpha:detailAlpha});
     c.restore();
     // Click any visible SIG element to tune its source channel.
-    this.hits.push({x,y,w,h,type:'event',value:e.key,label:e.label});
+    if(interactive)this.hits.push({x,y,w,h,type:'event',value:e.key,label:e.label});
   }
   drawSettings(){
     const p=this.p;
@@ -478,10 +505,14 @@ const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const wideScope = matchMedia("(min-aspect-ratio: 1/1)");
 const packetHistory = $("packet-history");
 const packetList = $("packet-list");
+const packetLink = $("packet-link");
+const packetFlag = $("packet-close");
+const stage = canvas.parentElement;
 const windowMenu = $("scope-window");
 const railButtons = new Map();
 const packets = new Map();
-let packetAnimation = null;
+let packetAnimations = [];
+let packetClosing = false;
 let token = new URLSearchParams(location.hash.slice(1)).get("access") || "";
 try {
   if (token) sessionStorage.setItem("omni_access", token);
@@ -645,6 +676,7 @@ function sourceFacts(event) {
     ["Source", event.source], ["Retention", event.retention],
     ["Measurement", event.measure], ["Status", event.failed ? "Error" : "Recorded"],
     ["Request", event.request_id], ["Actor", event.actor], ["Addressee", event.addressee],
+    ["Call", event.tool_call_id], ["Outcome", typeof event.tool_ok === "boolean" ? (event.tool_ok ? "Returned" : "Failed") : ""],
     ["Source SHA-256", event.sourceHash], ["Playback", event.audioGenerated ? "Unverified" : ""],
     ["Excerpt", event.textTruncated ? "Bounded by source retention" : ""],
   ];
@@ -675,7 +707,7 @@ function canOpenPackets() {
   const bounds = canvas.getBoundingClientRect();
   const scale = bounds.width / VIEW.width;
   const width = (VIEW.right - VIEW.x) * scale;
-  return width >= 216 && bounds.left + 744 * scale + width <= innerWidth;
+  return width >= 216 && (RAIL.panelLeft - VIEW.x) * scale + width + 24 <= innerWidth;
 }
 
 function updateRail() {
@@ -697,6 +729,7 @@ function makePacket(event) {
   const packet = labelNode("li", "");
   packet.className = "scope-packet";
   packet.dataset.failed = String(event.failed);
+  packet.dataset.receipt = event.receipt_status || "";
   const header = document.createElement("header");
   const time = labelNode("time", new Date(event.at).toLocaleTimeString());
   time.dateTime = new Date(event.at).toISOString();
@@ -709,8 +742,8 @@ function makePacket(event) {
   const facts = document.createElement("dl");
   buildFacts(facts, event);
   details.append(summary, facts, labelNode("p", detail || "Metadata only in this record."));
-  if (event.tool_call_id && event.request_id && Number.isInteger(event.tool_round)) {
-    const receipt = labelNode("pre", "");
+  if (event.receipt_status && event.tool_call_id && event.request_id && Number.isInteger(event.tool_round)) {
+    const receipt = labelNode("div", "");
     details.append(receipt);
     async function readReceipt() {
       if (!details.open) return;
@@ -723,10 +756,19 @@ function makePacket(event) {
         const response = await fetch("/api/observatory/tool-call?" + query, {
           headers: { Authorization: "Bearer " + token }, cache: "no-store", signal: AbortSignal.timeout(8000),
         });
-        receipt.textContent = response.ok ? JSON.stringify(await response.json(), null, 2)
-          : "Tool receipt unavailable in this browser session.";
+        if (!response.ok) {
+          receipt.textContent = "This packet retains dispatch metadata.";
+          return;
+        }
+        const call = await response.json();
+        const sections = [["Arguments", call.arguments, call.arguments_truncated],
+          ["Output", call.output, call.output_truncated]];
+        receipt.replaceChildren(...sections.flatMap(([label, value, truncated]) => [
+          labelNode("h4", label + (truncated ? " (excerpt)" : "")),
+          labelNode("pre", value || (call.status === "running" ? "Waiting for return." : "Empty.")),
+        ]));
       } catch (_) {
-        receipt.textContent = "Tool receipt unavailable.";
+        receipt.textContent = "The retained receipt could not be loaded.";
       }
     }
     details.addEventListener("toggle", readReceipt);
@@ -751,6 +793,17 @@ function updatePackets() {
   let cursor = packetList.firstChild;
   for (const event of rows) {
     let packet = packets.get(event.key);
+    if (packet && packet.dataset.receipt !== (event.receipt_status || "")) {
+      const open = packet.querySelector("details").open;
+      const focused = packet.contains(document.activeElement);
+      const next = makePacket(event);
+      next.querySelector("details").open = open;
+      if (packet === cursor) cursor = next;
+      packet.replaceWith(next);
+      if (focused) next.querySelector("summary").focus({ preventScroll: true });
+      packets.set(event.key, next);
+      packet = next;
+    }
     if (!packet) {
       packet = makePacket(event);
       packets.set(event.key, packet);
@@ -763,37 +816,81 @@ function updatePackets() {
   packetList.hidden = rows.length === 0;
 }
 
-function animatePacketHistory(button, closing) {
-  packetAnimation?.cancel();
-  if (reduceMotion.matches) return null;
-  const chip = button.getBoundingClientRect();
-  const panel = packetHistory.getBoundingClientRect();
-  const folded = {
-    transform: `translate(${chip.left - panel.left}px, ${chip.top - panel.top}px) scale(${chip.width / panel.width}, ${chip.height / panel.height})`,
-    opacity: .12,
-  };
-  const unfolded = { transform: "none", opacity: 1 };
-  packetAnimation = packetHistory.animate(closing ? [unfolded, folded] : [folded, unfolded], {
-    duration: closing ? 200 : 290, easing: "cubic-bezier(.24,.74,.2,1)",
+function cancelPacketAnimations() {
+  for (const animation of packetAnimations) animation.cancel();
+  packetAnimations = [];
+}
+
+function positionPacketStage() {
+  const width = canvas.clientWidth;
+  const center = (innerWidth - width) / 2;
+  const panelEdge = center + (RAIL.panelLeft + VIEW.right - VIEW.x) / VIEW.width * width;
+  const shift = Math.min(0, innerWidth - panelEdge - 12);
+  stage.style.setProperty("--packet-shift", shift + "px");
+}
+
+function animatePacketHistory(channel, closing) {
+  if (reduceMotion.matches) {
+    cancelPacketAnimations();
+    return null;
+  }
+  if (closing && packetAnimations[0]?.playState === "running") {
+    for (const animation of packetAnimations) animation.reverse();
+    return packetAnimations[0];
+  }
+  cancelPacketAnimations();
+  const y = CHANNEL_Y.get(channel);
+  const horizontal = value => value / VIEW.width * 100 + "%";
+  const vertical = value => value / VIEW.height * 100 + "%";
+  const frameAt = (left, top, width, height) => ({
+    left: horizontal(left), top: vertical(top),
+    width: horizontal(width), height: vertical(height),
   });
-  return packetAnimation;
+  const chipWidth = RAIL.right - RAIL.left;
+  const chipTop = y - RAIL.height / 2;
+  const folded = frameAt(RAIL.left, chipTop, chipWidth, RAIL.height);
+  const moved = frameAt(RAIL.panelLeft, chipTop, chipWidth, RAIL.height);
+  const open = frameAt(RAIL.panelLeft, VIEW.top, VIEW.right - VIEW.x, VIEW.bottom - VIEW.top);
+  const smallLine = { width: horizontal(RAIL.tip - VIEW.right) };
+  const flagLeft = RAIL.panelLeft - (RAIL.left - RAIL.tip);
+  const longLine = { width: horizontal(flagLeft - VIEW.right) };
+  const ease = "cubic-bezier(.27,.75,.23,1)";
+  const legs = (start, middle, end) => closing
+    ? [{ ...end, offset: 0, easing: ease }, { ...middle, offset: .58, easing: ease }, { ...start, offset: 1 }]
+    : [{ ...start, offset: 0, easing: ease }, { ...middle, offset: .42, easing: ease }, { ...end, offset: 1 }];
+  const duration = closing ? 530 : 650;
+  packetAnimations = [
+    packetHistory.animate(legs(folded, moved, open), duration),
+    packetLink.animate(legs(smallLine, longLine, longLine), duration),
+    packetFlag.animate(legs({left:horizontal(RAIL.tip)}, {left:horizontal(flagLeft)}, {left:horizontal(flagLeft)}), duration),
+    ...[packetList, $("packet-count"), $("packet-empty")].map(node =>
+      node.animate(legs({opacity:0}, {opacity:0}, {opacity:1}), duration)),
+  ];
+  return packetAnimations[0];
 }
 
 function closePackets(restoreFocus = true, animate = true) {
   const channel = renderer.openChannel;
-  if (!channel) return;
-  renderer.openChannel = null;
+  if (!channel || (packetClosing && animate)) return;
+  packetClosing = true;
   const button = railButtons.get(channel);
   packetHistory.inert = true;
+  stage.style.removeProperty("--packet-shift");
   const hide = () => {
+    renderer.openChannel = null;
+    packetClosing = false;
     packetHistory.hidden = true;
+    packetLink.hidden = true;
+    packetFlag.hidden = true;
     packetList.replaceChildren();
     packets.clear();
+    updateRail();
+    draw();
   };
-  const transition = animate && animatePacketHistory(button, true);
+  const transition = animate && animatePacketHistory(channel, true);
   if (transition) transition.finished.then(hide, () => {});
   else {
-    packetAnimation?.cancel();
+    cancelPacketAnimations();
     hide();
   }
   if (restoreFocus) button.focus({ preventScroll: true });
@@ -802,22 +899,29 @@ function closePackets(restoreFocus = true, animate = true) {
 }
 
 function openPackets(channel, key = null) {
-  const opening = renderer.openChannel !== channel;
-  packetAnimation?.cancel();
+  const opening = renderer.openChannel !== channel || packetClosing;
+  if (opening) cancelPacketAnimations();
+  packetClosing = false;
   renderer.openChannel = channel;
   packetHistory.inert = false;
   packetHistory.hidden = false;
+  packetLink.hidden = false;
+  packetFlag.hidden = false;
+  const channelY = CHANNEL_Y.get(channel);
+  packetLink.style.top = channelY / VIEW.height * 100 + "%";
+  packetFlag.style.top = (channelY - RAIL.height / 2) / VIEW.height * 100 + "%";
+  positionPacketStage();
   $("packet-channel").textContent = CHANNEL_NAMES.get(channel);
   updateRail();
   updatePackets();
   if (opening) packetList.scrollTop = 0;
-  const transition = opening && animatePacketHistory(railButtons.get(channel), false);
+  const transition = opening ? animatePacketHistory(channel, false) : packetAnimations[0];
   if (key) {
     const details = packets.get(key)?.querySelector("details");
     if (details) {
       details.open = true;
       const reveal = () => {
-        if (renderer.openChannel !== channel || !details.isConnected) return;
+        if (renderer.openChannel !== channel || packetClosing || !details.isConnected) return;
         details.closest("li").scrollIntoView({ block: "nearest" });
         details.querySelector("summary").focus({ preventScroll: true });
       };
@@ -825,7 +929,7 @@ function openPackets(channel, key = null) {
       else reveal();
     }
   } else {
-    $("packet-close").focus({ preventScroll: true });
+    packetFlag.focus({ preventScroll: true });
   }
   draw();
 }
@@ -927,7 +1031,7 @@ canvas.addEventListener("pointermove", event => {
   const { x, y } = point(event);
   const hit = renderer.getHit(x, y);
   const hover = $("hover-label");
-  hover.hidden = !hit;
+  hover.classList.toggle("visible", Boolean(hit));
   canvas.style.cursor = hit ? "pointer" : "crosshair";
   if (hit) {
     hover.textContent = hit.label;
@@ -935,7 +1039,7 @@ canvas.addEventListener("pointermove", event => {
     hover.style.top = Math.min(window.innerHeight - 35, event.clientY + 12) + "px";
   }
 });
-canvas.addEventListener("pointerleave", () => { $("hover-label").hidden = true; });
+canvas.addEventListener("pointerleave", () => { $("hover-label").classList.remove("visible"); });
 for (const [key, label, y] of CHANNELS) {
   $("channel-control").add(new Option(label, key));
   const button = document.createElement("button");
@@ -953,10 +1057,11 @@ for (const [key, label, y] of CHANNELS) {
   $("scope-rail").append(button);
 }
 updateRail();
-$("packet-close").addEventListener("click", () => closePackets());
+packetFlag.addEventListener("click", () => closePackets());
 document.addEventListener("pointerdown", event => {
   if (!windowMenu.contains(event.target)) windowMenu.open = false;
-  if (!renderer.openChannel || packetHistory.contains(event.target) || $("scope-rail").contains(event.target)) return;
+  if (!renderer.openChannel || event.target === packetFlag || packetHistory.contains(event.target)
+    || $("scope-rail").contains(event.target)) return;
   if (event.target === canvas) {
     const { x, y } = point(event);
     if (renderer.getHit(x, y)?.type === "event") return;
@@ -965,6 +1070,7 @@ document.addEventListener("pointerdown", event => {
 }, { capture: true });
 window.addEventListener("resize", () => {
   if (renderer.openChannel && !canOpenPackets()) closePackets(false, false);
+  else if (renderer.openChannel && !packetClosing) positionPacketStage();
   updateRail();
 });
 $("channel-control").addEventListener("change", event => selectChannel(event.target.value));

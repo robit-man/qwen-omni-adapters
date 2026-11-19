@@ -27,6 +27,7 @@ button{cursor:pointer}
 .stage{
   position:relative;width:min(100vw,calc(100dvh * 910 / 1630));height:min(100dvh,calc(100vw * 1630 / 910));
   flex:none;filter:contrast(1.08) saturate(1.13);
+  translate:var(--packet-shift,0px) 0;transition:translate .35s cubic-bezier(.24,.74,.2,1)
 }
 .stage canvas{display:block;width:100%;height:100%;image-rendering:auto;touch-action:manipulation}
 .stage::after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 70px 3px rgba(0,0,0,.6);background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 3px,rgba(0,0,0,.055) 4px);opacity:.85}
@@ -43,8 +44,8 @@ button{cursor:pointer}
 #paused-badge[hidden]{display:none}
 .toast{position:fixed;z-index:40;bottom:24px;left:50%;transform:translate(-50%,8px);border:1px solid var(--amber);padding:10px 15px;background:#100700;color:var(--amber);font:12px 'Departure Mono', monospace;letter-spacing:.09em;opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;white-space:nowrap}
 .toast.visible{opacity:1;transform:translate(-50%,0)}
-.hover-label{position:fixed;z-index:20;pointer-events:none;padding:5px 8px;border:1px solid #b56c13;background:rgba(9,3,1,.98);font-size:12px;letter-spacing:.03em;white-space:nowrap;color:var(--amber)}
-.hover-label[hidden]{display:none}
+.hover-label{position:fixed;z-index:20;pointer-events:none;padding:5px 8px;border:1px solid #b56c13;background:rgba(9,3,1,.98);font-size:12px;letter-spacing:.03em;white-space:nowrap;color:var(--amber);opacity:0;translate:0 3px;transition:opacity .18s ease,translate .22s ease}
+.hover-label.visible{opacity:1;translate:0 0}
 .panel[hidden]{display:none}
 .panel{position:fixed;z-index:30;top:0;right:0;height:100%;width:min(410px,100vw);padding:25px 27px 45px;background:rgba(7,3,1,.98);border-left:1px solid #8c4c1a;box-shadow:-20px 0 75px #000c;overflow-y: auto;scrollbar-color:#91470d #100602}
 .panel-header{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;border-bottom:1px solid #673110;padding-bottom:16px;margin-bottom:20px}
@@ -95,21 +96,36 @@ button{cursor:pointer}
 .scope-rail-button:focus-visible,#packet-close:focus-visible,#packet-list:focus-visible,
 .scope-packet summary:focus-visible{outline:1px solid var(--hot);outline-offset:2px}
 #packet-history{
-  position:absolute;z-index:3;left:81.758242%;top:13.006135%;
-  width:56.923077%;height:76.196319%;display:flex;flex-direction:column;
-  border:var(--border);background:#090402;min-width:0;overflow:hidden;
-  transform-origin:top left;font-size:clamp(.75rem,1.2dvh,.9rem)
+  --chip-height:calc(100dvh * 34 / 1630);
+  position:absolute;z-index:3;left:92.527473%;top:13.006135%;
+  width:56.923077%;height:76.196319%;min-width:0;
+  font-size:clamp(.75rem,1.2dvh,.9rem)
 }
 #packet-history[hidden]{display:none}
-.packet-header{
-  display:flex;align-items:center;gap:.65em;min-height:2.5em;padding:0 .65em 0 0;
-  border-bottom:var(--border);background:#180902;color:var(--amber)}
-#packet-close{
-  align-self:stretch;min-width:2.4em;border:0;border-right:var(--border);
-  background:transparent;color:inherit;padding:0 .45em
+#packet-link{
+  position:absolute;z-index:1;left:63.296703%;width:27.472527%;
+  height:1px;background:var(--amber);pointer-events:none
 }
-#packet-close:hover{background:#321505}
-.packet-header h2{font-size:1em;letter-spacing:.08em;margin:0}
+.packet-surface{
+  display:flex;flex-direction:column;height:100%;
+  border:var(--border);background:#090402;overflow:hidden
+}
+.packet-header{
+  display:flex;flex:none;align-items:center;gap:.65em;height:calc(var(--chip-height) - 2px);
+  padding:0 .35em;border-bottom:var(--border);background:#180902;color:var(--amber);
+  font-size:clamp(.72rem,1.42dvh,1rem);white-space:nowrap
+}
+#packet-close{
+  position:absolute;z-index:4;left:90.769231%;
+  width:1.758242%;height:2.085890%;padding:0;border:0;
+  background:var(--amber);clip-path:polygon(0 50%,100% 0,100% 100%)
+}
+#packet-close::after{
+  content:"";position:absolute;inset:2px 0 2px 2px;background:#180902;
+  clip-path:polygon(0 50%,100% 0,100% 100%)
+}
+#packet-close:is(:hover,:focus-visible)::after{background:#673110}
+.packet-header h2{font:inherit;margin:0}
 #packet-count{margin-inline-start:auto;color:var(--amber);font-variant-numeric:tabular-nums}
 #packet-empty{margin:1em;color:var(--amber)}
 #packet-list{

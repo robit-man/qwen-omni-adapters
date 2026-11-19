@@ -91,6 +91,12 @@ class SessionToolTraces:
             _stamp, calls = self._sessions.get(session, (0, {}))
             return copy.deepcopy(calls.get((request_id, round_index, call_id)))
 
+    def statuses(self, session):
+        with self._lock:
+            self._expire()
+            _stamp, calls = self._sessions.get(session, (0, {}))
+            return {identity: call["status"] for identity, call in calls.items()}
+
     def clear(self, session):
         with self._lock:
             self._sessions.pop(session, None)

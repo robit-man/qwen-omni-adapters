@@ -2335,7 +2335,10 @@ def create_app(
         directory=runtime.session_log_dir,
         ttl_s=runtime.session_log_ttl_s,
     )
-    tool_traces = SessionToolTraces(ttl_s=runtime.session_log_ttl_s, redactions=(runtime.access_token,))
+    tool_traces = SessionToolTraces(
+        ttl_s=max(runtime.session_log_ttl_s, SCOPE_HISTORY_SECONDS),
+        redactions=(runtime.access_token,),
+    )
     app.extensions["tool_traces"] = tool_traces
     documents = SessionDocumentStore(ttl_s=runtime.session_log_ttl_s)
     repository_root = Path(os.environ.get("OMNI_REPO_ROOT") or ".").expanduser()
@@ -3682,6 +3685,11 @@ def create_app(
         snapshot["memory"]["episodic"] = episodic_memory.snapshot(session_id) if episodic_memory else {"enabled": False}
         if request.args.get("activity") == "1":
             snapshot["activity_sources"] = episodic_memory.activity(session_id) if episodic_memory else {"sources": [], "scope": "this browser", "available": False}
+            retained_calls = tool_traces.statuses(session_id)
+            for event in snapshot["timeline"]:
+                identity = (event.get("request_id"), event.get("tool_round"), event.get("tool_call_id"))
+                if identity in retained_calls:
+                    event["receipt_status"] = retained_calls[identity]
         snapshot["memory"]["behaviors"] = {"session": behaviors.view(session_id),
             "device": behaviors.view(tool_harness.conversation_history_owner,
                 include_content=session_id == tool_harness.conversation_history_owner)}

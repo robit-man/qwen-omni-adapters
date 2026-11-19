@@ -7,8 +7,8 @@
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Recorded Omni runtime activity">
   <title>Runtime scope</title>
-  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=4">
-  <script src="/assets/reference-rf-observatory.js?v=6" defer></script>
+  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=5">
+  <script src="/assets/reference-rf-observatory.js?v=7" defer></script>
 </head>
 <body>
   <main id="shell" aria-label="Omni activity scope" aria-busy="true" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
@@ -24,14 +24,17 @@
         </div>
       </details>
       <div id="scope-rail" role="group" aria-label="Scope channels"></div>
+      <div id="packet-link" aria-hidden="true" hidden></div>
+      <button id="packet-close" type="button" aria-label="Collapse packet history" aria-controls="packet-history" hidden></button>
       <section id="packet-history" hidden aria-labelledby="packet-channel">
-        <header class="packet-header">
-          <button id="packet-close" type="button" aria-label="Collapse packet history">←</button>
-          <h2 id="packet-channel"></h2>
-          <span id="packet-count"></span>
-        </header>
-        <ol id="packet-list" tabindex="0" aria-label="Recorded packets, oldest first"></ol>
-        <p id="packet-empty" hidden>No retained packets for this channel.</p>
+        <div class="packet-surface">
+          <header class="packet-header">
+            <h2 id="packet-channel"></h2>
+            <span id="packet-count"></span>
+          </header>
+          <ol id="packet-list" tabindex="0" aria-label="Recorded packets, oldest first"></ol>
+          <p id="packet-empty" hidden>No retained packets for this channel.</p>
+        </div>
       </section>
     </div>
     <div class="toolbar" aria-label="Display actions">
@@ -51,7 +54,7 @@
       <p id="sample-status" class="notice" role="status">Reading runtime activity.</p>
       <p id="resource-status" class="notice">Reading CPU and GPU utilization.</p>
     </aside>
-    <div id="hover-label" class="hover-label" hidden></div>
+    <div id="hover-label" class="hover-label" aria-hidden="true"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <dialog id="event-info" class="help" aria-labelledby="event-title">
       <h2 id="event-title"></h2><dl id="event-facts"></dl><p id="event-source"></p>

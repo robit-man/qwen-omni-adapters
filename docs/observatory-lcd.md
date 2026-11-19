@@ -44,12 +44,20 @@ shows `--` when a reading is missing or stale.
 
 The scope fills the page. Label-width type filters wrap inside the instrument.
 When a square or wider viewport has room for a readable history, the pointed
-right labels unfold into an adjacent box the size of the plot. Each packet
+right label travels outward along its connector, then unfolds into a box the
+size of the plot. The triangular collapse control stays at the connector
+endpoint while the name moves to the top. Each packet
 shows the recorded time, source and available measurement. Expand **Full
 packet** for the retained detail and metadata. Selecting a trace opens and
 reveals its packet. The left arrow, Escape, and an outside click fold the
 history back. On narrower screens the labels filter the trace and a selected
-trace opens its source dialog.
+trace opens its source dialog. Callouts ease between positions and fade as
+they enter or leave the timeline. Reduced motion settles them immediately.
+
+Tool packets show the recorded dispatch, outcome, call ID, and available
+timing. Retained arguments and output are available to their browser session
+for the scope window, subject to the existing size limits, credential and
+media redaction, and Trash cleanup.
 
 The original toolbar exposes pause, refresh, PNG capture, fullscreen, and
 settings. Pause

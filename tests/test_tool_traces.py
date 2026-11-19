@@ -14,12 +14,15 @@ def test_call_contents_are_scoped_and_late_start_cannot_replace_output():
     start = {"id": "call", "name": "mcp_call", "arguments": {"query": "sample"}, "status": "running"}
     store.record("alice", "request", 1, [start])
     assert store.get("alice", "request", 1, "call")["ok"] is None
+    assert store.statuses("alice") == {("request", 1, "call"): "running"}
     store.record("alice", "request", 1, [{**start, "status": "complete", "ok": False, "result": '{"error":"observed failure"}'}])
     store.record("alice", "request", 1, [start])
     result = store.get("alice", "request", 1, "call")
     assert result["ok"] is False and "observed failure" in result["output"]
     assert json.loads(result["arguments"]) == {"query": "sample"}
     assert store.get("bob", "request", 1, "call") is None
+    assert store.statuses("alice") == {("request", 1, "call"): "complete"}
+    assert store.statuses("bob") == {}
 
 
 def test_credentials_media_and_large_results_have_explicit_bounded_inspection():
@@ -42,6 +45,7 @@ def test_ttl_capacity_and_trash_do_not_retain_or_resurrect_call_contents():
     assert store.get("alice", "request", 1, "first") is None
     stamp[0] = 6
     assert store.get("alice", "request", 1, "second") is None
+    assert store.statuses("alice") == {}
     store.clear("alice")
     store.record("alice", "request", 2, [{"id": "late", "name": "late"}])
     assert store.get("alice", "request", 2, "late") is None
