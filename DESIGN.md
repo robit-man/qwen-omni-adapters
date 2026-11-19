@@ -21,7 +21,7 @@ typography:
   utility:
     fontFamily: "IBM Plex Mono, JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
   scope-controls:
-    fontFamily: "Courier New, Courier, monospace"
+    fontFamily: "Departure Mono, monospace"
   observatory-label:
     fontFamily: "VT323, ui-monospace, monospace"
   observatory-digits:
@@ -101,9 +101,9 @@ The scope uses the supplied **RF Scope / Amber Signal Monitor**
 (`index(9).html`) canvas and stylesheet. One portrait instrument is centered in
 the viewport. Label-width filters wrap inside its frame, pointed channel
 labels form the right rail, and a nonlinear time ruler runs below the plot.
-When the screen fits it, a rail label unfolds into a packet history the size
-of the plot. The plot uses the reference bitmap lettering. The settings and
-packet history use the reference Courier New stack.
+When the screen fits it, a rail label slides along its connector and unfolds
+into a packet history the size of the plot. Departure Mono and one amber text
+color carry from the canvas into the controls and packet history.
 
 ## Elevation & Depth
 

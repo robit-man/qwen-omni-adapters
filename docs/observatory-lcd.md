@@ -1,9 +1,11 @@
 # Observatory scope
 
 The supplied **RF Scope / Amber Signal Monitor** (`index(9).html`) provides
-the 910 × 1630 canvas, pixel lettering, pointed channel rails, canopy branches,
+the 910 × 1630 canvas, pointed channel rails, canopy branches,
 and trace and callout animation. The renderer and stylesheet are served locally
 as `reference-rf-observatory.js` and `reference-rf-observatory.css`.
+The scope and controls share one amber text color and use Helena Zhang's
+[Departure Mono](https://departuremono.com/), bundled with its SIL Open Font License.
 
 ## Display mapping
 

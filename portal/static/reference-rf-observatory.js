@@ -1,4 +1,4 @@
-/* Display geometry, bitmap text, canopy and label dynamics from the supplied index(9).html.
+/* Display geometry, canopy and label dynamics from the supplied index(9).html.
    The feed is the authenticated Omni snapshot. */
 (() => {
 "use strict";
@@ -42,73 +42,18 @@ function ageX(age, window){
   return TIME_MARKS.at(-1);
 }
 
-const FONT = {
-  'A':['01110','10001','10001','11111','10001','10001','10001'],
-  'B':['11110','10001','10001','11110','10001','10001','11110'],
-  'C':['01111','10000','10000','10000','10000','10000','01111'],
-  'D':['11110','10001','10001','10001','10001','10001','11110'],
-  'E':['11111','10000','10000','11110','10000','10000','11111'],
-  'F':['11111','10000','10000','11110','10000','10000','10000'],
-  'G':['01111','10000','10000','10111','10001','10001','01111'],
-  'H':['10001','10001','10001','11111','10001','10001','10001'],
-  'I':['11111','00100','00100','00100','00100','00100','11111'],
-  'J':['00111','00010','00010','00010','10010','10010','01100'],
-  'K':['10001','10010','10100','11000','10100','10010','10001'],
-  'L':['10000','10000','10000','10000','10000','10000','11111'],
-  'M':['10001','11011','10101','10101','10001','10001','10001'],
-  'N':['10001','11001','10101','10011','10001','10001','10001'],
-  'O':['01110','10001','10001','10001','10001','10001','01110'],
-  'P':['11110','10001','10001','11110','10000','10000','10000'],
-  'Q':['01110','10001','10001','10001','10101','10010','01101'],
-  'R':['11110','10001','10001','11110','10100','10010','10001'],
-  'S':['01111','10000','10000','01110','00001','00001','11110'],
-  'T':['11111','00100','00100','00100','00100','00100','00100'],
-  'U':['10001','10001','10001','10001','10001','10001','01110'],
-  'V':['10001','10001','10001','10001','10001','01010','00100'],
-  'W':['10001','10001','10001','10101','10101','10101','01010'],
-  'X':['10001','10001','01010','00100','01010','10001','10001'],
-  'Y':['10001','10001','01010','00100','00100','00100','00100'],
-  'Z':['11111','00001','00010','00100','01000','10000','11111'],
-  '0':['01110','10011','10101','10101','10101','11001','01110'],
-  '1':['00100','01100','00100','00100','00100','00100','01110'],
-  '2':['01110','10001','00001','00010','00100','01000','11111'],
-  '3':['11110','00001','00001','01110','00001','00001','11110'],
-  '4':['00010','00110','01010','10010','11111','00010','00010'],
-  '5':['11111','10000','10000','11110','00001','00001','11110'],
-  '6':['01110','10000','10000','11110','10001','10001','01110'],
-  '7':['11111','00001','00010','00100','01000','01000','01000'],
-  '8':['01110','10001','10001','01110','10001','10001','01110'],
-  '9':['01110','10001','10001','01111','00001','00001','01110'],
-  '.':['00000','00000','00000','00000','00000','01100','01100'],
-  ':':['00000','01100','01100','00000','01100','01100','00000'],
-  '-':['00000','00000','00000','11111','00000','00000','00000'],
-  '/':['00001','00001','00010','00100','01000','10000','10000'],
-  '+':['00000','00100','00100','11111','00100','00100','00000'],
-  '%':['11001','11010','00100','00100','01011','10011','00000'],
-  '>':['10000','01000','00100','00010','00100','01000','10000'],
-  '<':['00001','00010','00100','01000','00100','00010','00001'],
-  '=':['00000','11111','00000','11111','00000','00000','00000'],
-  '_':['00000','00000','00000','00000','00000','00000','11111'],
-  '[':['01110','01000','01000','01000','01000','01000','01110'],
-  ']':['01110','00010','00010','00010','00010','00010','01110'],
-  '?':['11110','00001','00001','00110','00100','00000','00100'],
-  '!':['00100','00100','00100','00100','00100','00000','00100'],
-  ' ':['00000','00000','00000','00000','00000','00000','00000']
-};
 class Pixel {
-  constructor(ctx){this.c=ctx;this.color=PAL.primary;this.glow=false;this.s=2.4;}
-  text(str,x,y,size=2.4,color=PAL.primary,{glow=false,align='left'}={}){
-    const c=this.c,chars=String(str).toUpperCase().replaceAll('—','-'),step=size*6;
-    if(align==='right')x-=chars.length*step;
-    if(align==='center')x-=(chars.length*step)/2;
-    c.save();c.fillStyle=color;
-    if(glow){c.shadowColor=color;c.shadowBlur=Math.min(8,size*2.8)}
-    for(let i=0;i<chars.length;i++){
-      const glyph=FONT[chars[i]]||FONT['?'];
-      for(let r=0;r<7;r++)for(let col=0;col<5;col++){
-        if(glyph[r].charCodeAt(col)===49)c.fillRect(Math.round(x+i*step+col*size),Math.round(y+r*size),Math.ceil(size+.09),Math.ceil(size+.09));
-      }
-    }c.restore();return chars.length*step;
+  constructor(ctx){this.c=ctx;}
+  text(value,x,y,size=2.4,{alpha=1,align="left"}={}){
+    const c=this.c;
+    c.save();
+    c.font = size * 9.2 + 'px "Departure Mono", monospace';
+    c.fillStyle = PAL.primary;
+    c.textAlign = align;
+    c.textBaseline = "alphabetic";
+    c.globalAlpha *= alpha;
+    c.fillText(String(value).toUpperCase(), x, y + size * 7);
+    c.restore();
   }
   rect(x,y,w,h,col=PAL.primary,alpha=1){const c=this.c;c.save();c.globalAlpha=alpha;c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),Math.max(0,Math.round(w)),Math.max(0,Math.round(h)));c.restore()}
   line(x1,y1,x2,y2,color=PAL.medium,width=2,alpha=1){const c=this.c;c.save();c.globalAlpha=alpha;c.strokeStyle=color;c.lineWidth=width;c.beginPath();c.moveTo(Math.round(x1),Math.round(y1));c.lineTo(Math.round(x2),Math.round(y2));c.stroke();c.restore()}
@@ -320,9 +265,9 @@ class Renderer {
       p.line(576,y,x1,y,active?PAL.orange:PAL.faint,2,active?.95:.75);
       p.poly([[x1,y],[x2,y-h/2],[x3,y-h/2],[x3,y+h/2],[x2,y+h/2],[x1,y]],
         active?PAL.bright:PAL.faint,active?3:2);
-      if(active)p.rect(x2,y-h/2+2,x3-x2-2,h-4,PAL.hot,.98);
-      p.text(label,x2+7,y-8,2.5,active?PAL.ink:PAL.medium);
-      if(current.length)p.text(String(current.length),748,y-8,2.35,active?PAL.hot:PAL.medium);
+      if(active)p.rect(x2,y-h/2+2,x3-x2-2,h-4,PAL.ink,.98);
+      p.text(label,x2+7,y-8,2.5);
+      if(current.length)p.text(String(current.length),748,y-8,2.35);
     }
   }
   drawEvents(){const c=this.c,p=this.p;
@@ -427,13 +372,13 @@ class Renderer {
     c.save();c.beginPath();c.rect(x+3,y+2,w-6,h-4);c.clip();
     if(expanded>.4){
       const textScale=2.3+expanded*.6;
-      p.text(CHANNEL_NAMES.get(e.channel),x+8,y+9,textScale,PAL.hot,{glow:expanded>.85});
+      p.text(CHANNEL_NAMES.get(e.channel),x+8,y+9,textScale);
       if(expanded>.76){
-        p.text(e.short,x+8,y+36,2.05,PAL.primary);
-        if(e.measure)p.text(e.measure,x+8,y+62,1.9,PAL.bright);
+        p.text(e.short,x+8,y+36,2.05);
+        if(e.measure)p.text(e.measure,x+8,y+62,1.9);
       }
     } else {
-      p.text(CHANNEL_NAMES.get(e.channel),x+5,y+5,1.45,PAL.hot);
+      p.text(CHANNEL_NAMES.get(e.channel),x+5,y+5,1.45);
     }
     c.restore();
     // Click any visible SIG element to tune its source channel.
@@ -453,15 +398,15 @@ class Renderer {
         y += 38;
       }
       p.rect(x,y,w,30,active?PAL.primary:PAL.medium,.76);
-      p.rect(x+3,y+3,w-6,24,active?PAL.hot:PAL.ink,.94);
-      p.text(value,x+6,y+6,2.36,active?PAL.ink:PAL.bright,{glow:!active});
+      p.rect(x+3,y+3,w-6,24,active?PAL.subdued:PAL.ink,.94);
+      p.text(value,x+6,y+6,2.36);
       p.line(x,y+28,x+w,y+28,PAL.primary,2,.75);
       this.hits.push({x,y:y-3,w,h:34,type:'channel',value:key,label:value});
       x += w + 8;
     }
     const readout=this.sim.resources;
-    if(Number.isFinite(readout.ram))p.text('RAM '+Math.round(readout.ram)+'%',589,229,2.45,PAL.medium);
-    if(Number.isFinite(readout.loaded))p.text('WEIGHTS '+readout.loaded,589,265,2.2,PAL.medium);
+    if(Number.isFinite(readout.ram))p.text('RAM '+Math.round(readout.ram)+'%',589,229,2.45);
+    if(Number.isFinite(readout.loaded))p.text('WEIGHTS '+readout.loaded,589,265,2.2);
   }
   drawFooter(){
     const p=this.p;
@@ -470,13 +415,14 @@ class Renderer {
       const seconds=TIME_WINDOWS[this.settings.window][index];
       const label=seconds>=60?String(Math.floor(seconds/60))+':'+String(seconds%60).padStart(2,'0'):seconds+'s';
       const lastMark = index === TIME_MARKS.length - 2;
-      p.text(label,lastMark ? x + 24 : x + 1,1471,2.15,PAL.medium,
+      p.text(label,lastMark ? x + 24 : x + 1,1471,2.15,
         { align: lastMark ? "right" : "left" });
     }
-    p.rect(454,1468,119,25,PAL.primary);
+    p.rect(454,1468,119,25,PAL.medium);
+    p.rect(455,1469,117,23,PAL.ink);
     const date=new Date(this.sim.t*1000);
     const clock=[date.getHours(),date.getMinutes(),date.getSeconds()].map(value=>String(value).padStart(2,'0')).join(':');
-    p.text(clock,460,1472,2.25,PAL.ink);
+    p.text(clock,460,1472,2.25);
     this.hits.push({x:452,y:1460,w:130,h:44,type:'pause',label:this.sim.paused?'Resume':'Pause'});
   }
   drawBottom(){
@@ -488,7 +434,7 @@ class Renderer {
       ["cpu", "CPU", 50, PAL.primary], ["gpu", "GPU", 512, PAL.orange],
     ]) {
       const value = fresh ? current[key] : null;
-      p.text(label + " " + (Number.isFinite(value) ? Math.round(value) + "%" : "--"), x, 1582, 1.9, color);
+      p.text(label + " " + (Number.isFinite(value) ? Math.round(value) + "%" : "--"), x, 1582, 1.9);
       for (let column = 0; column < RESOURCE_COLUMNS; column++) {
         const sample = this.sim.resourceSamples.get(newest - RESOURCE_COLUMNS + 1 + column);
         const usage = sample?.[key];
@@ -1081,6 +1027,7 @@ document.addEventListener("visibilitychange", () => {
 reduceMotion.addEventListener("change", () => { draw(); animate(); });
 setInterval(() => { if (!document.hidden) refresh(); }, 2000);
 draw();
+document.fonts.load('1em "Departure Mono"').then(draw, () => {});
 refresh();
 animate();
 })();
