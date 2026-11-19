@@ -511,6 +511,7 @@ const stage = canvas.parentElement;
 const windowMenu = $("scope-window");
 const railButtons = new Map();
 const packets = new Map();
+const packetDisclosures = new WeakMap();
 let packetAnimations = [];
 let packetClosing = false;
 let token = new URLSearchParams(location.hash.slice(1)).get("access") || "";
@@ -725,6 +726,40 @@ function updateRail() {
   }
 }
 
+function setPacketDisclosure(details, open) {
+  const pending = packetDisclosures.get(details);
+  if ((pending?.open ?? details.open) === open) return pending?.completion;
+  const start = details.getBoundingClientRect();
+  pending?.animation.cancel();
+  packetDisclosures.delete(details);
+  details.dataset.expanded = String(open);
+  if (reduceMotion.matches) {
+    details.open = open;
+    return;
+  }
+  if (open) details.open = true;
+  const summary = details.querySelector("summary").getBoundingClientRect();
+  const expanded = details.getBoundingClientRect();
+  const folded = { width: summary.width + 2, height: summary.height + 2 };
+  const box = ({width, height}) => ({width: width + "px", height: height + "px"});
+  const middle = open
+    ? { width: expanded.width, height: Math.max(start.height, folded.height) }
+    : { width: start.width, height: folded.height };
+  const ease = "cubic-bezier(.24,.72,.22,1)";
+  const animation = details.animate([
+    { ...box(start), offset: 0, easing: ease },
+    { ...box(middle), offset: open ? .4 : .63, easing: ease },
+    { ...box(open ? expanded : folded), offset: 1 },
+  ], { duration: open ? 430 : 340 });
+  const completion = animation.finished.then(() => {
+    if (packetDisclosures.get(details)?.animation !== animation) return;
+    details.open = open;
+    packetDisclosures.delete(details);
+  }, () => {});
+  packetDisclosures.set(details, { open, animation, completion });
+  return completion;
+}
+
 function makePacket(event) {
   const packet = labelNode("li", "");
   packet.className = "scope-packet";
@@ -737,14 +772,22 @@ function makePacket(event) {
   const metadata = labelNode("div", [event.source, event.measure, event.failed && "Error"].filter(Boolean).join(" · "));
   metadata.className = "packet-meta";
   const detail = event.detail || "";
-  const summary = labelNode("summary", "Full packet");
+  const summary = labelNode("summary", "PACKET");
   const details = document.createElement("details");
+  details.className = "packet-disclosure";
+  const payload = document.createElement("div");
+  payload.className = "packet-payload";
   const facts = document.createElement("dl");
   buildFacts(facts, event);
-  details.append(summary, facts, labelNode("p", detail || "Metadata only in this record."));
+  payload.append(facts, labelNode("p", detail || "Metadata only in this record."));
+  details.append(summary, payload);
+  summary.addEventListener("click", e => {
+    e.preventDefault();
+    setPacketDisclosure(details, !(packetDisclosures.get(details)?.open ?? details.open));
+  });
   if (event.receipt_status && event.tool_call_id && event.request_id && Number.isInteger(event.tool_round)) {
     const receipt = labelNode("div", "");
-    details.append(receipt);
+    payload.append(receipt);
     async function readReceipt() {
       if (!details.open) return;
       details.removeEventListener("toggle", readReceipt);
@@ -761,21 +804,29 @@ function makePacket(event) {
           return;
         }
         const call = await response.json();
+        await packetDisclosures.get(details)?.completion;
+        const oldHeight = details.getBoundingClientRect().height;
         const sections = [["Arguments", call.arguments, call.arguments_truncated],
           ["Output", call.output, call.output_truncated]];
         receipt.replaceChildren(...sections.flatMap(([label, value, truncated]) => [
           labelNode("h4", label + (truncated ? " (excerpt)" : "")),
           labelNode("pre", value || (call.status === "running" ? "Waiting for return." : "Empty.")),
         ]));
+        if (details.open && details.isConnected && !reduceMotion.matches && !packetDisclosures.has(details)) {
+          details.animate([{height:oldHeight + "px"}, {height:details.getBoundingClientRect().height + "px"}],
+            {duration:260, easing:"ease-out"});
+        }
       } catch (_) {
         receipt.textContent = "The retained receipt could not be loaded.";
       }
     }
     details.addEventListener("toggle", readReceipt);
   }
-  packet.append(header, metadata);
-  if (detail) packet.append(labelNode("p", detail.length > 140 ? detail.slice(0, 140) + "…" : detail));
-  packet.append(details);
+  const preview = document.createElement("div");
+  preview.className = "packet-preview";
+  preview.append(header, metadata);
+  if (detail) preview.append(labelNode("p", detail.length > 140 ? detail.slice(0, 140) + "…" : detail));
+  packet.append(preview, details);
   return packet;
 }
 
@@ -798,6 +849,7 @@ function updatePackets() {
       const focused = packet.contains(document.activeElement);
       const next = makePacket(event);
       next.querySelector("details").open = open;
+      next.querySelector("details").dataset.expanded = String(open);
       if (packet === cursor) cursor = next;
       packet.replaceWith(next);
       if (focused) next.querySelector("summary").focus({ preventScroll: true });
@@ -919,11 +971,14 @@ function openPackets(channel, key = null) {
   if (key) {
     const details = packets.get(key)?.querySelector("details");
     if (details) {
-      details.open = true;
       const reveal = () => {
         if (renderer.openChannel !== channel || packetClosing || !details.isConnected) return;
+        const expansion = setPacketDisclosure(details, true);
         details.closest("li").scrollIntoView({ block: "nearest" });
         details.querySelector("summary").focus({ preventScroll: true });
+        expansion?.then(() => {
+          if (details.open && details.isConnected) details.closest("li").scrollIntoView({ block: "nearest" });
+        });
       };
       if (transition) transition.finished.then(reveal, () => {});
       else reveal();

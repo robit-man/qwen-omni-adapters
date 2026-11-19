@@ -47,8 +47,9 @@ When a square or wider viewport has room for a readable history, the pointed
 right label travels outward along its connector, then unfolds into a box the
 size of the plot. The triangular collapse control stays at the connector
 endpoint while the name moves to the top. Each packet
-shows the recorded time, source and available measurement. Expand **Full
-packet** for the retained detail and metadata. Selecting a trace opens and
+shows the recorded time, source and available measurement. The **PACKET** box
+widens to the preview edge and then expands down to the retained detail and
+metadata. Selecting a trace opens and
 reveals its packet. The left arrow, Escape, and an outside click fold the
 history back. On narrower screens the labels filter the trace and a selected
 trace opens its source dialog. Callouts ease between positions and fade as

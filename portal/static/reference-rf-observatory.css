@@ -132,16 +132,30 @@ button{cursor:pointer}
   margin:0;padding:.7em;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   list-style:none;scrollbar-color:#91470d #100602
 }
-.scope-packet{border:1px solid #64300d;padding:.65em;line-height:1.4;overflow-wrap:anywhere}
-.scope-packet+.scope-packet{margin-top:.55em}
-.scope-packet[data-failed="true"]{border-color:var(--amber)}
-.scope-packet>header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.2em .65em}
+.scope-packet{line-height:1.4;overflow-wrap:anywhere}
+.scope-packet+.scope-packet{margin-top:.8em}
+.packet-preview{border:1px solid #64300d;padding:.65em}
+.scope-packet[data-failed="true"]>.packet-preview{border-color:var(--amber)}
+.packet-preview>header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.2em .65em}
 .scope-packet h3{margin:0;font-size:1em;color:var(--amber)}
 .scope-packet time,.packet-meta{color:var(--amber)}
 .scope-packet p{margin:.45em 0;white-space:pre-wrap;user-select:text}
-.scope-packet:has(details[open])>p{display:none}
-.scope-packet details{margin-top:.45em;border-top:1px solid #46220c;padding-top:.4em}
-.scope-packet summary{cursor:pointer;color:var(--amber)}
+.packet-disclosure{
+  margin-top:.22em;width:max-content;max-width:100%;min-width:0;
+  border:1px solid #64300d;background:var(--panel);overflow:hidden
+}
+.packet-disclosure[open]{width:100%}
+.packet-disclosure summary{
+  display:flex;align-items:center;gap:.55em;width:max-content;list-style:none;
+  cursor:pointer;color:var(--amber);padding:.28em .55em
+}
+.packet-disclosure summary::-webkit-details-marker{display:none}
+.packet-disclosure summary::after{
+  content:"";width:0;height:0;border-top:.27em solid transparent;border-bottom:.27em solid transparent;
+  border-left:.42em solid currentColor;transition:rotate .22s ease
+}
+.packet-disclosure[data-expanded="true"] summary::after{rotate:90deg}
+.packet-payload{padding:.22em .65em .55em}
 .scope-packet dl{margin:.45em 0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:.2em .45em}
 .scope-packet dt{color:var(--amber)}
 .scope-packet dd{margin:0;user-select:text}
