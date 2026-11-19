@@ -648,6 +648,7 @@ class CallSession:
             "speech_mode": "never" if split_speech else "always",
             "think": self.config.reasoning_enabled,
             "portal_auto_tools": with_tools,
+            "portal_voice_preface": with_tools,
             # Camera access is a model-selected capability, not eager context.
             # Keeping only the tiny bridge on the audio pass prevents an
             # unrelated ambient frame from steering an ordinary spoken answer.
@@ -1086,6 +1087,27 @@ class CallSession:
                         )
                         break
                     self._state("thinking", result.transcript)
+                elif kind == "voice_preface":
+                    text = str(event.get("text") or "").strip()
+                    speech = self._speak_finished(text)
+                    played = bool(speech.spoke_seconds and not speech.interrupted and not speech.error)
+                    if played:
+                        self._note_spoken(text, speech.spoke_seconds)
+                        self._state("thinking", "")
+                        played = not self._barge.wait(.9)
+                    receipt = self._client.post(
+                        self.config.portal_url.rstrip("/") + "/api/voice/preface",
+                        json={"id": event["id"], "played": played}, headers=self._headers(),
+                    )
+                    receipt.raise_for_status()
+                    if not played:
+                        result.interrupted = speech.interrupted or self._barge.is_set()
+                        if not result.interrupted:
+                            result.error = speech.error or "Could not play the action acknowledgement."
+                        break
+                    with self._speaker_lock:
+                        self._active_speaker = speaker
+                        self._active_reply_text = ""
                 elif kind == "tool":
                     items = event.get("tools")
                     if not isinstance(items, list):

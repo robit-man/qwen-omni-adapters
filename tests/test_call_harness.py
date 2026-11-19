@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import numpy as np
 import pytest
 
@@ -420,6 +421,34 @@ def test_the_noise_floor_rises_with_a_noisy_room() -> None:
     quiet_floor = vad.noise_floor
     feed(vad, 0.010, 4_000, now)
     assert vad.noise_floor > quiet_floor
+
+
+def test_action_preface_receipt_follows_playback(monkeypatch) -> None:
+    order = []
+    call = CallSession(CallConfig(token="t", model="m"))
+
+    def speak(text):
+        order.append(("spoken", text))
+        return TurnResult(spoke_seconds=.6)
+
+    def acknowledge(request):
+        assert json.loads(request.content) == {"id": "fixture", "played": True}
+        order.append(("receipt", "fixture"))
+        return httpx.Response(204)
+
+    monkeypatch.setattr(call, "_speak_finished", speak)
+    monkeypatch.setattr(call, "_events", lambda _payload: iter([
+        {"type": "voice_preface", "id": "fixture", "text": "I'll save that as a note."},
+        {"type": "final", "response": {"message": {"role": "assistant", "content": "Saved."}}},
+    ]))
+    call._client.close()
+    call._client = httpx.Client(transport=httpx.MockTransport(acknowledge))
+    try:
+        result = call._run({"omni": {"task": "chat"}})
+        assert not result.error
+        assert order == [("spoken", "I'll save that as a note."), ("receipt", "fixture")]
+    finally:
+        call.close()
 
 
 def test_conversation_content_trace_is_injectable_and_end_to_end(monkeypatch) -> None:

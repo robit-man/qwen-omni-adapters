@@ -795,6 +795,22 @@ class _DiagnosticSession:
     timer: threading.Timer | None = None
 
 
+@dataclass
+class _VoicePreface:
+    played: bool = False
+    received: threading.Event = field(default_factory=threading.Event)
+
+
+def _action_acknowledgement(message: Any) -> str:
+    if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
+        return ""
+    text = message["content"].strip()
+    if not (text.startswith("<action_ack>") and text.endswith("</action_ack>")):
+        return ""
+    sentence = " ".join(text.removeprefix("<action_ack>").removesuffix("</action_ack>").split())
+    return sentence if 0 < len(sentence) <= 320 and "<" not in sentence and ">" not in sentence else ""
+
+
 class _SessionDiagnostics:
     """Short-lived, content-redacted diagnostic journals keyed by session."""
 
@@ -2343,6 +2359,8 @@ def create_app(
         redactions=(runtime.access_token,),
     )
     app.extensions["tool_traces"] = tool_traces
+    voice_prefaces: dict[tuple[str, str], _VoicePreface] = {}
+    voice_prefaces_lock = threading.Lock()
     documents = SessionDocumentStore(ttl_s=runtime.session_log_ttl_s)
     repository_root = Path(os.environ.get("OMNI_REPO_ROOT") or ".").expanduser()
     default_delivery_roots = (
@@ -3072,6 +3090,21 @@ def create_app(
         ):
             return supplied
         return secrets.token_urlsafe(24)
+
+    @app.post("/api/voice/preface")
+    def record_voice_preface():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict) or not isinstance(body.get("id"), str) or type(body.get("played")) is not bool:
+            return jsonify({"error": "Provide a voice acknowledgement receipt."}), 400
+        with voice_prefaces_lock:
+            pending = voice_prefaces.get((request_session_id(), body["id"]))
+            if pending is None or pending.received.is_set():
+                return jsonify({"error": "Voice acknowledgement expired."}), 404
+            pending.played = body["played"]
+            pending.received.set()
+        return "", 204
 
     def apply_voice_profile(payload: dict[str, Any]) -> None:
         client_voice = _voice_override(payload.pop("portal_voice", None))
@@ -4325,6 +4358,7 @@ def create_app(
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
         requested_checkpoint = payload.pop("portal_voice_checkpoint", False) is True
+        requested_preface = payload.pop("portal_voice_preface", False) is True
         live_turn = (isinstance(payload.get("omni"), Mapping)
                      and payload["omni"].get("require_speech") is True)
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
@@ -4370,6 +4404,11 @@ def create_app(
         if payload.get("stream") is not True:
             return jsonify({"error": "stream endpoint requires stream=true"}), 400
         session_id = request_session_id()
+        voice_preface_enabled = requested_preface and live_turn and tool_harness.can_read_conversation_history(session_id)
+        if voice_preface_enabled and isinstance(payload.get("messages"), list):
+            payload["messages"].insert(0, {
+                "role": "system", "content": context_text("directives", "live_action_preface"),
+            })
         virtual_session_id = _virtual_memory_session_id(
             session_id, internal_background=internal_background
         )
@@ -4451,15 +4490,15 @@ def create_app(
                     )
             if episodic_memory is not None:
                 episodic_memory.cancel_encoding()
-            context_text = _latest_user_context(raw_messages)
+            user_context_text = _latest_user_context(raw_messages)
             has_media = any(diagnostic_fields.get(f"has_{kind}_input") for kind in ("audio", "image", "video", "document"))
             if episodic_memory is not None and not internal_background:
                 episodic_memory.restore_conversation(session_id, continuations.snapshot(session_id)["turns"])
             memory_capture = MemoryCapture(episodic_memory, session_id,
                 supplied_turn_id if continuation_enabled else request_id,
                 request_id=request_id,
-                user_text=(str(memory_user_text) if isinstance(memory_user_text, str) else context_text if not has_media else ""),
-                context_text=context_text if has_media else "", media=diagnostic_fields, live_turn=live_turn,
+                user_text=(str(memory_user_text) if isinstance(memory_user_text, str) else user_context_text if not has_media else ""),
+                context_text=user_context_text if has_media else "", media=diagnostic_fields, live_turn=live_turn,
                 internal_background=internal_background, synthesis_only=synthesis_only(payload), media_receipts=diagnostic_media_ids)
             memory_capture.documents(accepted_documents)
             diagnostics.begin_request(
@@ -4589,6 +4628,7 @@ def create_app(
 
         def relay():
             first_byte = True
+            active_ticket = ticket
             current_upstream = upstream
             current_payload = payload
             executed: list[dict[str, Any]] = []
@@ -4686,7 +4726,9 @@ def create_app(
                             round_audio_started = True
                         if event.get("type") in {"audio_start", "audio_delta", "audio_chunk", "audio_end"}:
                             audio_started = True
-                        yield event_bytes(event)
+                        if not (voice_preface_enabled and event.get("type") == "delta"
+                                and _action_acknowledgement(event.get("message"))):
+                            yield event_bytes(event)
                     current_upstream.close()
                     if not stream_error and final_response is None:
                         stream_error = "adapter stream ended without a final response"
@@ -4788,6 +4830,30 @@ def create_app(
                             )
                             return
                         if calls:
+                            acknowledgement = _action_acknowledgement(final_response.get("message")) if voice_preface_enabled else ""
+                            if acknowledgement:
+                                final_response["message"]["content"] = acknowledgement
+                                receipt_id = secrets.token_urlsafe(18)
+                                receipt_key = (session_id, receipt_id)
+                                preface = _VoicePreface()
+                                with voice_prefaces_lock:
+                                    voice_prefaces[receipt_key] = preface
+                                inference_queue.release(active_ticket)
+                                active_ticket = None
+                                try:
+                                    yield event_bytes({"type": "voice_preface", "id": receipt_id, "text": acknowledgement})
+                                    if not preface.received.wait(75) or not preface.played:
+                                        final_status = 499
+                                        yield event_bytes({"type": "error", "error": "Action interrupted before dispatch."})
+                                        return
+                                finally:
+                                    with voice_prefaces_lock:
+                                        voice_prefaces.pop(receipt_key, None)
+                                active_ticket = inference_queue.acquire(session_id, runtime.timeout_s)
+                                if active_ticket is None:
+                                    final_status = 503
+                                    yield event_bytes({"type": "error", "error": "Inference queue is full or timed out."})
+                                    return
                             round_index += 1
                             _record_tool_diagnostics(
                                 diagnostics,
@@ -4915,7 +4981,8 @@ def create_app(
                         return
             finally:
                 current_upstream.close()
-                inference_queue.release(ticket)
+                if active_ticket is not None:
+                    inference_queue.release(active_ticket)
                 tool_traces.finish(session_id, request_id)
                 diagnostics.record(
                     session_id,

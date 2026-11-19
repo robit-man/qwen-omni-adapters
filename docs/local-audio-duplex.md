@@ -205,3 +205,9 @@ successive perception-only checkpoints. Each recognized fragment becomes
 part of the same turn, and a checkpoint without usable speech can release
 a detector held open by the room. A final answer still goes through the
 ordinary live-speech routing gate.
+
+The live system message recommends a short spoken acknowledgment when an
+action warrants one. The model chooses when to offer it. For a desktop voice
+turn that includes one, the portal waits for playback and a brief chance to
+interrupt before dispatching that batch. Tool calls without an acknowledgment
+continue through the normal route.

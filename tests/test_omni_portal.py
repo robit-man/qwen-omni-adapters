@@ -2090,6 +2090,61 @@ def test_observatory_embedded_chat_keeps_same_origin_framing_and_auth_fragment()
     assert b"nickgallo.dev" not in dashboard.data
 
 
+@pytest.mark.parametrize(("with_preface", "played"), [(True, True), (True, False), (False, True)])
+def test_voice_preface_is_model_selected_and_precedes_dispatch(tmp_path, monkeypatch, with_preface, played):
+    import hashlib
+
+    from portal.tools import PortalToolHarness
+
+    actions = []
+
+    def execute(_self, _session, name, _arguments, **_kwargs):
+        actions.append(name)
+        return {"ok": True}
+
+    monkeypatch.setattr(PortalToolHarness, "execute", execute)
+
+    def respond(request):
+        body = json.loads(request.content)
+        assert "portal_voice_preface" not in body
+        message = {"role": "assistant", "content": "Saved."}
+        if not any(item["role"] == "tool" for item in body["messages"]):
+            sentence = "I'll save that as a note."
+            message["content"] = f"<action_ack>{sentence}</action_ack>" if with_preface else ""
+            message["tool_calls"] = [{"id": "note-call", "function": {
+                "name": "memory_write", "arguments": {"text": "test note"},
+            }}]
+        return httpx.Response(200, content=json.dumps({
+            "type": "final", "response": {"model": DEFAULT_MODEL, "message": message, "done": True},
+        }) + "\n")
+
+    app = create_app(_config(background_task_path=tmp_path / "background.json",
+                    virtual_context_root=tmp_path / "virtual"),
+        httpx.Client(transport=httpx.MockTransport(respond)))
+    cookie = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
+    headers = {"Authorization": "Bearer " + TOKEN}
+    voice = app.test_client()
+    voice.set_cookie("omni_portal_session", cookie)
+    reply = voice.post("/api/chat/stream", headers=headers, buffered=False, json=_request(
+        stream=True, think=False, portal_auto_tools=True, portal_tool_allowlist=["memory_write"],
+        portal_voice_preface=True, omni={"schema": "robit.ollama.omni-adapter.v1", "require_speech": True},
+    ))
+    first = json.loads(next(reply.response))
+    assert not actions
+    if with_preface:
+        assert first["type"] == "voice_preface"
+        assert first["text"] == "I'll save that as a note."
+        receipt = {"id": first["id"], "played": played}
+        assert app.test_client().post("/api/voice/preface", headers=headers, json=receipt).status_code == 404
+        assert voice.get("/api/activity", headers=headers).json["active"] == 0
+        assert voice.post("/api/voice/preface", headers=headers, json=receipt).status_code == 204
+    else:
+        assert first["type"] == "tool" and first["phase"] == "start"
+    remaining = [json.loads(line) for line in reply.response]
+    assert (actions == ["memory_write"]) is played
+    assert remaining[-1]["type"] == ("final" if played else "error")
+
+
 def test_streamed_stages_reach_observatory_without_transcript_or_output_content():
     events = [
         {"type": "stage", "stage": "comprehension"},
