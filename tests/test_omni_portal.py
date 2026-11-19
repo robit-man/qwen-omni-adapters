@@ -2035,6 +2035,8 @@ def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
     assert b'role="tabpanel"' not in response.data
     assert response.data.count(b'id="scope"') == 1
     assert b'<canvas id="scope" width="910" height="1630"' in response.data
+    assert b'id="packet-history" hidden' in response.data
+    assert b'<option value="300" selected>5 minutes</option>' in response.data
     assert b'id="settings-panel"' in response.data
     assert b'id="event-info"' in response.data
     assert b'id="observatory-status"' not in response.data

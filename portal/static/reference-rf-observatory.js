@@ -23,21 +23,22 @@ const RESOURCE_STEP = 5;
 const RESOURCE_COLUMNS = 36;
 
 
-const TIME_MARKS = [
-  { seconds:147, text:'2:27', x:70 },
-  { seconds:60, text:'1m', x:245 },
-  { seconds:15, text:'15s', x:366 },
-  { seconds:5, text:'5s', x:426 },
-  { seconds:0, text:'NOW', x:576 }
-];
+const TIME_MARKS = [70, 245, 366, 426, 576];
+const TIME_WINDOWS = {
+  60: [60, 25, 6, 2, 0],
+  300: [300, 120, 30, 10, 0],
+  900: [900, 360, 90, 30, 0],
+};
 
-function ageX(age){
-  const a=Math.max(0,Math.min(147,age));
+function ageX(age, window){
+  const a=Math.max(0,Math.min(window,age));
+  const seconds = TIME_WINDOWS[window];
   for(let i=0;i<TIME_MARKS.length-1;i++){
-    const q=TIME_MARKS[i], n=TIME_MARKS[i+1];
-    if(a<=q.seconds && a>=n.seconds){return n.x + (q.x-n.x)*(a-n.seconds)/(q.seconds-n.seconds);}
+    const older = seconds[i], newer = seconds[i + 1];
+    const left = TIME_MARKS[i], right = TIME_MARKS[i + 1];
+    if(a <= older && a >= newer) return right + (left - right) * (a - newer) / (older - newer);
   }
-  return a>=147?TIME_MARKS[0].x:TIME_MARKS[TIME_MARKS.length-1].x;
+  return TIME_MARKS.at(-1);
 }
 
 const FONT = {
@@ -293,10 +294,10 @@ class Renderer {
   }
   drawTimeline(){const p=this.p;
     p.line(75,VIEW.bottom+1,565,VIEW.bottom+1,PAL.primary,2);
-    for(const mark of TIME_MARKS){if(mark.seconds===0)continue;
-      const alpha=mark.seconds>=60?.27:.42;
-      p.line(mark.x,1402,mark.x,1457,PAL.orange,3,alpha);
-      p.rect(mark.x-3,1449,7,11,PAL.primary,.7);
+    for(const [index, x] of TIME_MARKS.slice(0, -1).entries()){
+      const alpha=index<2?.27:.42;
+      p.line(x,1402,x,1457,PAL.orange,3,alpha);
+      p.rect(x-3,1449,7,11,PAL.primary,.7);
     }
     // Timeline ticks along the bottom edge; a fading trace of activity.
     for(let i=0;i<30;i++){
@@ -313,7 +314,7 @@ class Renderer {
     const events=this.allEvents.filter(event=>this.sim.t-event.end<=this.settings.window && this.sim.t>=event.end);
     for(const [key,label,y] of CHANNELS){
       const current=events.filter(event=>event.channel===key);
-      const active=this.settings.channel===key||current.some(event=>this.sim.t-event.end<12);
+      const active=this.settings.channel===key||this.openChannel===key||current.some(event=>this.sim.t-event.end<12);
       const x1=621,x2=637,x3=740,h=34;
       p.line(576,y,x1,y,active?PAL.orange:PAL.faint,2,active?.95:.75);
       p.poly([[x1,y],[x2,y-h/2],[x3,y-h/2],[x3,y+h/2],[x2,y+h/2],[x1,y]],
@@ -321,7 +322,6 @@ class Renderer {
       if(active)p.rect(x2,y-h/2+2,x3-x2-2,h-4,PAL.hot,.98);
       p.text(label,x2+7,y-8,2.5,active?PAL.ink:PAL.medium);
       if(current.length)p.text(String(current.length),748,y-8,2.35,active?PAL.hot:PAL.medium);
-      this.hits.push({x:621,y:y-20,w:151,h:41,type:'channel',value:key,label});
     }
   }
   drawEvents(){const c=this.c,p=this.p;
@@ -330,7 +330,7 @@ class Renderer {
     // Trace beds first, with crowns generated in a second pass.
     for(const e of events){
       const ageStart=this.sim.t-e.start,ageEnd=e.end===null?0:this.sim.t-e.end;
-      const x0=clip(ageX(ageStart*147/this.settings.window),65,575),x1=clip(ageX(ageEnd*147/this.settings.window),65,575),y=CHANNEL_Y.get(e.channel);
+      const x0=clip(ageX(ageStart,this.settings.window),65,575),x1=clip(ageX(ageEnd,this.settings.window),65,575),y=CHANNEL_Y.get(e.channel);
       if(x1<x0||ageEnd>this.settings.window)continue;
       const k=e.kind,w=x1-x0,b=4+e.sig/8;
       const level=clip(e.sig+this.settings.gain,0,80);
@@ -375,7 +375,7 @@ class Renderer {
       .sort((a,b)=>(Number(b.end===null)-Number(a.end===null)) || b.sig-a.sig || b.start-a.start);
     for(const e of ordered){
       const startAge=this.sim.t-e.start,endAge=e.end===null?0:this.sim.t-e.end;
-      const x0=clip(ageX(startAge*147/this.settings.window),65,575),x1=clip(ageX(endAge*147/this.settings.window),65,575);
+      const x0=clip(ageX(startAge,this.settings.window),65,575),x1=clip(ageX(endAge,this.settings.window),65,575);
       if(endAge>this.settings.window||x1-x0<24)continue;
       const y=CHANNEL_Y.get(e.channel);
       if(y<360||y>1435)continue;
@@ -401,7 +401,7 @@ class Renderer {
     for(const {event:e,life} of rows){
 
       const y=CHANNEL_Y.get(e.channel),ageEnd=e.end===null?0:this.sim.t-e.end;
-      const anchorX=clip(ageX(ageEnd*147/this.settings.window),80,562);
+      const anchorX=clip(ageX(ageEnd,this.settings.window),80,562);
       const rect=placeAnnotation(anchorX,y,life.expansion,occupied,{gap:this.settings.shyness});
       if(!rect)continue; // Explicitly suppress instead of piling boxes over one another.
       occupied.push(rect);
@@ -441,26 +441,35 @@ class Renderer {
   drawSettings(){
     const p=this.p;
     const keys=['all','heard','inference','tools','memory','media','said','tasks','voice'];
-    keys.forEach((key,index)=>{
-      const x=71+(index%3)*143,y=226+Math.floor(index/3)*40,w=130;
-      const active=this.settings.channel===key;
-      const value=key==='all'?'ALL':CHANNEL_NAMES.get(key);
+    const left = VIEW.x + 13;
+    let x = left, y = VIEW.top + 14;
+    for (const key of keys) {
+      const active = this.settings.channel === key;
+      const value = key === 'all' ? 'ALL' : CHANNEL_NAMES.get(key);
+      const w = Math.ceil(value.length * 6 * 2.36) + 14;
+      if (x + w > VIEW.right - 13) {
+        x = left;
+        y += 38;
+      }
       p.rect(x,y,w,30,active?PAL.primary:PAL.medium,.76);
       p.rect(x+3,y+3,w-6,24,active?PAL.hot:PAL.ink,.94);
       p.text(value,x+6,y+6,2.36,active?PAL.ink:PAL.bright,{glow:!active});
       p.line(x,y+28,x+w,y+28,PAL.primary,2,.75);
       this.hits.push({x,y:y-3,w,h:34,type:'channel',value:key,label:value});
-    });
+      x += w + 8;
+    }
     const readout=this.sim.resources;
     if(Number.isFinite(readout.ram))p.text('RAM '+Math.round(readout.ram)+'%',589,229,2.45,PAL.medium);
     if(Number.isFinite(readout.loaded))p.text('WEIGHTS '+readout.loaded,589,265,2.2,PAL.medium);
   }
   drawFooter(){
     const p=this.p;
-    for(const mark of TIME_MARKS.slice(0,-1)){
-      const seconds=Math.round(mark.seconds*this.settings.window/147);
+    for(const [index, x] of TIME_MARKS.slice(0, -1).entries()){
+      const seconds=TIME_WINDOWS[this.settings.window][index];
       const label=seconds>=60?String(Math.floor(seconds/60))+':'+String(seconds%60).padStart(2,'0'):seconds+'s';
-      p.text(label,mark.x+1,1471,2.15,mark.seconds===147?PAL.primary:PAL.medium);
+      const lastMark = index === TIME_MARKS.length - 2;
+      p.text(label,lastMark ? x + 24 : x + 1,1471,2.15,index===0?PAL.primary:PAL.medium,
+        { align: lastMark ? "right" : "left" });
     }
     p.rect(454,1468,119,25,PAL.primary);
     const date=new Date(this.sim.t*1000);
@@ -508,7 +517,7 @@ class Renderer {
 
 const $ = id => document.getElementById(id);
 const settings = {
-  channel: "all", window: 147, shyness: 30, labelHold: 2.5, maxCallouts: 2,
+  channel: "all", window: 300, shyness: 30, labelHold: 2.5, maxCallouts: 2,
   gain: 0, limiter: true, compressor: true, debug: false,
 };
 const feed = {
@@ -518,6 +527,12 @@ const feed = {
 const canvas = $("scope");
 const renderer = new Renderer(canvas, feed, settings);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const wideScope = matchMedia("(min-aspect-ratio: 1/1)");
+const packetHistory = $("packet-history");
+const packetList = $("packet-list");
+const railButtons = new Map();
+const packets = new Map();
+let packetAnimation = null;
 let token = new URLSearchParams(location.hash.slice(1)).get("access") || "";
 try {
   if (token) sessionStorage.setItem("omni_access", token);
@@ -584,7 +599,8 @@ function scopeRows(snapshot) {
       : event.label === "Typed input" ? "input" : "heard",
     label: event.label, detail: event.text, source: event.authority,
     retention: snapshot.activity_sources.scope, request_id: event.request_id,
-    duration: null, audioGenerated: event.audio_generated === true,
+    actor: event.actor, addressee: event.addressee, sourceHash: event.source_sha256,
+    textTruncated: event.text_truncated, duration: null, audioGenerated: event.audio_generated === true,
   }));
   return [...diagnostics, ...sources].filter(event => Number.isFinite(event.at) && event.at > 0).map(event => {
     const end = event.at / 1000;
@@ -647,6 +663,7 @@ function selectChannel(channel) {
   renderer.selected = null;
   $("channel-control").value = channel;
   updateEventOptions();
+  updateRail();
   draw();
 }
 
@@ -657,25 +674,202 @@ function selectEvent(id) {
   draw();
 }
 
+function sourceFacts(event) {
+  return [
+    ["Channel", CHANNEL_NAMES.get(event.channel)], ["Recorded", new Date(event.at).toLocaleString()],
+    ["Source", event.source], ["Retention", event.retention],
+    ["Measurement", event.measure], ["Status", event.failed ? "Error" : "Recorded"],
+    ["Request", event.request_id], ["Actor", event.actor], ["Addressee", event.addressee],
+    ["Source SHA-256", event.sourceHash], ["Playback", event.audioGenerated ? "Unverified" : ""],
+    ["Excerpt", event.textTruncated ? "Bounded by source retention" : ""],
+  ];
+}
+
+function labelNode(tag, text) {
+  const node = document.createElement(tag);
+  node.textContent = text;
+  return node;
+}
+
+function buildFacts(target, event) {
+  target.replaceChildren(...sourceFacts(event).filter(([,value]) => value)
+    .flatMap(([key, value]) => [labelNode("dt", key), labelNode("dd", value)]));
+}
+
 function sourceDetails() {
   const event = renderer.allEvents.find(item => item.key === renderer.selected);
   if (!event) return;
   $("event-title").textContent = event.label;
   $("event-source").textContent = event.detail || "";
-  const details = [
-    ["Channel", CHANNEL_NAMES.get(event.channel)], ["Recorded", new Date(event.at).toLocaleString()],
-    ["Source", event.source], ["Retention", event.retention],
-    ["Measurement", event.measure], ["Status", event.failed ? "Error" : "Recorded"],
-    ["Request", event.request_id], ["Playback", event.audioGenerated ? "Unverified" : ""],
-  ];
-  $("event-facts").replaceChildren(...details.filter(([,value]) => value).flatMap(([label,value]) => {
-    const name = document.createElement("dt");
-    const detail = document.createElement("dd");
-    name.textContent = label;
-    detail.textContent = value;
-    return [name, detail];
-  }));
+  buildFacts($("event-facts"), event);
   if (!$("event-info").open) $("event-info").showModal();
+}
+
+function canOpenPackets() {
+  if (!wideScope.matches) return false;
+  const bounds = canvas.getBoundingClientRect();
+  const scale = bounds.width / VIEW.width;
+  const width = (VIEW.right - VIEW.x) * scale;
+  return width >= 216 && bounds.left + 744 * scale + width <= innerWidth;
+}
+
+function updateRail() {
+  const canOpen = canOpenPackets();
+  for (const [channel, button] of railButtons) {
+    if (canOpen) {
+      button.setAttribute("aria-controls", "packet-history");
+      button.setAttribute("aria-expanded", String(renderer.openChannel === channel));
+      button.removeAttribute("aria-pressed");
+    } else {
+      button.removeAttribute("aria-controls");
+      button.removeAttribute("aria-expanded");
+      button.setAttribute("aria-pressed", String(settings.channel === channel));
+    }
+  }
+}
+
+function makePacket(event) {
+  const packet = labelNode("li", "");
+  packet.className = "scope-packet";
+  packet.dataset.failed = String(event.failed);
+  const header = document.createElement("header");
+  const time = labelNode("time", new Date(event.at).toLocaleTimeString());
+  time.dateTime = new Date(event.at).toISOString();
+  header.append(labelNode("h3", event.label), time);
+  const metadata = labelNode("div", [event.source, event.measure, event.failed && "Error"].filter(Boolean).join(" · "));
+  metadata.className = "packet-meta";
+  const detail = event.detail || "";
+  const summary = labelNode("summary", "Full packet");
+  const details = document.createElement("details");
+  const facts = document.createElement("dl");
+  buildFacts(facts, event);
+  details.append(summary, facts, labelNode("p", detail || "Metadata only in this record."));
+  if (event.tool_call_id && event.request_id && Number.isInteger(event.tool_round)) {
+    const receipt = labelNode("pre", "");
+    details.append(receipt);
+    async function readReceipt() {
+      if (!details.open) return;
+      details.removeEventListener("toggle", readReceipt);
+      receipt.textContent = "Reading the retained tool receipt.";
+      const query = new URLSearchParams({
+        request_id: event.request_id, round: event.tool_round, call_id: event.tool_call_id,
+      });
+      try {
+        const response = await fetch("/api/observatory/tool-call?" + query, {
+          headers: { Authorization: "Bearer " + token }, cache: "no-store", signal: AbortSignal.timeout(8000),
+        });
+        receipt.textContent = response.ok ? JSON.stringify(await response.json(), null, 2)
+          : "Tool receipt unavailable in this browser session.";
+      } catch (_) {
+        receipt.textContent = "Tool receipt unavailable.";
+      }
+    }
+    details.addEventListener("toggle", readReceipt);
+  }
+  packet.append(header, metadata);
+  if (detail) packet.append(labelNode("p", detail.length > 140 ? detail.slice(0, 140) + "…" : detail));
+  packet.append(details);
+  return packet;
+}
+
+function updatePackets() {
+  if (!renderer.openChannel) return;
+  const rows = renderer.allEvents.filter(event => event.channel === renderer.openChannel)
+    .sort((a, b) => a.at - b.at);
+  const keep = new Set(rows.map(event => event.key));
+  for (const [key, packet] of packets) {
+    if (!keep.has(key)) {
+      packet.remove();
+      packets.delete(key);
+    }
+  }
+  let cursor = packetList.firstChild;
+  for (const event of rows) {
+    let packet = packets.get(event.key);
+    if (!packet) {
+      packet = makePacket(event);
+      packets.set(event.key, packet);
+    }
+    if (packet !== cursor) packetList.insertBefore(packet, cursor);
+    cursor = packet.nextSibling;
+  }
+  $("packet-count").textContent = rows.length + (rows.length === 1 ? " packet" : " packets");
+  $("packet-empty").hidden = rows.length > 0;
+  packetList.hidden = rows.length === 0;
+}
+
+function animatePacketHistory(button, closing) {
+  packetAnimation?.cancel();
+  if (reduceMotion.matches) return null;
+  const chip = button.getBoundingClientRect();
+  const panel = packetHistory.getBoundingClientRect();
+  const folded = {
+    transform: `translate(${chip.left - panel.left}px, ${chip.top - panel.top}px) scale(${chip.width / panel.width}, ${chip.height / panel.height})`,
+    opacity: .12,
+  };
+  const unfolded = { transform: "none", opacity: 1 };
+  packetAnimation = packetHistory.animate(closing ? [unfolded, folded] : [folded, unfolded], {
+    duration: closing ? 200 : 290, easing: "cubic-bezier(.24,.74,.2,1)",
+  });
+  return packetAnimation;
+}
+
+function closePackets(restoreFocus = true, animate = true) {
+  const channel = renderer.openChannel;
+  if (!channel) return;
+  renderer.openChannel = null;
+  const button = railButtons.get(channel);
+  packetHistory.inert = true;
+  const hide = () => {
+    packetHistory.hidden = true;
+    packetList.replaceChildren();
+    packets.clear();
+  };
+  const transition = animate && animatePacketHistory(button, true);
+  if (transition) transition.finished.then(hide, () => {});
+  else {
+    packetAnimation?.cancel();
+    hide();
+  }
+  if (restoreFocus) button.focus({ preventScroll: true });
+  updateRail();
+  draw();
+}
+
+function openPackets(channel, key = null) {
+  const opening = renderer.openChannel !== channel;
+  packetAnimation?.cancel();
+  renderer.openChannel = channel;
+  packetHistory.inert = false;
+  packetHistory.hidden = false;
+  $("packet-channel").textContent = CHANNEL_NAMES.get(channel);
+  updateRail();
+  updatePackets();
+  if (opening) packetList.scrollTop = 0;
+  const transition = opening && animatePacketHistory(railButtons.get(channel), false);
+  if (key) {
+    const details = packets.get(key)?.querySelector("details");
+    if (details) {
+      details.open = true;
+      const reveal = () => {
+        if (renderer.openChannel !== channel || !details.isConnected) return;
+        details.closest("li").scrollIntoView({ block: "nearest" });
+        details.querySelector("summary").focus({ preventScroll: true });
+      };
+      if (transition) transition.finished.then(reveal, () => {});
+      else reveal();
+    }
+  } else {
+    $("packet-close").focus({ preventScroll: true });
+  }
+  draw();
+}
+
+function inspectEvent(key) {
+  selectEvent(key);
+  const event = renderer.allEvents.find(item => item.key === key);
+  if (event && canOpenPackets()) openPackets(event.channel, key);
+  else sourceDetails();
 }
 
 async function refresh(manual = false) {
@@ -705,6 +899,7 @@ async function refresh(manual = false) {
     $("sample-status").textContent = "Sampled " + new Date(sample.captured_at).toLocaleTimeString();
     $("shell").ariaBusy = "false";
     updateEventOptions();
+    updatePackets();
     draw();
     animate();
   } catch (error) {
@@ -760,12 +955,8 @@ canvas.addEventListener("pointerdown", event => {
   const { x, y } = point(event);
   const hit = renderer.getHit(x, y);
   if (hit?.type === "channel") selectChannel(hit.value === settings.channel ? "all" : hit.value);
-  if (hit?.type === "event") selectEvent(hit.value);
+  if (hit?.type === "event") inspectEvent(hit.value);
   if (hit?.type === "pause") pause();
-});
-canvas.addEventListener("dblclick", event => {
-  const { x, y } = point(event);
-  if (renderer.getHit(x, y)?.type === "event") sourceDetails();
 });
 canvas.addEventListener("pointermove", event => {
   const { x, y } = point(event);
@@ -780,7 +971,36 @@ canvas.addEventListener("pointermove", event => {
   }
 });
 canvas.addEventListener("pointerleave", () => { $("hover-label").hidden = true; });
-for (const [key, label] of CHANNELS) $("channel-control").add(new Option(label, key));
+for (const [key, label, y] of CHANNELS) {
+  $("channel-control").add(new Option(label, key));
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "scope-rail-button";
+  button.style.top = (y - 20) / VIEW.height * 100 + "%";
+  button.textContent = label;
+  button.setAttribute("aria-label", label);
+  button.addEventListener("click", () => {
+    if (!canOpenPackets()) selectChannel(settings.channel === key ? "all" : key);
+    else if (renderer.openChannel === key) closePackets();
+    else openPackets(key);
+  });
+  railButtons.set(key, button);
+  $("scope-rail").append(button);
+}
+updateRail();
+$("packet-close").addEventListener("click", () => closePackets());
+document.addEventListener("pointerdown", event => {
+  if (!renderer.openChannel || packetHistory.contains(event.target) || $("scope-rail").contains(event.target)) return;
+  if (event.target === canvas) {
+    const { x, y } = point(event);
+    if (renderer.getHit(x, y)?.type === "event") return;
+  }
+  closePackets(false);
+}, { capture: true });
+window.addEventListener("resize", () => {
+  if (renderer.openChannel && !canOpenPackets()) closePackets(false, false);
+  updateRail();
+});
 $("channel-control").addEventListener("change", event => selectChannel(event.target.value));
 $("window-control").addEventListener("change", event => { settings.window = Number(event.target.value); draw(); });
 $("event-control").addEventListener("change", event => selectEvent(event.target.value));
@@ -803,16 +1023,20 @@ $("btn-export").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && renderer.openChannel && !$("event-info").open) {
+    closePackets();
+    return;
+  }
   if (event.key === "Escape" && !$("settings-panel").hidden && !$("event-info").open) {
     settingsPanel(false);
     return;
   }
-  if ($("event-info").open || ["BUTTON", "SELECT", "INPUT"].includes(event.target.tagName)) return;
+  if ($("event-info").open || packetHistory.contains(event.target) || ["BUTTON", "SELECT", "INPUT"].includes(event.target.tagName)) return;
   if (event.code === "Space") { event.preventDefault(); pause(); }
   if (event.key.toLowerCase() === "r") refresh(true);
   if (event.key.toLowerCase() === "p") screenshot();
   if (event.key.toLowerCase() === "f") fullscreen();
-  if (event.key === "Enter" && event.target === canvas) sourceDetails();
+  if (event.key === "Enter" && event.target === canvas && renderer.selected) inspectEvent(renderer.selected);
   if (["ArrowUp", "ArrowDown"].includes(event.key) && event.target === canvas) {
     event.preventDefault();
     const index = CHANNELS.findIndex(([key]) => key === settings.channel);

@@ -19,8 +19,9 @@ as `reference-rf-observatory.js` and `reference-rf-observatory.css`.
 | Tasks | Background task state and archive updates |
 | Voice loop | Observed daemon state transitions |
 
-Horizontal position uses the source timestamp and the selected window (147 seconds by default, or one, five, or
-fifteen minutes). A measured duration can produce a hatched interval.
+Horizontal position uses the source timestamp and the selected window (five
+minutes by default, with one- and fifteen-minute options). A measured duration
+can produce a hatched interval.
 Instantaneous events use a stem. Pointed rails show observed counts for the
 visible window. Callouts use the event type, available timing or tool round, and
 recorded error status. Recent labels compact and fade as their traces age. Use the
@@ -36,8 +37,17 @@ shows `--` when a reading is missing or stale.
 
 ## Controls
 
-The scope fills the page. Type filters sit inside the instrument. The original
-toolbar exposes pause, refresh, PNG capture, fullscreen, and settings. Pause
+The scope fills the page. Label-width type filters wrap inside the instrument.
+When a square or wider viewport has room for a readable history, the pointed
+right labels unfold into an adjacent box the size of the plot. Each packet
+shows the recorded time, source and available measurement. Expand **Full
+packet** for the retained detail and metadata. Selecting a trace opens and
+reveals its packet. The left arrow, Escape, and an outside click fold the
+history back. On narrower screens the labels filter the trace and a selected
+trace opens its source dialog.
+
+The original toolbar exposes pause, refresh, PNG capture, fullscreen, and
+settings. Pause
 holds the sample time, and reduced motion updates the plot when samples arrive.
 Settings provides the time window, event selection, and capture export.
 

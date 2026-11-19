@@ -7,12 +7,24 @@
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Recorded Omni runtime activity">
   <title>Runtime scope</title>
-  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=1">
-  <script src="/assets/reference-rf-observatory.js?v=2" defer></script>
+  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=2">
+  <script src="/assets/reference-rf-observatory.js?v=4" defer></script>
 </head>
 <body>
   <main id="shell" aria-label="Omni activity scope" aria-busy="true" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
-    <div class="stage"><canvas id="scope" width="910" height="1630" tabindex="0" aria-label="Recorded runtime events. Use the arrow keys to select a channel and Enter to inspect a source."></canvas></div>
+    <div class="stage">
+      <canvas id="scope" width="910" height="1630" tabindex="0" aria-label="Recorded runtime events. Use the arrow keys to select a channel and Enter to inspect a source."></canvas>
+      <div id="scope-rail" role="group" aria-label="Scope channels"></div>
+      <section id="packet-history" hidden aria-labelledby="packet-channel">
+        <header class="packet-header">
+          <button id="packet-close" type="button" aria-label="Collapse packet history">←</button>
+          <h2 id="packet-channel"></h2>
+          <span id="packet-count"></span>
+        </header>
+        <ol id="packet-list" tabindex="0" aria-label="Recorded packets, oldest first"></ol>
+        <p id="packet-empty" hidden>No retained packets for this channel.</p>
+      </section>
+    </div>
     <div class="toolbar" aria-label="Display actions">
       <button id="btn-pause" aria-label="Pause" title="Pause or resume (Space)">Ⅱ</button>
       <button id="btn-reset" aria-label="Refresh" title="Refresh (R)">↻</button>
@@ -23,7 +35,7 @@
     <div id="paused-badge" hidden>⏸ PAUSED</div>
     <aside id="settings-panel" class="panel" hidden aria-label="Scope settings">
       <div class="panel-header"><h2>Scope settings</h2><button id="btn-close" aria-label="Close settings">×</button></div>
-      <div class="row"><label for="window-control">Time window</label><select id="window-control"><option value="147">2m 27s</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="900">15 minutes</option></select></div>
+      <div class="row"><label for="window-control">Time window</label><select id="window-control"><option value="60">1 minute</option><option value="300" selected>5 minutes</option><option value="900">15 minutes</option></select></div>
       <div class="row"><label for="channel-control">Channel</label><select id="channel-control"><option value="all">All channels</option></select></div>
       <div class="row"><label for="event-control">Recorded event</label><select id="event-control"><option value="">Select an event</option></select></div>
       <div class="panel-actions"><button id="btn-source" type="button" disabled>Source</button><button id="btn-export" type="button">Export events</button></div>

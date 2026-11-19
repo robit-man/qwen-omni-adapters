@@ -20,6 +20,8 @@ typography:
     fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
   utility:
     fontFamily: "IBM Plex Mono, JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+  scope-controls:
+    fontFamily: "Courier New, Courier, monospace"
   observatory-label:
     fontFamily: "VT323, ui-monospace, monospace"
   observatory-digits:
@@ -97,8 +99,11 @@ The single chat column is capped at `shell-max` and uses one bounded conversatio
 
 The scope uses the supplied **RF Scope / Amber Signal Monitor**
 (`index(9).html`) canvas and stylesheet. One portrait instrument is centered in
-the viewport. The filters sit inside its frame, pointed channel labels form
-the right rail, and a nonlinear time ruler runs below the plot.
+the viewport. Label-width filters wrap inside its frame, pointed channel
+labels form the right rail, and a nonlinear time ruler runs below the plot.
+When the screen fits it, a rail label unfolds into a packet history the size
+of the plot. The plot uses the reference bitmap lettering. The settings and
+packet history use the reference Courier New stack.
 
 ## Elevation & Depth
 
