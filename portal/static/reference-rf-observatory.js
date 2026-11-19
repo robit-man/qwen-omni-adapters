@@ -61,7 +61,7 @@ function ageX(age, window){
 
 class Pixel {
   constructor(ctx){this.c=ctx;}
-  text(value,x,y,size=2.4,{alpha=1,align="left"}={}){
+  text(value,x,y,size=2.4,{alpha=1,align="left",width=null,uppercase=true}={}){
     const c=this.c;
     c.save();
     c.font = size * 9.2 + 'px "Departure Mono", monospace';
@@ -69,7 +69,14 @@ class Pixel {
     c.textAlign = align;
     c.textBaseline = "alphabetic";
     c.globalAlpha *= alpha;
-    c.fillText(String(value).toUpperCase(), x, y + size * 7);
+    let text = uppercase ? String(value).toUpperCase() : String(value);
+    if (width !== null && c.measureText(text).width > width) {
+      const limit = Math.floor(width / c.measureText("M").width);
+      const chars = Array.from(text.slice(0, Math.max(0, limit - 1) * 2)).slice(0, Math.max(0, limit - 1));
+      while (chars.length && c.measureText(chars.join("") + "…").width > width) chars.pop();
+      text = chars.join("").trimEnd() + "…";
+    }
+    c.fillText(text, x, y + size * 7);
     c.restore();
   }
   rect(x,y,w,h,col=PAL.primary,alpha=1){const c=this.c;c.save();c.globalAlpha=alpha;c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),Math.max(0,Math.round(w)),Math.max(0,Math.round(h)));c.restore()}
@@ -183,6 +190,9 @@ function annotationLife(event,time,hold=2.5){
   return {stage,expansion:expansion*birth,alpha:alpha*birth,secondsSinceEnd:elapsed};
 }
 function separated(a,b,gap){return a.x>=b.x+b.w+gap||a.x+a.w+gap<=b.x||a.y>=b.y+b.h+gap||a.y+a.h+gap<=b.y;}
+function boxClearance(a,b){
+  return Math.max(a.x-b.x-b.w,b.x-a.x-a.w,a.y-b.y-b.h,b.y-a.y-a.h);
+}
 // Layout depends only on inputs; deterministic permutations avoid frame-to-frame jitter.
 function placeAnnotation(anchorX,anchorY,expansion,occupied,options={}){
   const w=62+66*expansion,h=25+62*expansion;
@@ -232,11 +242,16 @@ function selectAnnotations(events,time,options={}){
 }
 
 const clip=(x,a,b)=>Math.max(a,Math.min(x,b));
+function inWindow(event, now, span) {
+  const end = event.end ?? now;
+  return end <= now && event.start <= now && now - end <= span;
+}
 class Renderer {
   constructor(canvas,sim,settings){
     this.canvas=canvas;this.c=canvas.getContext('2d',{alpha:false});this.p=new Pixel(this.c);
     this.sim=sim;this.settings=settings;this.hits=[];this.noise=this.makeNoise();
     this.allEvents=[];this.selected=null;this.callouts=new Map();this.calloutFrame=0;
+    this.traceFootprints=[];
   }
   makeNoise(){const c=document.createElement('canvas');c.width=512;c.height=512;const cx=c.getContext('2d');const im=cx.createImageData(512,512);let n=0x41ad203;for(let i=0;i<im.data.length;i+=4){n^=n<<13;n^=n>>>17;n^=n<<5;const v=(n>>>0)%100;im.data[i]=220;im.data[i+1]=110;im.data[i+2]=30;im.data[i+3]=v<4?15:0;}cx.putImageData(im,0,0);return c}
   render(){
@@ -278,12 +293,12 @@ class Renderer {
   }
   drawChannels(){
     const p=this.p;
-    const events=this.allEvents.filter(event=>this.sim.t-event.end<=this.settings.window && this.sim.t>=event.end);
+    const events=this.allEvents.filter(event=>inWindow(event,this.sim.t,this.settings.window));
     for(const [key,label,y] of CHANNELS){
       if (this.openChannel === key) continue;
       const current=events.filter(event=>event.channel===key);
       const active=this.settings.channels.has(key) && (this.settings.channels.size < CHANNEL_KEYS.length
-        || current.some(event=>this.sim.t-event.end<12));
+        || current.some(event=>event.end===null || this.sim.t-event.end<12));
       const {tip:x1,left:x2,right:x3,height:h}=RAIL;
       p.line(576,y,x1,y,active?PAL.orange:PAL.faint,2,active?.95:.75);
       p.poly([[x1,y],[x2,y-h/2],[x3,y-h/2],[x3,y+h/2],[x2,y+h/2],[x1,y]],
@@ -295,7 +310,8 @@ class Renderer {
   }
   drawEvents(){const c=this.c,p=this.p;
     c.save();c.beginPath();c.rect(60,345,514,1105);c.clip();
-    const events=this.allEvents.filter(e=>this.sim.t-e.end<=this.settings.window && this.sim.t>=e.end && this.settings.channels.has(e.channel));
+    this.traceFootprints.length=0;
+    const events=this.allEvents.filter(e=>inWindow(e,this.sim.t,this.settings.window) && this.settings.channels.has(e.channel));
     // Trace beds first, with crowns generated in a second pass.
     for(const e of events){
       const ageStart=this.sim.t-e.start,ageEnd=e.end===null?0:this.sim.t-e.end;
@@ -310,13 +326,17 @@ class Renderer {
       if(k==='hatched'){
         this.p.hatch(Math.max(66,x0),y-15,Math.min(575,x1)-Math.max(66,x0),35,PAL.bright,false);
         p.rect(x0,y-24,9,48,PAL.hot,.7);
+        this.traceFootprints.push({x:x0,y:y-24,w:Math.max(9,w),h:48});
       } else if(k==='pulse'){
         const px=x0+(x1-x0)*.5;
-        p.line(px,y-4,px,y-30-b*1.5,PAL.primary,7,.9);
-        p.rect(px-1,y-30-b*1.5,17,9,PAL.bright);
+        const top=y-30-b*1.5;
+        p.line(px,y-4,px,top,PAL.primary,7,.9);
+        p.rect(px-1,top,17,9,PAL.bright);
         p.line(px,y,px+12,y,PAL.medium,3);
+        this.traceFootprints.push({x:px-4,y:top-4,w:21,h:y-top+6});
         this.hits.push({x:px-10,y:y-36,w:22,h:43,type:'event',value:e.key,label:e.label});
       } else if(k==='pulses'){
+        this.traceFootprints.push({x:x0-8,y:y-14-e.sig*.55,w:w+16,h:19+e.sig*.55});
         p.line(x0,y,x1,y,PAL.medium,4);
         let count=Math.max(3,Math.floor(w/17));for(let j=0;j<count;j++){
           let x=x0+j*(w/count)+Math.sin(j*7+e.phase)*8;
@@ -326,6 +346,7 @@ class Renderer {
       } else {
         // Branch networks are laid out independently so crowns can avoid one another.
         p.line(x0,y,x1,y,PAL.primary,2.8,.85);
+        this.traceFootprints.push({x:x0-4,y:y-4,w:w+8,h:8});
         if(w>25){
           p.dot(x0,y,3.5,PAL.orange,false);p.dot(x1,y,3.2,PAL.primary,false);
           const n=clip(Math.floor(w/85),1,6);
@@ -352,15 +373,18 @@ class Renderer {
       forest.draw(p,e,x0,x1,y,PAL,growing);
     }
     this.forest=forest;
+    for (const crown of forest.crowns) {
+      this.traceFootprints.push({x:crown.x-crown.r,y:crown.y-crown.r,w:crown.r*2,h:crown.r*2});
+    }
     c.restore();
   }
   drawCallouts(){
-    const occupied=[];
+    const occupied=[...this.traceFootprints];
     const now = performance.now();
     const elapsed = clip(now - this.calloutFrame, 1, 90);
     this.calloutFrame = now;
     const step = reduceMotion.matches || this.sim.paused ? 1 : 1 - Math.exp(-elapsed / 125);
-    const live=this.allEvents.filter(e=>this.sim.t>=e.end && this.sim.t-e.end<=this.settings.window
+    const live=this.allEvents.filter(e=>inWindow(e,this.sim.t,this.settings.window)
       && this.settings.channels.has(e.channel));
     const rows=selectAnnotations(live,this.sim.t,{
       hold:this.settings.labelHold,maxExpanded:this.settings.maxCallouts,maxCompact:2
@@ -375,8 +399,14 @@ class Renderer {
     for(const {event:e,life} of rows){
       const y=CHANNEL_Y.get(e.channel),ageEnd=e.end===null?0:this.sim.t-e.end;
       const anchorX=clip(ageX(ageEnd,this.settings.window),80,562);
-      const rect=placeAnnotation(anchorX,y,life.expansion,occupied,{gap:this.settings.shyness});
+      let rect=placeAnnotation(anchorX,y,life.expansion,occupied,{gap:this.settings.shyness});
       if(!rect)continue;
+      if (!reduceMotion.matches && !this.sim.paused) {
+        const phase = this.sim.t * 1.25 + hash01(e.id,71) * Math.PI * 2;
+        const floating = { ...rect, y:clip(rect.y+Math.sin(phase)*3,359,1444-rect.h),
+          x:clip(rect.x+Math.cos(phase)*2,80,559-rect.w) };
+        if (occupied.every(other=>separated(floating,other,this.settings.shyness))) rect=floating;
+      }
       occupied.push(rect);
       const target = { ...rect, alpha: life.alpha, expansion: life.expansion };
       targets.set(e.key, target);
@@ -398,8 +428,9 @@ class Renderer {
         this.callouts.delete(key);
         continue;
       }
-      const anchorX = clip(ageX(this.sim.t - event.end,this.settings.window),80,562);
-      this.drawCallout(event,box,anchorX,CHANNEL_Y.get(event.channel),targets.has(key));
+      const anchorX = clip(ageX(this.sim.t - (event.end ?? this.sim.t),this.settings.window),80,562);
+      const clearance = this.traceFootprints.reduce((space, mark)=>Math.min(space,boxClearance(box,mark)),12);
+      this.drawCallout(event,{...box,alpha:box.alpha*smooth(clearance/12)},anchorX,CHANNEL_Y.get(event.channel),targets.has(key));
     }
   }
   drawCallout(e,r,anchorX,anchorY,interactive){
@@ -420,9 +451,11 @@ class Renderer {
     p.poly([[x,y+h-k],[x,y+h],[x+w,y+h],[x+w,y+h-k]],PAL.bright,2+expanded*1.2,alpha);
     c.save();c.beginPath();c.rect(x+3,y+2,w-6,h-4);c.clip();
     const titleSize = 1.45 + expanded * 1.45;
-    p.text(CHANNEL_NAMES.get(e.channel),x+5+3*expanded,y+5+4*expanded,titleSize,{alpha});
+    const textAlpha = e.caption ? smooth((expanded - .15) / .45) : 1;
+    p.text(CHANNEL_NAMES.get(e.channel),x+5+3*expanded,y+5+4*expanded,titleSize,{alpha:alpha * textAlpha});
+    if (e.caption) p.text(e.caption,x+5,y+5,1.45,{alpha:alpha * (1 - textAlpha),width:w-10,uppercase:false});
     const detailAlpha = alpha * smooth((expanded - .38) / .55);
-    p.text(e.short,x+8,y+36,2.05,{alpha:detailAlpha});
+    p.text(e.caption || e.short,x+8,y+36,2.05,{alpha:detailAlpha,width:w-16,uppercase:!e.caption});
     if(e.measure)p.text(e.measure,x+8,y+62,1.9,{alpha:detailAlpha});
     c.restore();
     // Click any visible SIG element to tune its source channel.
@@ -527,6 +560,8 @@ try {
   else token = sessionStorage.getItem("omni_access") || "";
 } catch (_) {}
 let refreshing = false;
+let refreshingVoice = false;
+let voiceSignature = "";
 let frame = 0;
 let last = 0;
 let toastTimer = 0;
@@ -564,6 +599,8 @@ function recordWeights(weights) {
 }
 
 function category(event) {
+  if (event.event === "voice_capture") return "input";
+  if (event.event === "voice_playback") return "said";
   if (event.category === "memory") return "memory";
   if (event.category === "work") return "tasks";
   if (event.source === "voice-loop status" || event.signal === "presence") return "voice";
@@ -588,10 +625,12 @@ function scopeRows(snapshot) {
   }
   const diagnostics = (snapshot.timeline || []).map(event => {
     const at = Date.parse(event.at);
+    const started = Date.parse(event.started_at);
     const invoked = event.event === "tool_call_completed" ? toolStarts.get(toolId(event)) : null;
-    const duration = Number.isFinite(event.elapsed_ms) ? event.elapsed_ms
+    const duration = Number.isFinite(started) && started <= at ? at - started
+      : Number.isFinite(event.elapsed_ms) ? event.elapsed_ms
       : Number.isFinite(invoked) && invoked <= at ? at - invoked : null;
-    return { ...event, at, channel: category(event), duration };
+    return { ...event, at, started, channel: category(event), duration };
   });
   const sources = (snapshot.activity_sources?.sources || []).map(event => ({
     id: "source-" + event.id,
@@ -599,12 +638,15 @@ function scopeRows(snapshot) {
     channel: event.lane === "said" ? "said" : event.lane === "done" ? "tools"
       : event.label === "Typed input" ? "input" : "heard",
     label: event.label, detail: event.text, source: event.authority,
+    caption: event.lane === "said" || ["Speech transcript", "Retained speech", "Reported speech"].includes(event.label)
+      ? String(event.text || "").replace(/\s+/g, " ").trim().slice(0, 240) : "",
     retention: snapshot.activity_sources.scope, request_id: event.request_id,
     actor: event.actor, addressee: event.addressee, sourceHash: event.source_sha256,
     textTruncated: event.text_truncated, duration: null, audioGenerated: event.audio_generated === true,
   }));
   return [...diagnostics, ...sources].filter(event => Number.isFinite(event.at) && event.at > 0).map(event => {
-    const end = event.at / 1000;
+    const end = event.ongoing === true ? null : event.at / 1000;
+    const start = Number.isFinite(event.started) ? event.started / 1000 : event.at / 1000 - (event.duration || 0) / 1000;
     const duration = Number.isFinite(event.duration) ? event.duration : 0;
     const failed = event.status === "error";
     const id = [...String(event.id)].reduce((hash, ch) => Math.imul(hash, 31) + ch.charCodeAt(0) | 0, 0);
@@ -614,9 +656,9 @@ function scopeRows(snapshot) {
     const shorthand = failed ? "ERROR" : event.event === "inference_stage"
       ? event.signal === "perception" ? "PERCEPTION" : event.signal === "speaking" ? "SYNTHESIS" : "LANGUAGE"
       : event.audioGenerated ? "GENERATED" : event.label.split(" ").slice(0, 2).join(" ").slice(0, 10);
-    return { ...event, id, key: String(event.id), end, start: end - duration / 1000,
+    return { ...event, id, key: String(event.id), end, start,
       sig: failed ? 32 : duration ? 26 : 20, failed, dur: duration / 1000, measure, short: shorthand,
-      kind: duration ? failed ? "hatched" : "trace" : "pulse" };
+      kind: event.started_at || (duration && failed) ? "hatched" : duration ? "trace" : "pulse" };
   });
 }
 
@@ -1037,6 +1079,32 @@ function inspectEvent(key) {
   else sourceDetails();
 }
 
+async function refreshVoice() {
+  if (refreshingVoice || feed.paused || document.hidden || !token) return;
+  refreshingVoice = true;
+  try {
+    const response = await fetch("/api/observatory?voice=1", {
+      headers:{Authorization:"Bearer "+token}, cache:"no-store", signal:AbortSignal.timeout(2500),
+    });
+    if (!response.ok) return;
+    const {intervals} = await response.json();
+    if (!Array.isArray(intervals)) return;
+    const signature = JSON.stringify(intervals);
+    if (signature === voiceSignature) return;
+    voiceSignature = signature;
+    const live = scopeRows({timeline:intervals});
+    renderer.allEvents = renderer.allEvents
+      .filter(event=>!["voice_capture","voice_playback"].includes(event.event)).concat(live);
+    updateEventOptions();
+    updatePackets();
+    if (reduceMotion.matches) draw();
+  } catch (_) {
+    // The ordinary snapshot remains a fallback for this lightweight feed.
+  } finally {
+    refreshingVoice = false;
+  }
+}
+
 async function refresh(manual = false) {
   if (refreshing || (feed.paused && !manual)) return;
   if (!token) {
@@ -1250,6 +1318,7 @@ document.addEventListener("visibilitychange", () => {
 });
 reduceMotion.addEventListener("change", () => { draw(); animate(); });
 setInterval(() => { if (!document.hidden) refresh(); }, 2000);
+setInterval(refreshVoice, 450);
 draw();
 document.fonts.load('1em "Departure Mono"').then(draw, () => {});
 refresh();

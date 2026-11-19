@@ -678,6 +678,7 @@ class ObservatoryReader:
         self._previous_cpu_ticks: tuple[int, int] | None = None
         self._harness_state: str | None = None
         self._harness_events: deque[dict[str, Any]] = deque(maxlen=120)
+        self._harness_interval: dict[str, Any] | None = None
 
     def _environment_snapshot(self) -> dict[str, Any]:
         now = time.monotonic()
@@ -705,6 +706,39 @@ class ObservatoryReader:
             self._environment_sampled_at = now
             return dict(self._environment)
 
+    def voice_activity(self) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        harness = _harness_projection(self.state_root / "harness-status.json")
+        with self._lock:
+            if harness.get("fresh") and harness.get("state") != self._harness_state:
+                at = harness.get("updated_at") or _now_iso()
+                if self._harness_interval is not None:
+                    self._harness_events.append({**self._harness_interval, "at": at, "ongoing": False})
+                    self._harness_interval = None
+                self._harness_state = harness["state"]
+                self._harness_events.append({
+                    "id": f"voice-{harness.get('updated_at')}-{self._harness_state}",
+                    "at": harness.get("updated_at"), "category": "conversation",
+                    "signal": {"hearing": "hearing", "speaking": "speaking", "thinking": "llm"}.get(self._harness_state, "presence"),
+                    "label": f"Voice loop · {self._harness_state}",
+                    "detail": "Observed state transition", "source": "voice-loop status",
+                    "retention": "bounded observed transitions", "status": "ok",
+                })
+                if self._harness_state in {"hearing", "speaking"}:
+                    capture = self._harness_state == "hearing"
+                    self._harness_interval = {
+                        "id": f"voice-interval-{at}-{self._harness_state}",
+                        "at": at, "started_at": at, "ongoing": True,
+                        "event": "voice_capture" if capture else "voice_playback",
+                        "category": "conversation", "signal": "audio" if capture else "speaking",
+                        "label": "Microphone capture" if capture else "Voice playback",
+                        "detail": "Observed local voice-loop state", "source": "Voice harness",
+                        "retention": "bounded observed transitions", "status": "ok",
+                    }
+            voice_events = list(self._harness_events)
+            if self._harness_interval is not None and harness.get("fresh"):
+                voice_events.append({**self._harness_interval, "at": _now_iso()})
+        return harness, voice_events
+
     def snapshot(
         self,
         *,
@@ -719,7 +753,6 @@ class ObservatoryReader:
         owner_authorized: bool = False,
     ) -> dict[str, Any]:
         daemon_path = self.state_root / "daemon-status.json"
-        harness_path = self.state_root / "harness-status.json"
         archive_path = self.state_root / "background-task-archive.log"
         memory = _passive_memory_projection(self.memory_path, include_content=owner_authorized)
         archive = _archive_projection(archive_path)
@@ -729,19 +762,7 @@ class ObservatoryReader:
             for item in task_list
             if item.get("status") not in {"completed", "blocked", "cancelled"}
         ]
-        harness = _harness_projection(harness_path)
-        with self._lock:
-            if harness.get("available") and harness.get("state") != self._harness_state:
-                self._harness_state = harness["state"]
-                self._harness_events.append({
-                    "id": f"voice-{harness.get('updated_at')}-{self._harness_state}",
-                    "at": harness.get("updated_at"), "category": "conversation",
-                    "signal": {"hearing": "hearing", "speaking": "speaking", "thinking": "llm"}.get(self._harness_state, "presence"),
-                    "label": f"Voice loop · {self._harness_state}",
-                    "detail": "Observed state transition", "source": "voice-loop status",
-                    "retention": "bounded observed transitions", "status": "ok",
-                })
-            voice_events = list(self._harness_events)
+        harness, voice_events = self.voice_activity()
         timeline = _timeline(diagnostics, task_list, memory, archive) + voice_events
         timeline.sort(key=lambda item: str(item.get("at") or ""), reverse=True)
         return {

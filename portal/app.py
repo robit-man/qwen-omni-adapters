@@ -3661,6 +3661,9 @@ def create_app(
     def observatory_snapshot():
         if not authorized():
             return jsonify({"error": "unauthorized"}), 401
+        if request.args.get("voice") == "1":
+            _harness, events = observatory.voice_activity()
+            return jsonify({"intervals": [event for event in events if event.get("started_at")]})
         session_id = request_session_id()
         diagnostics.touch(session_id)
         stages = {

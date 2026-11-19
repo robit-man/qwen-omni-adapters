@@ -200,6 +200,28 @@ def test_scope_keeps_redacted_traces_after_session_expiry_and_honors_trash() -> 
     diagnostics.clear("current")
 
 
+def test_live_voice_trace_keeps_its_start_when_capture_or_playback_closes(tmp_path) -> None:
+    reader = ObservatoryReader(state_root=tmp_path, memory_path=tmp_path / "memory",
+        virtual_context_root=tmp_path, environment_sampler=lambda: {})
+    path = tmp_path / "harness-status.json"
+    now = time.time()
+
+    def transition(state, stamp):
+        path.write_text(json.dumps({
+            "state": state, "updated_at": now, "state_changed_at": stamp, "capture_at": now,
+        }))
+        _, events = reader.voice_activity()
+        return [event for event in events if event.get("started_at")]
+
+    first = transition("hearing", now - 8)[0]
+    assert first["ongoing"] is True and first["event"] == "voice_capture"
+    closed_capture, speaking = transition("speaking", now - 3)
+    assert closed_capture["id"] == first["id"] and closed_capture["ongoing"] is False
+    assert closed_capture["started_at"] == first["started_at"]
+    assert speaking["event"] == "voice_playback" and speaking["ongoing"] is True
+    assert transition("listening", now)[-1]["ongoing"] is False
+
+
 def test_active_chat_stages_follow_concurrent_request_lifetimes_and_session_clear():
     diagnostics = _SessionDiagnostics(directory=None, ttl_s=300)
     diagnostics.begin_request("one", "private-id-one", {"task": "chat"})

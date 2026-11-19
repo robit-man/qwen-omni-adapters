@@ -21,6 +21,10 @@ The scope and controls share one amber text color and use Helena Zhang's
 | Tasks | Background task state and archive updates |
 | Voice loop | Observed daemon state transitions |
 
+During an observed local capture or playback phase, the corresponding trace
+starts at the recorded transition and grows until the next transition. The
+scope reads these intervals independently of the full runtime snapshot.
+
 Horizontal position uses the source timestamp and the selected window (five
 minutes by default, with one-, ten-, and fifteen-minute options under the
 leftmost time label). The scope holds up to 15 minutes of redacted trace
@@ -58,8 +62,11 @@ widens to the preview edge and then expands down to the retained detail and
 metadata. Selecting a trace opens and
 reveals its packet. The left arrow, Escape, and an outside click fold the
 history back. On narrower screens the labels filter the trace and a selected
-trace opens its source dialog. Callouts ease between positions and fade as
-they enter or leave the timeline. Reduced motion settles them immediately.
+trace opens its source dialog. Callouts leave space around trace blocks,
+branches, and other callouts. They drift within that space, ease between positions, and fade as
+they enter or leave the timeline. Heard and spoken callouts preview their
+retained words, with an ellipsis when the label runs out of room. Reduced
+motion settles them immediately.
 
 Tool packets show the recorded dispatch, outcome, call ID, and available
 timing. Retained arguments and output are available to their browser session
