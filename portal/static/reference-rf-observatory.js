@@ -433,7 +433,6 @@ class Renderer {
     }
     const readout=this.sim.resources;
     if(Number.isFinite(readout.ram))p.text('RAM '+Math.round(readout.ram)+'%',589,229,2.45);
-    if(Number.isFinite(readout.loaded))p.text('WEIGHTS '+readout.loaded,589,265,2.2);
   }
   drawFooter(){
     const p=this.p;
@@ -509,6 +508,7 @@ const packetLink = $("packet-link");
 const packetFlag = $("packet-close");
 const stage = canvas.parentElement;
 const windowMenu = $("scope-window");
+const weightMenu = $("scope-weights");
 const railButtons = new Map();
 const packets = new Map();
 const packetDisclosures = new WeakMap();
@@ -541,6 +541,19 @@ function recordResources(environment) {
   }
   const describe = value => value == null ? "unavailable" : Math.round(value) + "%";
   $("resource-status").textContent = "CPU " + describe(sample.cpu) + " · Busiest GPU " + describe(sample.gpu);
+}
+
+function recordWeights(weights) {
+  const count = $("scope-weight-count");
+  const known = Number.isInteger(weights?.loaded) && Number.isInteger(weights?.total);
+  count.textContent = "WEIGHTS " + (known ? weights.loaded + "/" + weights.total : "--/--");
+  count.setAttribute("aria-label", known
+    ? `Weights, ${weights.loaded} of ${weights.total} configured components loaded`
+    : "Configured weight components, reading status");
+  const rows = weights?.components || [];
+  $("scope-weight-list").replaceChildren(...(rows.length ? rows.flatMap(({role,state}) => [
+    labelNode("dt", role), labelNode("dd", state),
+  ]) : [labelNode("dt", "Inventory"), labelNode("dd", "Unavailable")]));
 }
 
 function category(event) {
@@ -1017,8 +1030,9 @@ async function refresh(manual = false) {
     if (sample.schema !== "robit.omni.observatory.v1") throw new Error("Unsupported runtime sample");
     renderer.allEvents = scopeRows(sample);
     if (!renderer.allEvents.some(event => event.key === renderer.selected)) renderer.selected = null;
-    feed.resources = { ram: sample.live?.environment?.memory?.used_percent, loaded: sample.weights?.loaded };
+    feed.resources = { ram: sample.live?.environment?.memory?.used_percent };
     recordResources(sample.live?.environment);
+    recordWeights(sample.weights);
     feed.t = Date.now() / 1000;
     $("sample-status").textContent = "Sampled " + new Date(sample.captured_at).toLocaleTimeString();
     $("shell").ariaBusy = "false";
@@ -1115,6 +1129,7 @@ updateRail();
 packetFlag.addEventListener("click", () => closePackets());
 document.addEventListener("pointerdown", event => {
   if (!windowMenu.contains(event.target)) windowMenu.open = false;
+  if (!weightMenu.contains(event.target)) weightMenu.open = false;
   if (!renderer.openChannel || event.target === packetFlag || packetHistory.contains(event.target)
     || $("scope-rail").contains(event.target)) return;
   if (event.target === canvas) {
@@ -1156,6 +1171,11 @@ $("btn-export").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && weightMenu.open) {
+    weightMenu.open = false;
+    $("scope-weight-count").focus();
+    return;
+  }
   if (event.key === "Escape" && windowMenu.open) {
     windowMenu.open = false;
     $("scope-window-value").focus();

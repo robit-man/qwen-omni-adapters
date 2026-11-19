@@ -80,6 +80,15 @@ button{cursor:pointer}
 #event-facts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:4px 10px;font-size:13px}
 #event-facts dt{color:var(--amber)}
 #event-facts dd{margin:0;overflow-wrap:anywhere}
+#scope-weights{position:absolute;z-index:5;top:15.95%;left:64.73%;font-size:clamp(.6rem,1.32dvh,.9rem)}
+#scope-weight-count{cursor:pointer;width:max-content}
+#scope-weight-count:focus-visible{outline:1px solid var(--hot);outline-offset:2px}
+#scope-weight-list{
+  position:absolute;right:0;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:.35em .65em;
+  width:min(19em,55vw);max-height:24dvh;overflow:auto;
+  margin:.45em 0 0;padding:.55em .65em;border:var(--border);background:var(--panel)
+}
+#scope-weight-list dd{margin:0;overflow-wrap:anywhere}
 #scope-window{position:absolute;z-index:4;top:89.94%;left:7.69%;font-size:clamp(.6rem,1.35dvh,.9rem)}
 #scope-window summary{width:max-content;cursor:pointer;color:var(--amber);padding:.12em .35em}
 .window-options{

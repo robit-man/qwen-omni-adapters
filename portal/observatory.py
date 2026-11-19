@@ -29,7 +29,8 @@ MAX_MEMORY_TEXT = 220
 class RuntimeModelReader:
     """Read existing worker inventories without starting or warming any model."""
 
-    def __init__(self, client: Any, *, comprehension_url: str, tts_url: str, ollama_url: str):
+    def __init__(self, client: Any, *, comprehension_url: str, tts_url: str, ollama_url: str,
+                 adapter_url: str = "", logical_model: str = ""):
         from urllib.parse import urlsplit, urlunsplit
 
         def endpoint(url: str, path: str) -> str:
@@ -37,11 +38,14 @@ class RuntimeModelReader:
             return urlunsplit((parts.scheme, parts.netloc, path, "", "")) if url else ""
 
         self.client = client
-        self.urls = {"comprehension": endpoint(comprehension_url, "/props"),
+        self.logical_model = logical_model
+        self.urls = {"adapter": adapter_url, "comprehension": endpoint(comprehension_url, "/props"),
                      "tts": tts_url, "ollama": endpoint(ollama_url, "/api/ps")}
         self._lock = threading.Lock()
         self._sampled_at = 0.0
         self._cached: dict[str, Any] = {}
+        self._adapter_routes: dict[str, Any] = {}
+        self._has_media_projector: bool | None = None
 
     def _get(self, url: str) -> dict[str, Any]:
         if not url:
@@ -55,49 +59,97 @@ class RuntimeModelReader:
         except Exception:  # noqa: BLE001 - an inventory probe must not affect inference
             return {}
 
+    def _media_components(self, shared: bool) -> list[dict[str, Any]]:
+        props = self._get(self.urls["comprehension"])
+        model_path = props.get("model_path")
+        state = "unavailable" if not model_path else "sleeping" if props.get("is_sleeping") is True else "loaded"
+        role = "Language + perception" if shared else "Perception model"
+        model = {
+            "role": role, "name": role, "state": state, "source": "llama.cpp /props",
+            "bytes": None, "precision": _bounded_text(props.get("model_ftype"), 48),
+        }
+        if model_path:
+            path = Path(str(model_path))
+            model["name"] = path.name[:180]
+            try:
+                with path.open("rb") as artifact:
+                    if artifact.read(4) == b"GGUF":
+                        model["bytes"] = path.stat().st_size
+            except OSError:
+                pass
+        components = [model]
+        modalities = props.get("modalities")
+        if isinstance(modalities, Mapping):
+            self._has_media_projector = any(value is True for value in modalities.values())
+        if self._has_media_projector is not False:
+            components.append({
+                "role": "Media projector", "name": "Media projector",
+                "state": state if isinstance(modalities, Mapping) else "unreported" if props else "unavailable",
+                "source": "llama.cpp /props",
+            })
+        return components
+
+    def _speech_components(self) -> list[dict[str, Any]]:
+        health = self._get(self.urls["tts"])
+        if health.get("persistent_ready") is True:
+            state = "loaded"
+        elif not health.get("ok"):
+            state = "unavailable"
+        elif health.get("persistent_pid") is not None:
+            state = "loading"
+        else:
+            state = "released" if health.get("persistent") is True else "unreported"
+        return [{
+            "role": role, "name": name, "state": state, "source": "TTS worker health",
+            "policy": "persistent" if health.get("residency_policy") == "persistent" else "request",
+            "gpu_resident": health.get("gpu_resident") if isinstance(health.get("gpu_resident"), bool) else None,
+        } for role, name in (("Speech model", "Qwen3-TTS"), ("Speech codec", "Qwen3-TTS codec"))]
+
+    def _language_component(self, routes: Mapping[str, Any]) -> dict[str, Any]:
+        name = _bounded_text(routes.get("language_model") or self.logical_model, 180)
+        if routes.get("language_api") != "ollama" or not self.urls["ollama"]:
+            return {"role": "Language model", "name": name, "state": "unreported", "source": "Adapter configuration"}
+        models = self._get(self.urls["ollama"]).get("models")
+        candidates = models if isinstance(models, list) else []
+        names = {name}
+        if name and ":" not in name.rsplit("/", 1)[-1]:
+            names.add(name + ":latest")
+        matched = next((model for model in candidates if isinstance(model, Mapping)
+                        and any(model.get(key) in names for key in ("name", "model")
+                                if isinstance(model.get(key), str))), None)
+        return {
+            "role": "Language model", "name": name,
+            "state": "loaded" if matched is not None else "released" if isinstance(models, list) else "unavailable",
+            "source": "Ollama /api/ps",
+            "bytes": matched.get("size") if matched is not None and isinstance(matched.get("size"), int) else None,
+        }
+
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
-            if self._cached and time.monotonic() - self._sampled_at < 5:
+            if self._cached and time.monotonic() - self._sampled_at < 2:
                 return dict(self._cached)
-            components: list[dict[str, Any]] = []
-            props = self._get(self.urls["comprehension"])
-            if props.get("model_path"):
-                path = Path(str(props["model_path"]))
-                entry: dict[str, Any] = {
-                    "role": "Language + perception", "name": path.name[:180],
-                    "state": "sleeping" if props.get("is_sleeping") is True else "loaded",
-                    "source": "llama.cpp worker /props", "bytes": None,
-                    "precision": _bounded_text(props.get("model_ftype"), 48),
-                }
-                try:
-                    with path.open("rb") as artifact:
-                        if artifact.read(4) == b"GGUF":
-                            entry["bytes"] = path.stat().st_size
-                except OSError:
-                    pass
-                components.append(entry)
-            tts = self._get(self.urls["tts"])
-            if tts:
-                components.append({
-                    "role": "Speech synthesis", "name": "Qwen3-TTS",
-                    "state": "loaded" if tts.get("persistent_ready") is True else "released" if tts.get("ok") is True else "unavailable",
-                    "policy": tts.get("residency_policy") if tts.get("residency_policy") in {"request", "persistent"} else "request",
-                    "gpu_resident": tts.get("gpu_resident") if isinstance(tts.get("gpu_resident"), bool) else None,
-                    "source": "TTS worker health", "bytes": None,
-                })
-            models = self._get(self.urls["ollama"]).get("models")
-            for model in (models if isinstance(models, list) else [])[:16]:
-                if not isinstance(model, Mapping):
-                    continue
-                components.append({
-                    "role": "Ollama runner", "name": _bounded_text(model.get("name") or model.get("model"), 180),
-                    "state": "loaded", "bytes": model.get("size") if isinstance(model.get("size"), int) else None,
-                    "vram_bytes": model.get("size_vram") if isinstance(model.get("size_vram"), int) else None,
-                    "source": "Ollama /api/ps",
-                })
-            self._cached = {"captured_at": _now_iso(), "components": components,
-                            "loaded": sum(item["state"] == "loaded" for item in components),
-                            "reported_weight_bytes": sum(item.get("bytes") or 0 for item in components if item["state"] == "loaded")}
+            adapter = self._get(self.urls["adapter"])
+            if adapter.get("configured"):
+                self._adapter_routes = adapter
+            else:
+                adapter = self._adapter_routes
+            configured = adapter.get("configured")
+            configured = configured if isinstance(configured, Mapping) else {}
+            routes = adapter.get("weight_routes")
+            routes = routes if isinstance(routes, Mapping) else {}
+            shared = routes.get("shared_language_worker") is True
+            components = []
+            if configured.get("comprehension", bool(self.urls["comprehension"])):
+                components.extend(self._media_components(shared))
+            if configured.get("language") is True and not shared:
+                components.append(self._language_component(routes))
+            if configured.get("tts", bool(self.urls["tts"])):
+                components.extend(self._speech_components())
+            self._cached = {
+                "captured_at": _now_iso(), "components": components, "total": len(components),
+                "loaded": sum(item["state"] == "loaded" for item in components),
+                "reported_weight_bytes": sum(item.get("bytes") or 0 for item in components if item["state"] == "loaded"),
+            }
             self._sampled_at = time.monotonic()
             return dict(self._cached)
 

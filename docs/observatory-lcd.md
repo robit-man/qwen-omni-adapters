@@ -40,6 +40,10 @@ Tegra's integrated GPU. Each column covers five seconds. New samples enter
 from the right. Blank columns mark missing samples, and the numeric readout
 shows `--` when a reading is missing or stale.
 
+The weights readout shows loaded/total runtime components. Open it to see
+the reported state of each model, media projector, speech model and codec.
+When language and perception share a worker, its model is counted once.
+
 ## Controls
 
 The scope fills the page. Label-width type filters wrap inside the instrument.

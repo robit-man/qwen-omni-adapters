@@ -7,13 +7,17 @@
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Recorded Omni runtime activity">
   <title>Runtime scope</title>
-  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=6">
-  <script src="/assets/reference-rf-observatory.js?v=8" defer></script>
+  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=7">
+  <script src="/assets/reference-rf-observatory.js?v=9" defer></script>
 </head>
 <body>
   <main id="shell" aria-label="Omni activity scope" aria-busy="true" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
     <div class="stage">
       <canvas id="scope" width="910" height="1630" tabindex="0" aria-label="Recorded runtime events. Use the arrow keys to select a channel and Enter to inspect a source."></canvas>
+      <details id="scope-weights">
+        <summary id="scope-weight-count" aria-label="Configured weight components">WEIGHTS --/--</summary>
+        <dl id="scope-weight-list"></dl>
+      </details>
       <details id="scope-window">
         <summary id="scope-window-value" aria-label="Time window, 5 minutes">5 min</summary>
         <div class="window-options">

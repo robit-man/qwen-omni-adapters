@@ -2398,7 +2398,8 @@ def create_app(
     )
     observatory_models = RuntimeModelReader(session,
         comprehension_url=runtime.comprehension_health_url,
-        tts_url=runtime.tts_health_url, ollama_url=runtime.ollama_health_url)
+        tts_url=runtime.tts_health_url, ollama_url=runtime.ollama_health_url,
+        adapter_url=runtime.adapter_health_url, logical_model=runtime.model)
     plane = decision_plane
     if plane is None and runtime.decision_plane_enabled:
         plane = DecisionPlane.from_environment()

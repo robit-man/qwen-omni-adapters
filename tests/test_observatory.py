@@ -294,24 +294,57 @@ def test_worker_inventory_reads_actual_loaded_artifacts_without_starting_models(
 
     def handle(request):
         requests.append((request.method, request.url.path))
+        if request.url.path == "/adapter":
+            return httpx.Response(200, json={
+                "configured": {"comprehension": True, "language": True, "tts": True},
+                "weight_routes": {"language_api": "openai", "shared_language_worker": True},
+            })
         if request.url.path == "/props":
-            return httpx.Response(200, json={"model_path": str(model), "is_sleeping": False})
+            return httpx.Response(200, json={
+                "model_path": str(model), "is_sleeping": False, "modalities": {"audio": True, "vision": True},
+            })
         if request.url.path == "/healthz":
-            return httpx.Response(200, json={"ok": True, "persistent_ready": False, "residency_policy": "request", "gpu_resident": None})
+            return httpx.Response(200, json={
+                "ok": True, "persistent": True, "persistent_ready": False, "gpu_resident": None,
+            })
         return httpx.Response(200, json={"models": []})
 
     reader = RuntimeModelReader(httpx.Client(transport=httpx.MockTransport(handle)),
-        comprehension_url="http://worker/health", tts_url="http://speech/healthz", ollama_url="http://ollama/api/tags")
+        comprehension_url="http://worker/health", tts_url="http://speech/healthz",
+        ollama_url="http://ollama/api/tags", adapter_url="http://adapter/adapter")
     snapshot = reader.snapshot()
-    assert snapshot["loaded"] == 1
+    assert (snapshot["loaded"], snapshot["total"]) == (2, 4)
     assert snapshot["reported_weight_bytes"] == model.stat().st_size
     assert snapshot["components"][0]["name"] == "worker.gguf"
     assert str(tmp_path) not in json.dumps(snapshot)
-    assert snapshot["components"][1]["state"] == "released"
+    assert [component["state"] for component in snapshot["components"]] == ["loaded", "loaded", "released", "released"]
     assert all(method == "GET" for method, _path in requests)
-    assert {path for _method, path in requests} == {"/props", "/healthz", "/api/ps"}
+    assert {path for _method, path in requests} == {"/props", "/healthz", "/adapter"}
     reader.snapshot()
     assert len(requests) == 3
+
+
+def test_inventory_counts_configured_components_even_when_released_or_unreachable():
+    def handle(request):
+        if request.url.path == "/adapter":
+            return httpx.Response(200, json={
+                "configured": {"comprehension": True, "language": True, "tts": True},
+                "weight_routes": {"language_api": "ollama", "language_model": "omni-language"},
+            })
+        if request.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": [{"name": "another-model"}]})
+        if request.url.path == "/healthz":
+            return httpx.Response(200, json={"ok": True, "persistent": True, "persistent_ready": True})
+        return httpx.Response(503)
+
+    reader = RuntimeModelReader(httpx.Client(transport=httpx.MockTransport(handle)),
+        comprehension_url="http://worker/health", tts_url="http://speech/healthz",
+        ollama_url="http://ollama/api/tags", adapter_url="http://adapter/adapter")
+    snapshot = reader.snapshot()
+    assert (snapshot["loaded"], snapshot["total"]) == (2, 5)
+    assert [component["state"] for component in snapshot["components"]] == [
+        "unavailable", "unavailable", "released", "loaded", "loaded",
+    ]
 
 
 def test_timeline_keeps_typed_sensory_and_inference_events_without_content():

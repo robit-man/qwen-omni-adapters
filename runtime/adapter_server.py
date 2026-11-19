@@ -3011,6 +3011,12 @@ def create_app(
                     "language": bool(runtime_config.language_url),
                     "tts": bool(runtime_config.tts_url),
                 },
+                "weight_routes": {
+                    "language_api": runtime_config.language_api,
+                    "language_model": runtime_config.language_model,
+                    "shared_language_worker": bool(runtime_config.comprehension_url)
+                    and runtime_config.language_url == runtime_config.comprehension_url.rstrip("/"),
+                },
                 "decision_plane": plane.health() if plane is not None else {"enabled": False},
             }
         )
