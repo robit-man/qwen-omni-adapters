@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 OBSERVATORY_SCHEMA = "robit.omni.observatory.v1"
+SCOPE_HISTORY_SECONDS = 15 * 60
+SCOPE_HISTORY_EVENTS = 960
 MAX_STATE_BYTES = 2 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 4 * 1024 * 1024
 MAX_MEMORY_TEXT = 220
@@ -541,7 +543,7 @@ def _timeline(
                 "label": label,
                 "detail": detail,
                 "source": "session diagnostic journal",
-                "retention": "session · short-lived",
+                "retention": "scope · up to 15 minutes",
                 "status": "error" if event.get("tool_ok") is False or "error" in event_name else "ok",
                 "request_id": _bounded_text(event.get("request_id"), 128),
                 "tool_round": event.get("tool_round") if isinstance(event.get("tool_round"), int) else None,
@@ -722,7 +724,7 @@ class ObservatoryReader:
                 "archive": archive,
             },
             "location": dict(location),
-            "timeline": timeline[:240],
+            "timeline": timeline[:SCOPE_HISTORY_EVENTS],
             "retention": [
                 {
                     "id": "live",

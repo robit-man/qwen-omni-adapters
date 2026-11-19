@@ -20,7 +20,10 @@ as `reference-rf-observatory.js` and `reference-rf-observatory.css`.
 | Voice loop | Observed daemon state transitions |
 
 Horizontal position uses the source timestamp and the selected window (five
-minutes by default, with one- and fifteen-minute options). A measured duration
+minutes by default, with one-, ten-, and fifteen-minute options under the
+leftmost time label). The scope holds up to 15 minutes of redacted trace
+metadata. Widening the ruler can reveal those older traces. Trash removes the
+session's traces. A measured duration
 can produce a hatched interval.
 Instantaneous events use a stem. Pointed rails show observed counts for the
 visible window. Callouts use the event type, available timing or tool round, and

@@ -27,6 +27,7 @@ const TIME_MARKS = [70, 245, 366, 426, 576];
 const TIME_WINDOWS = {
   60: [60, 25, 6, 2, 0],
   300: [300, 120, 30, 10, 0],
+  600: [600, 240, 60, 20, 0],
   900: [900, 360, 90, 30, 0],
 };
 
@@ -464,11 +465,12 @@ class Renderer {
   }
   drawFooter(){
     const p=this.p;
-    for(const [index, x] of TIME_MARKS.slice(0, -1).entries()){
+    for(const [index, x] of TIME_MARKS.entries()){
+      if (index === 0 || index === TIME_MARKS.length - 1) continue;
       const seconds=TIME_WINDOWS[this.settings.window][index];
       const label=seconds>=60?String(Math.floor(seconds/60))+':'+String(seconds%60).padStart(2,'0'):seconds+'s';
       const lastMark = index === TIME_MARKS.length - 2;
-      p.text(label,lastMark ? x + 24 : x + 1,1471,2.15,index===0?PAL.primary:PAL.medium,
+      p.text(label,lastMark ? x + 24 : x + 1,1471,2.15,PAL.medium,
         { align: lastMark ? "right" : "left" });
     }
     p.rect(454,1468,119,25,PAL.primary);
@@ -530,6 +532,7 @@ const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const wideScope = matchMedia("(min-aspect-ratio: 1/1)");
 const packetHistory = $("packet-history");
 const packetList = $("packet-list");
+const windowMenu = $("scope-window");
 const railButtons = new Map();
 const packets = new Map();
 let packetAnimation = null;
@@ -664,6 +667,22 @@ function selectChannel(channel) {
   $("channel-control").value = channel;
   updateEventOptions();
   updateRail();
+  draw();
+}
+
+function selectTimeWindow(seconds) {
+  if (!TIME_WINDOWS[seconds]) return;
+  settings.window = seconds;
+  $("window-control").value = String(seconds);
+  const minutes = seconds / 60;
+  const summary = $("scope-window-value");
+  summary.textContent = minutes + " min";
+  summary.setAttribute("aria-label", "Time window, " + minutes + (minutes === 1 ? " minute" : " minutes"));
+  for (const button of windowMenu.querySelectorAll("button")) {
+    if (Number(button.value) === seconds) button.setAttribute("aria-current", "true");
+    else button.removeAttribute("aria-current");
+  }
+  windowMenu.open = false;
   draw();
 }
 
@@ -990,6 +1009,7 @@ for (const [key, label, y] of CHANNELS) {
 updateRail();
 $("packet-close").addEventListener("click", () => closePackets());
 document.addEventListener("pointerdown", event => {
+  if (!windowMenu.contains(event.target)) windowMenu.open = false;
   if (!renderer.openChannel || packetHistory.contains(event.target) || $("scope-rail").contains(event.target)) return;
   if (event.target === canvas) {
     const { x, y } = point(event);
@@ -1002,7 +1022,13 @@ window.addEventListener("resize", () => {
   updateRail();
 });
 $("channel-control").addEventListener("change", event => selectChannel(event.target.value));
-$("window-control").addEventListener("change", event => { settings.window = Number(event.target.value); draw(); });
+$("window-control").addEventListener("change", event => selectTimeWindow(Number(event.target.value)));
+for (const button of windowMenu.querySelectorAll("button")) {
+  button.addEventListener("click", () => {
+    selectTimeWindow(Number(button.value));
+    $("scope-window-value").focus({ preventScroll: true });
+  });
+}
 $("event-control").addEventListener("change", event => selectEvent(event.target.value));
 $("btn-source").addEventListener("click", sourceDetails);
 $("btn-pause").addEventListener("click", pause);
@@ -1023,6 +1049,11 @@ $("btn-export").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && windowMenu.open) {
+    windowMenu.open = false;
+    $("scope-window-value").focus();
+    return;
+  }
   if (event.key === "Escape" && renderer.openChannel && !$("event-info").open) {
     closePackets();
     return;

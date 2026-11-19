@@ -178,6 +178,28 @@ def test_observatory_diagnostic_view_joins_active_sessions_but_remains_redacted(
     assert "also private" not in json.dumps(snapshot)
 
 
+def test_scope_keeps_redacted_traces_after_session_expiry_and_honors_trash() -> None:
+    diagnostics = _SessionDiagnostics(directory=None, ttl_s=300)
+    diagnostics.begin_request("expired", "expired-request", {"content": "private words"})
+    diagnostics.begin_request("current", "current-request", {})
+    key = diagnostics._key("expired")
+    record = diagnostics._sessions[key]
+    assert record.timer is not None
+    record.timer.cancel()
+    record.last_seen -= 301
+    diagnostics._expire(key)
+
+    assert diagnostics.snapshot("expired")["events"] == []
+    scope = diagnostics.observatory_snapshot()
+    assert scope["active_sessions"] == 1
+    assert {event["request_id"] for event in scope["events"]} == {"expired-request", "current-request"}
+    assert "private words" not in json.dumps(scope)
+
+    diagnostics.clear("expired")
+    assert [event["request_id"] for event in diagnostics.observatory_snapshot()["events"]] == ["current-request"]
+    diagnostics.clear("current")
+
+
 def test_active_chat_stages_follow_concurrent_request_lifetimes_and_session_clear():
     diagnostics = _SessionDiagnostics(directory=None, ttl_s=300)
     diagnostics.begin_request("one", "private-id-one", {"task": "chat"})

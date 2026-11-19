@@ -77,7 +77,12 @@ try:
     from portal.gpu_lease import RequestDrainGate
     from portal.mcp_bridge import MCPBridgeError, RemoteMCPRegistry
     from portal.native_ui import native_task_scope_sha256, normalize_native_task_scope
-    from portal.observatory import ObservatoryReader, RuntimeModelReader
+    from portal.observatory import (
+        SCOPE_HISTORY_EVENTS,
+        SCOPE_HISTORY_SECONDS,
+        ObservatoryReader,
+        RuntimeModelReader,
+    )
     from portal.session_state import SessionContinuationStore
     from portal.tool_traces import SessionToolTraces
     from portal.tools import (
@@ -108,7 +113,12 @@ except ModuleNotFoundError:  # Direct script execution from portal/.
     from gpu_lease import RequestDrainGate
     from mcp_bridge import MCPBridgeError, RemoteMCPRegistry
     from native_ui import native_task_scope_sha256, normalize_native_task_scope
-    from observatory import ObservatoryReader, RuntimeModelReader
+    from observatory import (
+        SCOPE_HISTORY_EVENTS,
+        SCOPE_HISTORY_SECONDS,
+        ObservatoryReader,
+        RuntimeModelReader,
+    )
     from session_state import SessionContinuationStore
     from tool_traces import SessionToolTraces
     from tools import (
@@ -790,6 +800,7 @@ class _SessionDiagnostics:
         self.ttl_s = max(0.05, ttl_s)
         self._lock = threading.Lock()
         self._sessions: dict[str, _DiagnosticSession] = {}
+        self._scope_events: deque[tuple[float, str, dict[str, Any]]] = deque(maxlen=SCOPE_HISTORY_EVENTS)
         if self.directory is not None:
             self.directory.mkdir(parents=True, exist_ok=True)
             for stale in self.directory.glob("*.json"):
@@ -921,6 +932,7 @@ class _SessionDiagnostics:
             elif event == "request_complete":
                 record.active_requests.pop(request_id, None)
         record.events.append(item)
+        self._scope_events.append((time.monotonic(), key, item))
         self._persist_locked(key, record)
 
     def snapshot(self, session_id: str) -> dict[str, Any]:
@@ -937,31 +949,33 @@ class _SessionDiagnostics:
             }
 
     def observatory_snapshot(self) -> dict[str, Any]:
-        """Join content-redacted events from every currently active session."""
+        """Read bounded, content-redacted traces and live stages."""
 
         with self._lock:
-            events = [
-                copy.deepcopy(event)
-                for record in self._sessions.values()
-                for event in record.events
-            ]
+            cutoff = time.monotonic() - SCOPE_HISTORY_SECONDS
+            while self._scope_events and self._scope_events[0][0] < cutoff:
+                self._scope_events.popleft()
+            events = [copy.deepcopy(event) for _, _, event in reversed(self._scope_events)]
             active_sessions = len(self._sessions)
             stages: dict[str, int] = {}
             for record in self._sessions.values():
                 for stage in record.active_requests.values():
                     stages[stage] = stages.get(stage, 0) + 1
-        events.sort(key=lambda item: str(item.get("at") or ""), reverse=True)
         return {
             "ttl_seconds": self.ttl_s,
             "active_sessions": active_sessions,
             "activity": {"stages": stages, "source": "portal requests"},
-            "events": events[:480],
+            "events": events,
         }
 
     def clear(self, session_id: str) -> None:
         key = self._key(session_id)
         with self._lock:
             record = self._sessions.pop(key, None)
+            self._scope_events = deque(
+                (entry for entry in self._scope_events if entry[1] != key),
+                maxlen=SCOPE_HISTORY_EVENTS,
+            )
             if record is not None and record.timer is not None:
                 record.timer.cancel()
         if self.directory is not None:

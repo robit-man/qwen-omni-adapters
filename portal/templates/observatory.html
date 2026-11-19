@@ -7,13 +7,22 @@
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Recorded Omni runtime activity">
   <title>Runtime scope</title>
-  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=2">
-  <script src="/assets/reference-rf-observatory.js?v=4" defer></script>
+  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=3">
+  <script src="/assets/reference-rf-observatory.js?v=5" defer></script>
 </head>
 <body>
   <main id="shell" aria-label="Omni activity scope" aria-busy="true" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
     <div class="stage">
       <canvas id="scope" width="910" height="1630" tabindex="0" aria-label="Recorded runtime events. Use the arrow keys to select a channel and Enter to inspect a source."></canvas>
+      <details id="scope-window">
+        <summary id="scope-window-value" aria-label="Time window, 5 minutes">5 min</summary>
+        <div class="window-options">
+          <button type="button" value="60">1 min</button>
+          <button type="button" value="300" aria-current="true">5 min</button>
+          <button type="button" value="600">10 min</button>
+          <button type="button" value="900">15 min</button>
+        </div>
+      </details>
       <div id="scope-rail" role="group" aria-label="Scope channels"></div>
       <section id="packet-history" hidden aria-labelledby="packet-channel">
         <header class="packet-header">
@@ -35,7 +44,7 @@
     <div id="paused-badge" hidden>⏸ PAUSED</div>
     <aside id="settings-panel" class="panel" hidden aria-label="Scope settings">
       <div class="panel-header"><h2>Scope settings</h2><button id="btn-close" aria-label="Close settings">×</button></div>
-      <div class="row"><label for="window-control">Time window</label><select id="window-control"><option value="60">1 minute</option><option value="300" selected>5 minutes</option><option value="900">15 minutes</option></select></div>
+      <div class="row"><label for="window-control">Time window</label><select id="window-control"><option value="60">1 minute</option><option value="300" selected>5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option></select></div>
       <div class="row"><label for="channel-control">Channel</label><select id="channel-control"><option value="all">All channels</option></select></div>
       <div class="row"><label for="event-control">Recorded event</label><select id="event-control"><option value="">Select an event</option></select></div>
       <div class="panel-actions"><button id="btn-source" type="button" disabled>Source</button><button id="btn-export" type="button">Export events</button></div>

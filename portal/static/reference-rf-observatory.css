@@ -72,6 +72,15 @@ button{cursor:pointer}
 #event-facts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:4px 10px;font-size:13px}
 #event-facts dt{color:#ad741f}
 #event-facts dd{margin:0;overflow-wrap:anywhere}
+#scope-window{position:absolute;z-index:4;top:89.94%;left:7.69%;font-size:clamp(.6rem,1.35dvh,.9rem)}
+#scope-window summary{width:max-content;cursor:pointer;color:var(--amber);padding:.12em .35em}
+.window-options{
+  display:grid;min-width:5.5em;max-height:min(7em,8dvh);overflow:auto;overscroll-behavior:contain;
+  background:var(--panel);border:var(--border);scrollbar-color:#91470d #100602
+}
+.window-options button{background:transparent;color:var(--amber);text-align:left;border:0;padding:.28em .45em}
+.window-options button:hover,.window-options button[aria-current]{background:#311406}
+#scope-window :focus-visible{outline:1px solid var(--hot);outline-offset:-1px}
 .scope-rail-button{
   position:absolute;left:68.241758%;width:16.593407%;height:2.515337%;
   z-index:2;padding:0;border:0;background:transparent;color:transparent
