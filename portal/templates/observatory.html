@@ -8,7 +8,7 @@
   <meta name="description" content="Recorded Omni runtime activity">
   <title>Runtime scope</title>
   <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=1">
-  <script src="/assets/reference-rf-observatory.js?v=1" defer></script>
+  <script src="/assets/reference-rf-observatory.js?v=2" defer></script>
 </head>
 <body>
   <main id="shell" aria-label="Omni activity scope" aria-busy="true" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
@@ -28,6 +28,7 @@
       <div class="row"><label for="event-control">Recorded event</label><select id="event-control"><option value="">Select an event</option></select></div>
       <div class="panel-actions"><button id="btn-source" type="button" disabled>Source</button><button id="btn-export" type="button">Export events</button></div>
       <p id="sample-status" class="notice" role="status">Reading runtime activity.</p>
+      <p id="resource-status" class="notice">Reading CPU and GPU utilization.</p>
     </aside>
     <div id="hover-label" class="hover-label" hidden></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

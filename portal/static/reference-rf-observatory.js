@@ -19,6 +19,8 @@ const CHANNELS = [
 ];
 const CHANNEL_Y = new Map(CHANNELS.map(([key, , y]) => [key, y]));
 const CHANNEL_NAMES = new Map(CHANNELS.map(([key, label]) => [key, label]));
+const RESOURCE_STEP = 5;
+const RESOURCE_COLUMNS = 36;
 
 
 const TIME_MARKS = [
@@ -466,7 +468,29 @@ class Renderer {
     p.text(clock,460,1472,2.25,PAL.ink);
     this.hits.push({x:452,y:1460,w:130,h:44,type:'pause',label:this.sim.paused?'Resume':'Pause'});
   }
-  drawBottom(){const p=this.p;
+  drawBottom(){
+    const p=this.p;
+    const newest = Math.floor(this.sim.t / RESOURCE_STEP);
+    const current = this.sim.resourceSamples.get(newest) || this.sim.latestResources;
+    const fresh = current && this.sim.t - current.at <= RESOURCE_STEP * 3;
+    for (const [key, label, x, color] of [
+      ["cpu", "CPU", 50, PAL.primary], ["gpu", "GPU", 512, PAL.orange],
+    ]) {
+      const value = fresh ? current[key] : null;
+      p.text(label + " " + (Number.isFinite(value) ? Math.round(value) + "%" : "--"), x, 1582, 1.9, color);
+      for (let column = 0; column < RESOURCE_COLUMNS; column++) {
+        const sample = this.sim.resourceSamples.get(newest - RESOURCE_COLUMNS + 1 + column);
+        const usage = sample?.[key];
+        if (!Number.isFinite(usage)) continue;
+        for (let row = 0; row < 4; row++) {
+          const height = clip(usage * 4 / 100 - row, 0, 1);
+          const dotX = x + 93 + column * 8;
+          const dotY = 1601 - row * 6;
+          p.rect(dotX, dotY, 3, 3, color, .12 + height * .88);
+          p.rect(dotX + 3, dotY, 2, 3, color, .08 + height * .56);
+        }
+      }
+    }
     p.line(0,1608,910,1608,PAL.orange,3,.85);
     p.rect(50,1610,128,6,PAL.primary,.9);
     p.rect(512,1610,145,7,PAL.orange,.94);
@@ -487,7 +511,10 @@ const settings = {
   channel: "all", window: 147, shyness: 30, labelHold: 2.5, maxCallouts: 2,
   gain: 0, limiter: true, compressor: true, debug: false,
 };
-const feed = { t: Date.now() / 1000, paused: false, resources: {} };
+const feed = {
+  t: Date.now() / 1000, paused: false, resources: {},
+  latestResources: null, resourceSamples: new Map(),
+};
 const canvas = $("scope");
 const renderer = new Renderer(canvas, feed, settings);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -500,6 +527,25 @@ let refreshing = false;
 let frame = 0;
 let last = 0;
 let toastTimer = 0;
+
+function recordResources(environment) {
+  const at = Date.parse(environment?.captured_at) / 1000;
+  if (!Number.isFinite(at) || at <= (feed.latestResources?.at ?? -Infinity)) return;
+  const percent = value => Number.isFinite(value) && value >= 0 && value <= 100;
+  const cpu = environment.cpu?.utilization_percent;
+  const gpus = (environment.gpus || []).map(gpu => gpu.utilization_percent).filter(percent);
+  const sample = {
+    at, cpu: percent(cpu) ? cpu : null, gpu: gpus.length ? Math.max(...gpus) : null,
+  };
+  feed.latestResources = sample;
+  const bucket = Math.floor(at / RESOURCE_STEP);
+  feed.resourceSamples.set(bucket, sample);
+  for (const key of feed.resourceSamples.keys()) {
+    if (key <= bucket - RESOURCE_COLUMNS) feed.resourceSamples.delete(key);
+  }
+  const describe = value => value == null ? "unavailable" : Math.round(value) + "%";
+  $("resource-status").textContent = "CPU " + describe(sample.cpu) + " · Busiest GPU " + describe(sample.gpu);
+}
 
 function category(event) {
   if (event.category === "memory") return "memory";
@@ -654,6 +700,7 @@ async function refresh(manual = false) {
     renderer.allEvents = scopeRows(sample);
     if (!renderer.allEvents.some(event => event.key === renderer.selected)) renderer.selected = null;
     feed.resources = { ram: sample.live?.environment?.memory?.used_percent, loaded: sample.weights?.loaded };
+    recordResources(sample.live?.environment);
     feed.t = Date.now() / 1000;
     $("sample-status").textContent = "Sampled " + new Date(sample.captured_at).toLocaleTimeString();
     $("shell").ariaBusy = "false";

@@ -15,12 +15,34 @@ from portal.observatory import (
     OBSERVATORY_SCHEMA,
     ObservatoryReader,
     RuntimeModelReader,
+    _cpu_ticks,
     _durable_memory_projection,
     _harness_projection,
     _timeline,
 )
 from portal.session_state import SessionContinuationStore
 from portal.tools import SessionMemoryStore
+
+
+def test_cpu_utilization_uses_counter_deltas_and_handles_missing_sample(tmp_path, monkeypatch):
+    stat = tmp_path / "stat"
+    stat.write_text("cpu 5 0 2 90 3 0 0 0 100 100\ncpu0 1 2 3\n")
+    assert _cpu_ticks(stat) == (100, 93)
+    monotonic = iter([5, 6, 7, 13, 19])
+    monkeypatch.setattr("portal.observatory.time.monotonic", lambda: next(monotonic))
+    monkeypatch.setattr("portal.observatory._cpu_ticks", lambda: _cpu_ticks(stat))
+    reader = ObservatoryReader(
+        state_root=tmp_path, memory_path=tmp_path / "memory",
+        virtual_context_root=tmp_path, environment_sampler=lambda: {"cpu": {"logical_cpus": 8}},
+    )
+
+    assert reader._environment_snapshot()["cpu"]["utilization_percent"] is None
+    stat.write_text("cpu 25 0 12 150 13 0 0 0 300 300\n")
+    assert reader._environment_snapshot()["cpu"]["utilization_percent"] is None
+    assert reader._environment_snapshot()["cpu"]["utilization_percent"] is None
+    assert reader._environment_snapshot()["cpu"]["utilization_percent"] == 30
+    stat.write_text("cpu invalid\n")
+    assert reader._environment_snapshot()["cpu"]["utilization_percent"] is None
 
 
 def _memory_store(path: Path) -> None:

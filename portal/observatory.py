@@ -175,6 +175,18 @@ def _file_age(path: Path) -> float | None:
         return None
 
 
+def _cpu_ticks(path: Path = Path("/proc/stat")) -> tuple[int, int] | None:
+    try:
+        with path.open(encoding="ascii") as source:
+            fields = source.readline(512).split()
+        if len(fields) < 9 or fields[0] != "cpu":
+            return None
+        ticks = [int(field) for field in fields[1:9]]
+    except (OSError, ValueError):
+        return None
+    return sum(ticks), ticks[3] + ticks[4]
+
+
 def _daemon_projection(path: Path) -> dict[str, Any]:
     raw = _read_json(path)
     if not raw:
@@ -608,6 +620,7 @@ class ObservatoryReader:
         self._lock = threading.Lock()
         self._environment_sampled_at = 0.0
         self._environment: dict[str, Any] = {}
+        self._previous_cpu_ticks: tuple[int, int] | None = None
         self._harness_state: str | None = None
         self._harness_events: deque[dict[str, Any]] = deque(maxlen=120)
 
@@ -624,6 +637,16 @@ class ObservatoryReader:
                     "captured_at": _now_iso(),
                     "error": f"environment sample failed: {type(exc).__name__}",
                 }
+            previous, current = self._previous_cpu_ticks, _cpu_ticks()
+            self._previous_cpu_ticks = current
+            cpu = self._environment.get("cpu")
+            if isinstance(cpu, Mapping):
+                utilization = None
+                if previous is not None and current is not None:
+                    total, idle = (current[0] - previous[0], current[1] - previous[1])
+                    if total > 0 and 0 <= idle <= total:
+                        utilization = round(100 * (total - idle) / total, 1)
+                self._environment["cpu"] = {**cpu, "utilization_percent": utilization}
             self._environment_sampled_at = now
             return dict(self._environment)
 

@@ -27,6 +27,13 @@ recorded error status. Recent labels compact and fade as their traces age. Use t
 arrow keys to tune channels and Enter to inspect a trace. Settings also has a
 keyboard-accessible event selector. Source shows authorized details. Generated audio and verified physical playback have distinct meanings.
 
+The bottom blocks anchor two dot traces for host CPU utilization and the
+busiest reported GPU. CPU uses the change in Linux aggregate counters
+between readings. GPU uses the runtime's accelerator readings, including
+Tegra's integrated GPU. Each column covers five seconds. New samples enter
+from the right. Blank columns mark missing samples, and the numeric readout
+shows `--` when a reading is missing or stale.
+
 ## Controls
 
 The scope fills the page. Type filters sit inside the instrument. The original
