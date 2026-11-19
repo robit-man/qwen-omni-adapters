@@ -11,10 +11,10 @@ colors:
   accent: "#FACC15"
   danger: "#FB7185"
   success: "#86EFAC"
-  observatory-amber: "#FFA800"
-  observatory-background: "#000000"
-  observatory-muted: "#C88F39"
-  observatory-rule: "#5C3E0E"
+  observatory-amber: "#FFAA20"
+  observatory-background: "#020101"
+  observatory-muted: "#C58037"
+  observatory-rule: "#79340C"
 typography:
   sans:
     fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
@@ -95,7 +95,10 @@ The sans stack owns conversation and controls. The utility mono stack owns compa
 
 The single chat column is capped at `shell-max` and uses one bounded conversation scroller between a fixed top control rail and a natural-height composer. Safe-area insets protect phone chrome. Popovers are anchored without affecting flow; dialogs stay within the visual viewport and keep controls reachable. Media reserves its intrinsic aspect ratio and uses `object-fit: contain` where cropping would remove evidence.
 
-The observatory is a full-window application. Its approved visual reference is [Nick Gallo's 2026 LCD clock](https://www.nickgallo.dev/projects/clock/), with the extracted frame, segment, phosphor, wire, pixel-grid and hatched-meter vocabulary repurposed for runtime data. Four top chips select Active weights, States, Tools, or Memory. States puts current voice activity and the conversation timeline above the inference raster and its expandable event records. The two timelines use one time-window control. The header, tabs and footer stay in the app frame while the instrument and detail surfaces scroll. On phones the tab chips form two compact rows. Chat opens beside the active instrument on desktop and occupies the workspace on narrow screens.
+The scope uses the supplied **RF Scope / Amber Signal Monitor**
+(`index(9).html`) canvas and stylesheet. One portrait instrument is centered in
+the viewport. The filters sit inside its frame, pointed channel labels form
+the right rail, and a nonlinear time ruler runs below the plot.
 
 ## Elevation & Depth
 
@@ -135,15 +138,13 @@ Motion communicates state: a short reveal for new messages and a restrained puls
 
 Copy is direct and operational: “Hold to record,” “Take still,” “Camera unavailable.” Status text states what is happening and how to recover. Do not personify errors or claim a capture completed before an attachment exists.
 
-The observatory's signature is the **sodium-vapor LCD instrument**: pure black, amber #FFA800, DSEG7 measurements, DSEG14 state lettering, VT323 labels, 8% inaccessible ghost segments, a 3px scanline/pixel grid, fine glowing frames, right-angle SVG wires, and hatched meters. These modules visualize live model inventory, a multi-lane sensory/inference event raster, combined chat and daemon activity, and source-backed memory structure. There is no clock, synthetic frequency display, tilt, whole-panel scaling, or ornamental waveform. Body detail text remains unsegmented and outside the grid for legibility. State lettering uses container-relative sizing so narrowing a view beside chat cannot overflow a state card.
+The Observatory's signature is an amber scope with a stable frame and open space between traces. Event time sets horizontal position. Recorded channel sets vertical position. Measured duration sets the length of the hatched part of a trace. New stems grow from real events, branches yield around nearby stems, and callouts expand, compact, and fade. A selected callout holds its source and measured data. Pausing freezes the displayed time and reduced motion updates the image at snapshot boundaries.
 
-`portal/static/observatory.css` is canonical for this named surface variant: `colors.observatory-*` map to `--lcd`, `--lcd-bg`, `--lcd-muted`, and `--lcd-rule`; the three `typography.observatory-*` roles map to `--label`, `.d7`, and `.d14`. All three fonts are self-hosted under `portal/static/fonts/` with their licenses. The source extraction, modules, and intentional adaptations are recorded in `docs/observatory-lcd.md`.
-
-The optical treatment covers the entire app, including framed chat. `lcd-surface.js` renders a static, pointer-transparent WebGL pixel/scanline mask using the reference's 3px pitch and 38%/22% attenuation, with a matching CSS fallback. It never samples the DOM or media. Backlight, bloom and the reference's bounded six-second flicker remain CSS compositing. Reduced motion disables flicker; forced colors remove the render layer.
-
-The extracted radio and time modules carry observed runtime facts. Weight inventory reads llama.cpp properties, TTS readiness and Ollama's running-model list without warming models; local GGUF byte counts require an actual GGUF header. Model loading and GPU residency are separate observations. Sensory lanes use explicit typed request flags, perception evidence flags, stream stages and audio events; transcripts, media bytes and reasoning never enter the journal. Voice-loop transitions are bounded observations with their own source timestamps. Memory stores, source times, recall strengths, retention scopes and session boundaries remain distinct. Missing and stale sources never become invented activity.
-
-The observatory heading uses the authenticated runtime identity, defaulting to the service account name, rather than a product-name constant. Double-clicking the name opens an inline editor; Enter/Space/F2 and the visible Rename action provide keyboard and touch access. Save changes the shared agent identity for following turns; Cancel/Escape discard the draft and restore focus. Pending saves preserve geometry and block duplicate submission; failed saves retain the draft with an inline error. Telemetry remains observational; identity rename is an explicit configuration action. The embedded chat reuses the existing portal and cookie/session boundaries, carries access only in the URL fragment, and uses a scoped amber chat stylesheet. Only the observatory chat variant permits same-origin framing; other routes retain frame denial. Closing chat unloads its frame so microphone, playback and live streams cannot continue invisibly. Copy chat link and Open in new tab use the same current-origin capability as the existing portal access plumbing.
+`portal/static/reference-rf-observatory.css` and
+`portal/static/reference-rf-observatory.js` carry the reference palette,
+bitmap lettering, and motion. The native settings and source dialog expose
+the recorded events to keyboards and assistive technology. See
+[Scope data mapping](docs/observatory-lcd.md).
 
 ### Memory structure and source inspection
 
@@ -157,9 +158,9 @@ The map and inspector retain the amber frames, VT323 labels and DSEG7 counts. Se
 
 ### Tools execution plan
 
-Tools adds a task selector with the controller's current committed frontier; States keeps voice-loop and admission instruments. The header reports task status, phase, next transition, plan revision and environment version. Connected step cards show explicit states: planned, evidence acquired, awaiting verification, verified, or a reported action/effect/verification failure. Current and selected steps use amber borders; verified status also gains an underline. A selected step exposes its tool family, operation, retained selection explanation, expected effect, target, acceptance test, verification family and executor receipt IDs, alongside requirement statuses and their evidence. This makes tool choice and substep completion inspectable without displaying private reasoning. Missing plans, explanations or receipts have explicit text; discovery and command success alone never become invented progress or completion.
+The Tools disclosure includes a task selector with the controller's current committed frontier. The Runtime disclosure holds voice phases and admission readings. The header reports task status, phase, next transition, plan revision and environment version. Connected step cards show explicit states: planned, evidence acquired, awaiting verification, verified, or a reported action/effect/verification failure. Current and selected steps use amber borders; verified status also gains an underline. A selected step exposes its tool family, operation, retained selection explanation, expected effect, target, acceptance test, verification family and executor receipt IDs, alongside requirement statuses and their evidence. This makes tool choice and substep completion inspectable without displaying private reasoning. Missing plans, explanations or receipts have explicit text; discovery and command success alone never become invented progress or completion.
 
-The plan workbench expands into the available Tools surface down to the footer. The Tools surface scrolls the step list and evidence inspector together. Their two-column workbench stacks at viewport widths of 900px or less. Labels and evidence wrap within the app frame.
+The inspector scrolls the plan steps and evidence together. They stack in narrow layouts, with labels and evidence wrapping within the drawer.
 
 ### MCP connections
 
@@ -179,10 +180,7 @@ The collapsible **MCP connections** section stays within Tools. Its form has a l
 
 ## Tools review
 
-Tools is a dedicated fifth review tab. Its amber executor signal, retained-return
-counters, request-linked dispatch modules and receipt inspector sit beside MCP
-registration; committed task plans follow below. Only recorded request/round IDs
-establish dispatch chains. States keeps voice phases and runtime transitions.
+The Tools disclosure shows the executor signal, retained-return counts, request-linked dispatches, and MCP connections. Committed task plans appear below the dispatches. Recorded request and round IDs establish the chains.
 All surfaces retain inner scrolling, responsive chat splits and labeled keyboard
 scroll regions. Tool failure is visibly distinct from a successful return;
 neither establishes task completion without current verification.
@@ -197,10 +195,4 @@ is not reassigned. Embedded chat controls use the same sodium-yellow palette on
 black, including selected and recording states; the idle mic helper is absent.
 
 Dispatch modules expand into private, on-demand argument and output readouts.
-States uses a shared source-time ruler with four tracks for heard, processing,
-tool returns and said events. Fine time marks use the available width and amber
-event boxes age left at their observed timestamps. Selecting a box opens its
-source excerpt and attribution. Processing shows recorded stage metadata and
-generated speech stays distinct from confirmed playback. Visualization
-surfaces have vertical padding, no horizontal padding and no outer border; the
-individual instrument frames remain. Review chips have a 170px maximum width.
+The central scope maps Input, Heard, Inference, Tools, Memory, Media, Said, Tasks and Voice loop to distinct rails. Type filters change the visible channels and markers retain their source timestamps. Inference marks describe recorded processing; Said records replies, synthesis, and audio output with their recorded evidence labels. Selecting a callout opens the available source excerpt and measurements.

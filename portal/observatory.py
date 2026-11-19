@@ -502,6 +502,8 @@ def _timeline(
     memory: Mapping[str, Any],
     archive: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
+    timing_fields = {"queue_acquired": "queue_wait_ms", "upstream_headers": "upstream_headers_ms",
+                     "first_upstream_byte": "first_upstream_byte_ms", "request_complete": "total_ms"}
     items: list[dict[str, Any]] = []
     raw_events = diagnostics.get("events")
     for event in raw_events if isinstance(raw_events, list) else []:
@@ -515,6 +517,7 @@ def _timeline(
             detail = _bounded_text(event.get("task"), 80)
         elif event.get("outcome"):
             detail = _bounded_text(event.get("outcome"), 80)
+        elapsed = event.get(timing_fields.get(event_name, ""))
         identity = hashlib.sha256(json.dumps(dict(event), sort_keys=True).encode()).hexdigest()[:20]
         for signal, label in _diagnostic_signals(event):
             items.append({
@@ -531,6 +534,7 @@ def _timeline(
                 "request_id": _bounded_text(event.get("request_id"), 128),
                 "tool_round": event.get("tool_round") if isinstance(event.get("tool_round"), int) else None,
                 "tool_call_id": _bounded_text(event.get("tool_call_id"), 80),
+                **({"elapsed_ms": round(elapsed, 1)} if type(elapsed) in {int, float} and 0 <= elapsed <= 86_400_000 else {}),
             })
     for task in tasks:
         task_id = _bounded_text(task.get("task_id"), 64)

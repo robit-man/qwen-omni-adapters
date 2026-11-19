@@ -2028,23 +2028,17 @@ def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
     response = app.test_client().get("/observatory")
 
     assert response.status_code == 200
-    assert b"Agent Observatory" in response.data
+    assert b"Runtime scope" in response.data
     assert b">EGG<" not in response.data
     assert b'id="context-graph"' not in response.data
-    assert response.data.count(b'role="tab"') == 4
-    assert b'id="view-tools"' in response.data
-    assert response.data.count(b'role="tabpanel"') == 4
-    assert b'id="tab-events"' not in response.data
-    assert b'id="view-events"' not in response.data
-    states = response.data.split(b'id="view-states"', 1)[1].split(b'id="view-tools"', 1)[0]
-    assert b'id="state-flow"' in states
-    assert b'id="event-raster"' in states
-    assert b'id="timeline-list"' in states
-    assert b'aria-label="Runtime review"' in response.data
-    assert b'id="memory-node-records"' in response.data
-    assert b'id="memory-graph"' in response.data
-    assert b'id="work-current"' in response.data
-    assert b'id="component-network"' in response.data
+    assert b'role="tab"' not in response.data
+    assert b'role="tabpanel"' not in response.data
+    assert response.data.count(b'id="scope"') == 1
+    assert b'<canvas id="scope" width="910" height="1630"' in response.data
+    assert b'id="settings-panel"' in response.data
+    assert b'id="event-info"' in response.data
+    assert b'id="observatory-status"' not in response.data
+    assert b'id="agent-name"' not in response.data
     assert b'id="memory-plot"' not in response.data
     assert b'id="time"' not in response.data
     assert b"Retained experience" not in response.data
@@ -2056,10 +2050,10 @@ def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
 
 
 def test_observatory_assets_use_safe_dom_and_resilient_refresh() -> None:
-    javascript = Path("portal/static/observatory.js").read_text()
-    css = Path("portal/static/observatory.css").read_text()
+    javascript = Path("portal/static/reference-rf-observatory.js").read_text()
+    css = Path("portal/static/reference-rf-observatory.css").read_text()
 
-    assert 'fetch("/api/observatory"' in javascript
+    assert 'fetch("/api/observatory?activity=1"' in javascript
     assert "AbortController" in javascript
     assert 'document.addEventListener("visibilitychange"' in javascript
     assert "textContent" in javascript
@@ -2068,8 +2062,7 @@ def test_observatory_assets_use_safe_dom_and_resilient_refresh() -> None:
     assert 'role: "button"' not in javascript
     assert "Explicit working notes scoped" not in javascript
     assert "retention-list" not in javascript
-    assert ".observatory-page" in css
-    assert "html {" in css
+    assert "#shell" in css
     assert "overflow-y: auto" in css
     assert "transition: width" not in css
     assert 'setTimeout(() => controller.abort()' in javascript
@@ -2091,8 +2084,7 @@ def test_observatory_embedded_chat_keeps_same_origin_framing_and_auth_fragment()
     assert TOKEN.encode() not in embedded.data
     assert embedded.headers["Cache-Control"] == "no-store"
     dashboard = client.get("/observatory")
-    assert b'id="chat-frame"' in dashboard.data
-    assert b'id="copy-chat-link"' in dashboard.data
+    assert b'<canvas id="scope"' in dashboard.data
     assert b"nickgallo.dev" not in dashboard.data
 
 

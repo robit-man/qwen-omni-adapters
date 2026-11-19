@@ -2,168 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#000000">
-  <meta name="description" content="Runtime observations for agent weights, inference, states, tools, and memory">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#020101">
   <meta name="referrer" content="no-referrer">
-  <title>Active weights — Agent Observatory</title>
-  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/assets/fonts/VT323-Regular.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="stylesheet" href="/assets/observatory.css?v=20261118-states">
+  <meta name="description" content="Recorded Omni runtime activity">
+  <title>Runtime scope</title>
+  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=1">
+  <script src="/assets/reference-rf-observatory.js?v=1" defer></script>
 </head>
-<body class="observatory-page lcd-render-fallback" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
-  <a class="skip-link" href="#review">Skip to runtime review</a>
-  <main class="observatory-shell">
-    <header class="observatory-heading">
-      <div class="agent-heading">
-        <h1><button id="agent-name" class="agent-name" type="button" aria-label="Agent name. Double-click or press Enter to rename." disabled>Agent</button><span> / OBSERVATORY</span></h1>
-        <button id="rename-button" class="text-button" type="button" disabled>Rename</button>
-      </div>
-      <div class="header-actions"><button class="chip open-chat" type="button" aria-controls="observatory-chat" aria-expanded="false">Open chat</button><div class="connection" id="observatory-connection" role="status"><span class="status-dot" aria-hidden="true"></span><span id="observatory-status">Connecting</span></div></div>
-      <form class="identity-form" id="identity-form" novalidate hidden>
-        <label for="agent-name-input">Agent name</label>
-        <div class="identity-input-row"><input id="agent-name-input" name="name" type="text" maxlength="64" autocomplete="off" required aria-describedby="identity-help identity-error"><button class="chip" id="identity-save" type="submit">Save name</button><button class="chip" id="identity-cancel" type="button">Cancel</button></div>
-        <p id="identity-help">Shared by this deployment. Takes effect on following turns.</p>
-        <p id="identity-error" role="alert" hidden></p>
-      </form>
-    </header>
-
-    <nav class="observatory-navigation" aria-label="Observatory views">
-            <div class="review-tabs" role="tablist" aria-label="Runtime review">
-              <button class="chip" id="tab-weights" type="button" role="tab" data-tab="weights" aria-selected="true" aria-controls="view-weights">Active weights</button>
-              <button class="chip" id="tab-states" type="button" role="tab" data-tab="states" aria-selected="false" aria-controls="view-states" tabindex="-1">States</button>
-              <button class="chip" id="tab-tools" type="button" role="tab" data-tab="tools" aria-selected="false" aria-controls="view-tools" tabindex="-1">Tools</button>
-              <button class="chip" id="tab-memory" type="button" role="tab" data-tab="memory" aria-selected="false" aria-controls="view-memory" tabindex="-1">Memory</button>
-            </div>
-    </nav>
-
-    <div class="observatory-workspace" id="observatory-workspace">
-    <section class="review" id="review" aria-label="Runtime review" aria-busy="true">
-      <div class="review-toolbar">
-        <p id="sample-freshness" role="status">Awaiting runtime sample</p>
-        <div class="refresh-controls">
-          <button class="chip" id="live-toggle" type="button" aria-pressed="true">Auto refresh</button>
-          <button class="chip" id="refresh-button" type="button">Refresh now</button>
-        </div>
-      </div>
-
-      <div class="observatory-error" id="observatory-error" role="alert" hidden>
-        <div><strong>Runtime sample unavailable.</strong><p id="observatory-error-message"></p></div>
-        <button class="chip" type="button" id="retry-button">Try again</button>
-      </div>
-      <p class="loading" id="review-loading" role="status">Reading runtime stores…</p>
-
-      <section id="view-weights" class="review-view" role="tabpanel" aria-labelledby="tab-weights" tabindex="0">
-        <header class="section-heading"><h2>Active weights</h2><p>Live worker inventory</p></header>
-        <div class="visualization weights-visual connected-stage" id="weights-stage">
-          <svg class="wires" aria-hidden="true"></svg>
-          <div class="frame weight-hub" data-wire-hub>
-            <span class="corner l lit">LOGICAL MODEL</span>
-            <p class="model-identity" id="model-name">{{ model }}</p>
-            <div class="weight-measures"><div><strong class="d7 lit" id="loaded-graphs">—</strong><span>loaded worker graphs</span></div><div><strong class="d7 lit" id="loaded-bytes">—</strong><span>GiB reported weights</span></div></div>
-            <p class="muted" id="model-source">Reading live workers…</p>
-          </div>
-          <div class="component-network" id="component-network"></div>
-          <div class="instrument-bars" id="weight-budget-bars"></div>
-        </div>
-        <details class="review-details"><summary>Model details & service health</summary><div class="detail-scroll">
-        <dl class="facts" id="weight-facts"></dl>
-        <div class="service-table-wrap"><table class="service-table"><caption class="sr-only">Execution service health</caption><thead><tr><th scope="col">Service</th><th scope="col">Health</th><th scope="col">Observation</th></tr></thead><tbody id="service-list"></tbody></table></div>
-        <p class="scope-note" id="weight-scope">Inventory comes from worker properties, TTS readiness, and the Ollama running-model list. Loaded graph state and GPU residency are separate observations.</p>
-        </div></details>
-      </section>
-
-      <section id="view-states" class="review-view" role="tabpanel" aria-labelledby="tab-states" tabindex="0" hidden>
-        <header class="section-heading"><h2>States</h2></header>
-        <div class="visualization states-visual">
-          <div class="state-flow" id="state-flow" aria-label="Voice loop states"></div>
-          <section class="state-signals" aria-labelledby="state-signals-heading">
-            <header class="signal-heading">
-              <div><h3 id="state-signals-heading">Conversation timeline</h3><p class="scope-note" id="state-signal-scope">Reading source events…</p></div>
-              <div role="group" aria-label="Time window for both timelines">
-                <button class="chip" type="button" data-window="60" aria-pressed="false">1 min</button>
-                <button class="chip" type="button" data-window="300" aria-pressed="true">5 min</button>
-                <button class="chip" type="button" data-window="900" aria-pressed="false">15 min</button>
-              </div>
-            </header>
-            <div id="state-signal-lanes"></div>
-            <p class="scope-note">Timestamped source text · tool returns do not establish task completion · generated audio does not prove physical playback.</p>
-          </section>
-          <div class="state-meter-grid" id="state-meters"></div>
-          <section class="state-inference" aria-labelledby="state-inference-heading">
-            <header class="signal-heading"><div><h3 id="state-inference-heading">Inference events</h3><p class="scope-note">Content-redacted runtime diagnostics</p></div></header>
-            <div id="event-raster" aria-label="Live activity by signal"></div>
-            <p id="raster-selection" class="scope-note" role="status">Select an event to inspect its source.</p>
-            <details class="review-details">
-              <summary>Event records &amp; filters <span id="timeline-meta" class="muted"></span></summary>
-              <div class="event-records">
-                <div class="event-controls">
-                  <div class="range-control" role="group" aria-label="Event time range"><button class="chip" type="button" data-range="today" aria-pressed="true">Today</button><button class="chip" type="button" data-range="7d" aria-pressed="false">7 days</button><button class="chip" type="button" data-range="retained" aria-pressed="false">Retained</button></div>
-                  <div class="filter-control" role="group" aria-label="Event type"><button class="chip" type="button" data-filter="all" aria-pressed="true">All events</button><button class="chip" type="button" data-filter="hearing" aria-pressed="false">Heard speech</button><button class="chip" type="button" data-filter="llm" aria-pressed="false">LLM</button><button class="chip" type="button" data-filter="speaking" aria-pressed="false">Speaking</button><button class="chip" type="button" data-filter="vision" aria-pressed="false">Vision</button><button class="chip" type="button" data-filter="tools" aria-pressed="false">Tools</button></div>
-                </div>
-                <ol class="timeline-list" id="timeline-list"></ol>
-                <p class="panel-empty" id="timeline-empty" hidden>No inference events in this range. Try Retained to review older events.</p>
-                <button class="chip load-more" id="timeline-more" type="button" hidden>Show more events</button>
-                <p class="scope-note">Newest first · local time · retained events are a bounded sample.</p>
-              </div>
-            </details>
-          </section>
-        </div>
-        <details class="review-details"><summary>State details & work ledger</summary><div class="detail-scroll">
-        <dl class="facts state-facts" id="live-readout"></dl>
-        <h3 class="subheading">Current work</h3><div id="work-current"></div>
-        <p class="panel-empty" id="work-empty" hidden>No current background work.</p>
-        <details class="archive"><summary id="work-meta">Retained work archive</summary><ol class="archive-list" id="archive-list"></ol></details>
-        </div></details>
-      </section>
-
-      <section id="view-tools" class="review-view" role="tabpanel" aria-labelledby="tab-tools" tabindex="0" hidden>
-        <header class="section-heading"><h2>Tools</h2><p>Dispatch, chaining &amp; connected capabilities</p></header>
-        <div class="visualization tools-visual">
-          <div class="tool-overview"><div class="frame tool-signal"><span class="corner l lit">EXECUTOR SIGNAL</span><strong class="d14 lit" id="tool-signal">WAITING</strong><p id="tool-signal-detail" class="muted">Awaiting tool observations</p></div><dl class="tool-counters"><div><dt>Retained returns</dt><dd class="d7 lit" id="tool-return-count">0</dd></div><div><dt>Failed returns</dt><dd class="d7 lit" id="tool-error-count">0</dd></div><div><dt>MCP connections</dt><dd class="d7 lit" id="tool-connection-count">0</dd></div></dl></div>
-          <div class="tool-console-grid"><section class="tool-dispatch" aria-labelledby="tool-dispatch-heading"><header class="plan-heading"><h3 id="tool-dispatch-heading">Dispatch chain</h3><label>Request <select id="tool-request" aria-label="Tool request to inspect"></select></label></header><p class="scope-note" id="tool-chain-empty">Tool calls appear here as requests execute. Connections follow recorded request IDs and tool rounds.</p><ol id="tool-chain" class="tool-chain" aria-label="Recorded tool dispatches"></ol><section class="tool-receipt" tabindex="0" role="region" aria-labelledby="tool-receipt-title"><h4 id="tool-receipt-title">Select a dispatch</h4><dl class="facts" id="tool-receipt-facts"></dl><p class="scope-note">A returned tool call is evidence of execution. Task completion requires its own current verification.</p></section></section><aside class="tool-connections" aria-label="Connected MCP servers"><details class="connections-panel" id="mcp-connections" open><summary>MCP connections <span id="mcp-count"></span></summary><p class="scope-note">Add an MCP endpoint and optional API key. Device connections are available to the daemon; browser connections stay with this browser.</p><form id="mcp-connect-form" class="mcp-connect-form"><label>Endpoint <input name="endpoint" type="url" autocomplete="off" required placeholder="https://service.example/mcp"></label><label>API key <input name="key" type="password" autocomplete="off" placeholder="Optional"></label><label>Available to <select name="scope"><option value="device">Device and daemon</option><option value="session">This browser</option></select></label><button class="chip" type="submit">Connect</button></form><p id="mcp-message" role="status"></p><ul id="mcp-server-list" class="mcp-server-list"></ul></details></aside></div>
-          <section class="execution-overview" aria-labelledby="plan-heading"><header class="plan-heading"><h3 id="plan-heading">Execution plan</h3><label>Task <select id="plan-task" aria-label="Task to inspect"></select></label><span id="plan-meta" class="muted"></span></header><p id="plan-empty" class="scope-note">Committed steps appear when a task starts. Discovery alone does not count as completion.</p><div class="plan-workbench" id="plan-workbench" hidden><ol id="plan-steps" class="plan-steps" aria-label="Committed plan steps"></ol><section class="plan-inspector" tabindex="0" role="region" aria-labelledby="plan-step-title"><h4 id="plan-step-title"></h4><dl class="facts" id="plan-step-facts"></dl><ul id="plan-requirements" class="plan-requirements"></ul></section></div><p class="sr-only" role="status" id="plan-announcement"></p></section>
-        </div>
-      </section>
-
-      <section id="view-memory" class="review-view" role="tabpanel" aria-labelledby="tab-memory" tabindex="0" hidden>
-        <header class="section-heading"><h2>Memory</h2><p id="memory-meta">Durable &amp; session stores</p></header>
-        <div class="visualization memory-visual">
-          <div class="memory-scope-controls" role="group" aria-label="Memory scope"><button class="chip" type="button" data-memory-scope="durable" aria-pressed="true">Device memory</button><button class="chip" type="button" data-memory-scope="session" aria-pressed="false">This browser</button><span id="memory-index-status" class="muted" role="status">Reading memory structure…</span></div>
-          <div class="memory-mode-controls" role="group" aria-label="Memory structure to review"><button class="chip" type="button" data-memory-mode="experience" aria-pressed="true">Experience</button><button class="chip" type="button" data-memory-mode="behaviors" aria-pressed="false">Learned behaviors &amp; tools</button></div>
-          <div class="store-readouts" id="store-readouts"></div>
-          <p id="memory-structure-empty" class="scope-note" hidden></p>
-          <div class="memory-workbench">
-            <section class="memory-map" aria-labelledby="memory-structure-title"><div class="memory-map-heading"><h3 id="memory-structure-title">Memory structure</h3><span class="muted">Select a node</span></div><div class="memory-graph" id="memory-graph" role="group" aria-label="Memory stores and recorded relationships"><svg class="memory-links" id="memory-links" aria-hidden="true"></svg></div><p class="scope-note memory-map-key">Lines show store membership and reported source links. Layout distance carries no similarity score.</p></section>
-            <details class="memory-inspector" open><summary>Inspect selected node</summary><div class="memory-inspector-scroll" tabindex="0" role="region" aria-labelledby="memory-detail-title"><h3 id="memory-detail-title">Source archive</h3><dl class="facts" id="memory-node-facts"></dl><h4>Reported relationships</h4><ul id="memory-edge-list" class="memory-edge-list"></ul><ol id="memory-node-records" class="memory-node-records"></ol><p class="scope-note" id="memory-record-empty"></p></div></details>
-          </div>
-          <p class="sr-only" role="status" id="memory-selection-status"></p>
-        </div>
-        <details class="review-details"><summary>Memory types & retention</summary><div class="detail-scroll memory-guide">
-        <p><strong>Source archive.</strong> Committed device events survive delays in semantic indexing. Heard fragments and sound observations keep their recorded attribution.</p>
-        <p><strong>Derived views.</strong> Temporal views carry source references. The semantic cache groups indexed sources and has a decaying retention weight. Cache strength is separate from factual confidence.</p>
-        <p><strong>This browser.</strong> Retained conversation turns, explicit saved notes, and working context have separate lifetimes. Other browser sessions stay private. Trash clears this session.</p>
-        </div></details>
-      </section>
-    </section>
-    <aside class="observatory-chat" id="observatory-chat" aria-label="Agent chat" hidden>
-      <header class="chat-heading"><h2 id="chat-title">Agent chat</h2><button class="chip" id="close-chat" type="button">Close chat</button></header>
-      <div class="chat-actions"><button class="chip" id="copy-chat-link" type="button">Copy chat link</button><a class="chip" id="chat-new-tab" href="/" target="_blank" rel="noopener noreferrer">Open in new tab</a></div>
-      <p class="chat-link-status" id="chat-link-status" role="status"></p>
-      <iframe id="chat-frame" title="Agent chat" referrerpolicy="no-referrer" allow="microphone 'self'; camera 'self'; autoplay 'self'"></iframe>
-    </aside>
+<body>
+  <main id="shell" aria-label="Omni activity scope" aria-busy="true" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
+    <div class="stage"><canvas id="scope" width="910" height="1630" tabindex="0" aria-label="Recorded runtime events. Use the arrow keys to select a channel and Enter to inspect a source."></canvas></div>
+    <div class="toolbar" aria-label="Display actions">
+      <button id="btn-pause" aria-label="Pause" title="Pause or resume (Space)">Ⅱ</button>
+      <button id="btn-reset" aria-label="Refresh" title="Refresh (R)">↻</button>
+      <button id="btn-snapshot" aria-label="Capture image" title="Save PNG (P)">▣</button>
+      <button id="btn-fullscreen" aria-label="Fullscreen" title="Fullscreen (F)">⛶</button>
+      <button id="btn-settings" aria-label="Settings" title="Settings">≡</button>
     </div>
-
-    <footer class="observatory-footer"><span>RETAINED EVIDENCE</span><div><button class="text-button open-chat" type="button" aria-controls="observatory-chat" aria-expanded="false">Open chat</button><a id="chat-link" href="/">Chat in new tab</a></div></footer>
+    <div id="paused-badge" hidden>⏸ PAUSED</div>
+    <aside id="settings-panel" class="panel" hidden aria-label="Scope settings">
+      <div class="panel-header"><h2>Scope settings</h2><button id="btn-close" aria-label="Close settings">×</button></div>
+      <div class="row"><label for="window-control">Time window</label><select id="window-control"><option value="147">2m 27s</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="900">15 minutes</option></select></div>
+      <div class="row"><label for="channel-control">Channel</label><select id="channel-control"><option value="all">All channels</option></select></div>
+      <div class="row"><label for="event-control">Recorded event</label><select id="event-control"><option value="">Select an event</option></select></div>
+      <div class="panel-actions"><button id="btn-source" type="button" disabled>Source</button><button id="btn-export" type="button">Export events</button></div>
+      <p id="sample-status" class="notice" role="status">Reading runtime activity.</p>
+    </aside>
+    <div id="hover-label" class="hover-label" hidden></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="event-info" class="help" aria-labelledby="event-title">
+      <h2 id="event-title"></h2><dl id="event-facts"></dl><p id="event-source"></p>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
   </main>
-  <p class="sr-only" id="observatory-announcer" aria-live="polite"></p>
-  <script src="/assets/state-signals.js?v=20261118-states" defer></script>
-  <script src="/assets/tool-activity.js?v=20261117-details" defer></script>
-  <script src="/assets/task-plan.js?v=20261117" defer></script>
-  <script src="/assets/mcp-connections.js?v=20261117" defer></script>
-  <script src="/assets/memory-graph.js?v=20261117-behaviors" defer></script>
-  <script src="/assets/observatory.js?v=20261118-states" defer></script>
-  <script src="/assets/lcd-surface.js?v=20261116-glass" defer></script>
 </body>
 </html>

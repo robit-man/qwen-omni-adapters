@@ -299,6 +299,19 @@ def test_tool_dispatch_projection_preserves_chain_keys_and_failure_without_argum
     assert "private" not in json.dumps(result)
 
 
+def test_timeline_readouts_only_expose_timing_measured_for_that_event():
+    result = _timeline({"events": [
+        {"event": "request_complete", "total_ms": 235.614, "queue_wait_ms": 10},
+        {"event": "queue_acquired", "queue_wait_ms": 14.25},
+        {"event": "upstream_headers", "upstream_headers_ms": True},
+        {"event": "first_upstream_byte", "first_upstream_byte_ms": float("inf")},
+        {"event": "inference_stage", "stage": "language", "total_ms": 5},
+    ]}, [], {}, {})
+    assert {item["event"]: item["elapsed_ms"] for item in result if "elapsed_ms" in item} == {
+        "request_complete": 235.6, "queue_acquired": 14.2,
+    }
+
+
 def test_plan_projection_preserves_receipt_states_and_does_not_infer_completion():
     from portal.observatory import _task_plan_projection
     task = {"task_id": "plan", "objective": "Acquire, change and verify", "status": "running", "task_state": {
