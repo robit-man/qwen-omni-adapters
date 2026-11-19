@@ -18,7 +18,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 
@@ -39,6 +39,7 @@ from portal.background_tasks import BackgroundTaskStore
 from qwen_omni_adapters.accelerator import accelerator_profile
 from qwen_omni_adapters.service_control import VoiceServiceControl
 from qwen_omni_adapters.voice_profiles import IndicatorVoiceManager
+from qwen_omni_adapters.voice_view import local_voice_view_key
 
 logger = logging.getLogger("omni.harness")
 
@@ -147,10 +148,13 @@ def _available_token(explicit: str | None) -> str:
         return ""
 
 
-def _observatory_url(portal_url: str, token: str) -> str:
+def _observatory_url(portal_url: str, token: str, voice_view: str = "") -> str:
     """Build the local authenticated dashboard URL without logging the key."""
 
-    return f"{portal_url.rstrip('/')}/observatory#{urlencode({'access': token})}"
+    fragment = {"access": token}
+    if voice_view and urlsplit(portal_url).hostname in {"localhost", "127.0.0.1", "::1"}:
+        fragment["voice_view"] = voice_view
+    return f"{portal_url.rstrip('/')}/observatory#{urlencode(fragment)}"
 
 
 def _read_token(explicit: str | None) -> str:
@@ -578,7 +582,8 @@ def main(argv: list[str] | None = None) -> int:
             return False, "Dashboard is waiting for the portal"
         # The GTK process owns the clipboard and desktop application registry,
         # so it performs both user-facing actions after receiving this URL.
-        return True, _observatory_url(args.portal, current_token)
+        proof = local_voice_view_key((repo_root / DEFAULT_TOKEN_FILE).parent, create=True)
+        return True, _observatory_url(args.portal, current_token, proof)
 
     indicator = (
         build_indicator(

@@ -158,6 +158,12 @@ def _diagnostic_signals(event: Mapping[str, Any]) -> list[tuple[str, str]]:
     """Typed instrumentation only; never infer speech/vision from message words."""
 
     kind = event.get("event")
+    if event.get("voice_checkpoint") is True:
+        if kind == "request_received":
+            return [("llm", "Speech checkpoint sent")]
+        if kind == "perception_observed":
+            return [("hearing", "Interim transcript received")] if event.get("speech_present") is True else [
+                ("audio", "Checkpoint returned without speech")]
     if kind == "inference_stage":
         return [{"comprehension": ("perception", "Perception started"),
                  "language": ("llm", "LLM inference started"),

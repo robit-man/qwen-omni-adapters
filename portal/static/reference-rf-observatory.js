@@ -554,11 +554,19 @@ const packets = new Map();
 const packetDisclosures = new WeakMap();
 let packetAnimations = [];
 let packetClosing = false;
-let token = new URLSearchParams(location.hash.slice(1)).get("access") || "";
+const fragment = new URLSearchParams(location.hash.slice(1));
+let token = fragment.get("access") || "";
+let voiceView = fragment.get("voice_view") || "";
 try {
   if (token) sessionStorage.setItem("omni_access", token);
   else token = sessionStorage.getItem("omni_access") || "";
+  if (voiceView) sessionStorage.setItem("omni_voice_view", voiceView);
+  else voiceView = sessionStorage.getItem("omni_voice_view") || "";
 } catch (_) {}
+if (fragment.has("voice_view")) {
+  fragment.delete("voice_view");
+  history.replaceState(null, "", location.pathname + location.search + (fragment.size ? "#" + fragment : ""));
+}
 let refreshing = false;
 let refreshingVoice = false;
 let voiceSignature = "";
@@ -632,18 +640,19 @@ function scopeRows(snapshot) {
       : Number.isFinite(invoked) && invoked <= at ? at - invoked : null;
     return { ...event, at, started, channel: category(event), duration };
   });
-  const sources = (snapshot.activity_sources?.sources || []).map(event => ({
-    id: "source-" + event.id,
+  const sources = [snapshot.activity_sources, snapshot.voice_sources].flatMap((scope, index) =>
+    (scope?.sources || []).map(event => ({
+    id: (index ? "voice-source-" : "source-") + event.id,
     at: Number(event.at) * 1000,
     channel: event.lane === "said" ? "said" : event.lane === "done" ? "tools"
       : event.label === "Typed input" ? "input" : "heard",
     label: event.label, detail: event.text, source: event.authority,
     caption: event.lane === "said" || ["Speech transcript", "Retained speech", "Reported speech"].includes(event.label)
       ? String(event.text || "").replace(/\s+/g, " ").trim().slice(0, 240) : "",
-    retention: snapshot.activity_sources.scope, request_id: event.request_id,
+    retention: scope.scope, request_id: event.request_id,
     actor: event.actor, addressee: event.addressee, sourceHash: event.source_sha256,
     textTruncated: event.text_truncated, duration: null, audioGenerated: event.audio_generated === true,
-  }));
+  })));
   return [...diagnostics, ...sources].filter(event => Number.isFinite(event.at) && event.at > 0).map(event => {
     const end = event.ongoing === true ? null : event.at / 1000;
     const start = Number.isFinite(event.started) ? event.started / 1000 : event.at / 1000 - (event.duration || 0) / 1000;
@@ -1118,8 +1127,10 @@ async function refresh(manual = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
   try {
+    const headers = { Authorization: "Bearer " + token };
+    if (voiceView) headers["X-Omni-Voice-View"] = voiceView;
     const response = await fetch("/api/observatory?activity=1", {
-      headers: { Authorization: "Bearer " + token }, cache: "no-store", signal: controller.signal,
+      headers, cache: "no-store", signal: controller.signal,
     });
     if (!response.ok) throw new Error(response.status === 401 ? "Access link expired" : "Runtime sample unavailable");
     const sample = await response.json();

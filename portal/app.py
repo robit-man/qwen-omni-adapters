@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from flask import (
@@ -64,6 +65,7 @@ from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, Deci
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
+from qwen_omni_adapters.voice_view import local_voice_view_key
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +221,7 @@ DIAGNOSTIC_BOOLEAN_FIELDS = {
     "speech_present",
     "audio_observation_present",
     "visual_observation_present",
+    "voice_checkpoint",
 }
 DIAGNOSTIC_STRING_FIELDS = {
     "request_id",
@@ -3689,6 +3692,17 @@ def create_app(
         snapshot["memory"]["episodic"] = episodic_memory.snapshot(session_id) if episodic_memory else {"enabled": False}
         if request.args.get("activity") == "1":
             snapshot["activity_sources"] = episodic_memory.activity(session_id) if episodic_memory else {"sources": [], "scope": "this browser", "available": False}
+            proof = request.headers.get("X-Omni-Voice-View", "")
+            local_origin = urlsplit(request.host_url).hostname in {"localhost", "127.0.0.1", "::1"}
+            key = local_voice_view_key(state_root) if proof and local_origin else ""
+            owner = tool_harness.conversation_history_owner
+            if (episodic_memory and owner != session_id and key and proof.isascii()
+                    and len(proof) == len(key) and hmac.compare_digest(proof, key)):
+                local = episodic_memory.activity(owner)
+                snapshot["voice_sources"] = {
+                    **local, "sources": [source for source in local["sources"]
+                        if source["lane"] in {"heard", "said"} and source["label"] != "Typed input"],
+                }
             retained_calls = tool_traces.statuses(session_id)
             for event in snapshot["timeline"]:
                 identity = (event.get("request_id"), event.get("tool_round"), event.get("tool_call_id"))
@@ -4310,6 +4324,7 @@ def create_app(
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
+        requested_checkpoint = payload.pop("portal_voice_checkpoint", False) is True
         live_turn = (isinstance(payload.get("omni"), Mapping)
                      and payload["omni"].get("require_speech") is True)
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
@@ -4361,6 +4376,10 @@ def create_app(
         request_id = secrets.token_urlsafe(9)
         started = time.monotonic()
         diagnostic_fields = _request_diagnostic_fields(payload)
+        voice_checkpoint = (requested_checkpoint and diagnostic_fields.get("task") == "transcribe"
+                            and tool_harness.can_read_conversation_history(session_id))
+        if voice_checkpoint:
+            diagnostic_fields["voice_checkpoint"] = True
         diagnostic_fields["tools_requested"] = auto_tools
         diagnostic_media_ids = _request_media_digests(payload)
         try:
@@ -4646,6 +4665,7 @@ def create_app(
                                 "speech_present": bool(event.get("transcript")),
                                 "audio_observation_present": bool(event.get("audio_observation")),
                                 "visual_observation_present": bool(event.get("visual_observation")),
+                                "voice_checkpoint": voice_checkpoint,
                             }, request_id=request_id)
                         elif event.get("type") in {"audio_start", "audio_end"}:
                             diagnostics.record(session_id,

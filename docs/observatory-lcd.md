@@ -24,6 +24,9 @@ The scope and controls share one amber text color and use Helena Zhang's
 During an observed local capture or playback phase, the corresponding trace
 starts at the recorded transition and grows until the next transition. The
 scope reads these intervals independently of the full runtime snapshot.
+Timed recognition has its own sent and returned marks while capture keeps
+running. Opening Dashboard from the local tray grants that tab read-only
+access to the device voice excerpts. Shared links keep their browser session.
 
 Horizontal position uses the source timestamp and the selected window (five
 minutes by default, with one-, ten-, and fifteen-minute options under the

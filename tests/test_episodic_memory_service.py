@@ -280,6 +280,62 @@ def test_portal_captures_actual_text_and_stream_observations_and_trash(tmp_path,
     memory.close()
 
 
+def test_local_voice_grant_exposes_only_owner_speech_and_typed_checkpoint_markers(tmp_path, monkeypatch):
+    import hashlib
+
+    from portal.app import PortalConfig, create_app
+    from qwen_omni_adapters.voice_view import local_voice_view_key
+
+    token = "test-token-with-more-than-24-characters"
+    owner = hashlib.sha256(b"omni-voice-session\0" + token.encode()).hexdigest()
+    memory = EpisodicMemoryService(tmp_path / "graph", owner_session=owner, generate=lambda *_: {},
+        embed=lambda _: [1.0], admit=lambda: True, start_worker=False)
+    monkeypatch.setattr("portal.app.create_memory_service", lambda *_args, **_kw: memory)
+    state = tmp_path / "state"
+    state.mkdir()
+    proof = local_voice_view_key(state, create=True)
+
+    def respond(request):
+        if request.url.path.endswith("/stream"):
+            assert "portal_voice_checkpoint" not in json.loads(request.content)
+            return httpx.Response(200, content=(
+                '{"type":"observation","transcript":"Private spoken words",'
+                '"evidence_provenance":{"current_media_modalities":["audio"],"current_visual_input":false}}\n'
+                '{"type":"final","response":{"message":{"role":"assistant","content":""},"adapter":{}}}\n'
+            ))
+        return httpx.Response(200, json={})
+
+    app = create_app(PortalConfig(adapter_url="http://adapter/api/chat", adapter_health_url="http://adapter/healthz",
+        comprehension_health_url="", tts_health_url="http://tts/healthz", ollama_health_url="http://ollama/api/tags", model="test-model",
+        access_token=token, episodic_memory_enabled=True, remote_camera_enabled=False,
+        background_task_path=state / "background.json", virtual_context_root=tmp_path / "virtual"),
+        httpx.Client(transport=httpx.MockTransport(respond)))
+    headers = {"Authorization": "Bearer " + token}
+    origin = app.test_client()
+    origin.set_cookie("omni_portal_session", owner)
+    response = origin.post("/api/chat/stream", headers=headers, json={
+        "model": "test-model", "stream": True, "portal_voice_checkpoint": True,
+        "omni": {"schema": "robit.ollama.omni-adapter.v1", "task": "transcribe"},
+        "messages": [{"role": "user", "content": "Interim speech transport"}],
+    })
+    assert b"Private spoken words" in response.data
+    observer = app.test_client()
+    observer.set_cookie("omni_portal_session", "ordinary-browser-session")
+    endpoint = "/api/observatory?activity=1"
+    public = observer.get(endpoint, headers=headers).json
+    assert {"Speech checkpoint sent", "Interim transcript received"} <= {
+        event["label"] for event in public["timeline"]}
+    assert "Private spoken words" not in json.dumps(public)
+    assert "voice_sources" not in observer.get(endpoint, headers={**headers, "X-Omni-Voice-View": "wrong"}).json
+    local = observer.get(endpoint, headers={**headers, "X-Omni-Voice-View": proof}).json
+    assert [source["text"] for source in local["voice_sources"]["sources"]] == ["Private spoken words"]
+    assert local["activity_sources"]["sources"] == []
+    public_with_proof = observer.get(endpoint, headers={**headers, "X-Omni-Voice-View": proof},
+                                    base_url="https://shared.example").json
+    assert "voice_sources" not in public_with_proof
+    memory.close()
+
+
 def test_legacy_import_verifies_backup_and_incrementally_retains_original_hashes(tmp_path):
     import hashlib
     import sqlite3

@@ -289,6 +289,8 @@ def test_dashboard_url_targets_local_observatory_with_fragment_auth() -> None:
     assert url == (
         "http://127.0.0.1:8920/observatory#access=token+with+punctuation%2F%2B%3F"
     )
+    assert "&voice_view=local-proof" in _observatory_url("http://localhost:8920", "token", "local-proof")
+    assert "local-proof" not in _observatory_url("https://portal.example", "token", "local-proof")
 
 
 @pytest.mark.parametrize("backend", ["GdkX11Display", "GdkWaylandDisplay"])

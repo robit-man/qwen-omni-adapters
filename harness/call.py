@@ -748,11 +748,13 @@ class CallSession:
                         self.config.evidence_trace("stream_event", {"event": copy.deepcopy(event)})
                     yield event
 
-    def comprehend_interruption(self, samples: np.ndarray) -> TurnResult:
+    def comprehend_interruption(self, samples: np.ndarray, *, checkpoint: bool = False) -> TurnResult:
         """Transcribe paused near-end audio without generating or speaking a reply."""
 
         result = TurnResult()
         payload = self._build_interruption_probe_payload(samples)
+        if checkpoint:
+            payload["portal_voice_checkpoint"] = True
 
         def read(client: httpx.Client) -> None:
             for event in self._events(payload, client=client):
@@ -1599,7 +1601,7 @@ def run_call_loop(
     transcript_audio: np.ndarray | None = None
 
     def recognize_checkpoint(portion: Utterance) -> None:
-        checkpoints.put((portion, session.comprehend_interruption(portion.samples())))
+        checkpoints.put((portion, session.comprehend_interruption(portion.samples(), checkpoint=True)))
 
     def comprehend_barge(pending: Pending) -> None:
         """Resolve a paused interruption without discarding the current reply."""
