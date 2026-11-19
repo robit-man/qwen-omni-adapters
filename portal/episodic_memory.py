@@ -820,6 +820,8 @@ def create_memory_service(runtime: Any, state_root: Path, queue: Any, *, token_c
         calibration = str(state_root / "comprehension-memory.json")
 
     def foreground_busy() -> bool:
+        if (state_root / "memory-encoding.paused").is_file():
+            return True
         snapshot = queue.snapshot()
         if snapshot["inflight"] > snapshot.get("background", 0):
             return True

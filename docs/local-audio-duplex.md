@@ -211,3 +211,7 @@ action warrants one. The model chooses when to offer it. For a desktop voice
 turn that includes one, the portal waits for playback and a brief chance to
 interrupt before dispatching that batch. Tool calls without an acknowledgment
 continue through the normal route.
+
+On a hot host, `runtime-data/state/memory-encoding.paused` defers optional
+episodic encoding while microphone capture and source-event retention
+continue. Removing the marker lets encoding resume with the pending sources.
