@@ -20,6 +20,32 @@ def capture(memory, session, text, *, generation=None):
         episode="episode", key=text[:20], modality="text", authority="user_statement", actor="user", text=text)
 
 
+def test_perception_only_and_older_tagged_records_show_as_typed_evidence(tmp_path):
+    import time
+
+    memory = service(tmp_path)
+    text = "Only keystroke-like clicks are audible, with no intelligible speech."
+    markup = f"<speech_transcript></speech_transcript><audio_observation>{text}</audio_observation>"
+    turn = MemoryCapture(memory, "one", "checkpoint", media={"has_audio_input": True})
+    turn.response({"message": {"content": markup}, "adapter": {
+        "task": "transcribe", "audio_observation": text,
+        "evidence_provenance": {"current_media_modalities": ["audio"], "current_visual_input": False},
+    }})
+    memory.capture("one", generation=memory.generation("one"), episode="checkpoint", key="legacy-duplicate",
+        modality="text", authority="assistant_generated", actor="agent", text=markup,
+        provenance={"origin": "completed_language_response"}, occurred_at=time.time())
+    memory.capture("one", generation=memory.generation("one"), episode="older", key="legacy-only",
+        modality="text", authority="assistant_generated", actor="agent", text=markup,
+        provenance={"origin": "completed_language_response"}, occurred_at=time.time() - 1)
+    rows = memory.activity("one")["sources"]
+    assert len(rows) == 2
+    assert {(record["lane"], record["label"], record["text"]) for record in rows} == {
+        ("heard", "Sound observation", text),
+    }
+    assert all(not record["audio_generated"] for record in rows)
+    memory.close()
+
+
 def test_states_activity_preserves_transcript_attribution_tool_outcomes_and_generated_speech(tmp_path):
     memory = service(tmp_path)
     turn = MemoryCapture(memory, "one", "request-one", user_text="Typed input", live_turn=True)

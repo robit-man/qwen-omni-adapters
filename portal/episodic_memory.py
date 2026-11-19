@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import math
+import re
 import sqlite3
 import threading
 import time
@@ -19,6 +20,20 @@ import httpx
 
 from qwen_omni_adapters.contract import ADAPTER_SCHEMA
 from qwen_omni_adapters.episodic_memory import MAX_EVENT_CHARS, EpisodicMemory
+
+_PERCEPTION_TAG = re.compile(
+    r"<(speech_transcript|audio_observation|visual_observation)>(.*?)</\1>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _retained_perception_fields(text: str) -> list[tuple[str, str]] | None:
+    matches = list(_PERCEPTION_TAG.finditer(text))
+    if not matches or _PERCEPTION_TAG.sub("", text).strip():
+        return None
+    labels = {"speech_transcript": "Retained speech", "audio_observation": "Sound observation"}
+    return [(labels[tag.casefold()], value.strip()) for tag, value in
+            (match.groups() for match in matches) if tag.casefold() in labels and value.strip()]
 
 SUPPORT_SCHEMA = {"type": "array", "maxItems": 8, "items": {"type": "object", "additionalProperties": False,
     "properties": {"event_id": {"type": "integer"}, "quote": {"type": "string"}}, "required": ["event_id", "quote"]}}
@@ -295,6 +310,7 @@ class EpisodicMemoryService:
         with current.lock:
             if current.closed:
                 return result
+            legacy_perception = []
             for source in current.store.activity(time.time() - 900):
                 provenance = source["provenance"]
                 lane = None
@@ -320,13 +336,33 @@ class EpisodicMemoryService:
                     text = f"{receipt.get('tool', source['actor'])} · {'returned' if receipt.get('returned_ok') else 'failed'}"
                 elif lane == "said" and provenance.get("spoken_text"):
                     text = provenance["spoken_text"]
-                result["sources"].append({"id": str(source["event_id"]),
+                item = {"id": str(source["event_id"]),
                     "request_id": provenance.get("runtime_request_id") or source["episode"],
                     "lane": lane, "label": label, "text": text[:8000], "text_truncated": len(text) > 8000,
                     "at": source["occurred_at"], "authority": source["authority"], "actor": source["actor"],
                     "addressee": source["annotations"].get("speech_addressee", provenance.get("speech_addressee", "UNKNOWN")),
                     "audio_generated": provenance.get("audio_generated") is True,
-                    "playback_verified": False, "source_sha256": source["content_sha256"]})
+                    "playback_verified": False, "source_sha256": source["content_sha256"]}
+                fields = _retained_perception_fields(text) if lane == "said" else None
+                if fields is None:
+                    result["sources"].append(item)
+                else:
+                    for number, (field_label, value) in enumerate(fields):
+                        legacy_perception.append({
+                            **item, "id": f'{item["id"]}-perception-{number}', "lane": "heard",
+                            "label": field_label, "text": value[:8000], "text_truncated": len(value) > 8000,
+                            "authority": "retained_perception", "actor": "perception observer",
+                            "audio_generated": False,
+                        })
+            seen = {(item["request_id"], item["text"]) for item in result["sources"]
+                    if item["label"] in {"Speech transcript", "Retained speech", "Sound observation"}}
+            for item in legacy_perception:
+                identity = (item["request_id"], item["text"])
+                if identity not in seen:
+                    result["sources"].append(item)
+                    seen.add(identity)
+            result["sources"].sort(key=lambda item: item["at"], reverse=True)
+            del result["sources"][result["limit"]:]
         return result
 
     def search(self, session_id: str, query: str, **options: Any) -> dict[str, Any]:
@@ -747,7 +783,9 @@ class MemoryCapture:
         message = response.get("message")
         message = message if isinstance(message, Mapping) else {}
         content = message.get("content")
-        if isinstance(content, str) and content.strip() and not message.get("tool_calls"):
+        if (isinstance(content, str) and content.strip() and not message.get("tool_calls")
+                and adapter.get("task") not in {"transcribe", "describe"}
+                and _retained_perception_fields(content) is None):
             audio = message.get("audio") if isinstance(message.get("audio"), Mapping) else {}
             self._record("assistant-response", "text", "assistant_generated", "agent", content,
                 {"origin": "completed_language_response", "audio_generated": bool(adapter.get("speech_synthesized")),

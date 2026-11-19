@@ -452,7 +452,8 @@ class Renderer {
     c.save();c.beginPath();c.rect(x+3,y+2,w-6,h-4);c.clip();
     const titleSize = 1.45 + expanded * 1.45;
     const textAlpha = e.caption ? smooth((expanded - .15) / .45) : 1;
-    p.text(CHANNEL_NAMES.get(e.channel),x+5+3*expanded,y+5+4*expanded,titleSize,{alpha:alpha * textAlpha});
+    const title = e.label === "Sound observation" ? "SOUND" : CHANNEL_NAMES.get(e.channel);
+    p.text(title,x+5+3*expanded,y+5+4*expanded,titleSize,{alpha:alpha * textAlpha});
     if (e.caption) p.text(e.caption,x+5,y+5,1.45,{alpha:alpha * (1 - textAlpha),width:w-10,uppercase:false});
     const detailAlpha = alpha * smooth((expanded - .38) / .55);
     p.text(e.caption || e.short,x+8,y+36,2.05,{alpha:detailAlpha,width:w-16,uppercase:!e.caption});
@@ -647,7 +648,7 @@ function scopeRows(snapshot) {
     channel: event.lane === "said" ? "said" : event.lane === "done" ? "tools"
       : event.label === "Typed input" ? "input" : "heard",
     label: event.label, detail: event.text, source: event.authority,
-    caption: event.lane === "said" || ["Speech transcript", "Retained speech", "Reported speech"].includes(event.label)
+    caption: event.lane === "said" || ["Speech transcript", "Retained speech", "Reported speech", "Sound observation"].includes(event.label)
       ? String(event.text || "").replace(/\s+/g, " ").trim().slice(0, 240) : "",
     retention: scope.scope, request_id: event.request_id,
     actor: event.actor, addressee: event.addressee, sourceHash: event.source_sha256,
