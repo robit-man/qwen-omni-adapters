@@ -7,13 +7,14 @@
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Recorded Omni runtime activity">
   <title>Runtime scope</title>
-  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=7">
-  <script src="/assets/reference-rf-observatory.js?v=9" defer></script>
+  <link rel="stylesheet" href="/assets/reference-rf-observatory.css?v=8">
+  <script src="/assets/reference-rf-observatory.js?v=10" defer></script>
 </head>
 <body>
   <main id="shell" aria-label="Omni activity scope" aria-busy="true" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
     <div class="stage">
       <canvas id="scope" width="910" height="1630" tabindex="0" aria-label="Recorded runtime events. Use the arrow keys to select a channel and Enter to inspect a source."></canvas>
+      <div id="scope-filters" role="group" aria-label="Plot filters"></div>
       <details id="scope-weights">
         <summary id="scope-weight-count" aria-label="Configured weight components">WEIGHTS --/--</summary>
         <dl id="scope-weight-list"></dl>
@@ -52,7 +53,7 @@
     <aside id="settings-panel" class="panel" hidden aria-label="Scope settings">
       <div class="panel-header"><h2>Scope settings</h2><button id="btn-close" aria-label="Close settings">×</button></div>
       <div class="row"><label for="window-control">Time window</label><select id="window-control"><option value="60">1 minute</option><option value="300" selected>5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option></select></div>
-      <div class="row"><label for="channel-control">Channel</label><select id="channel-control"><option value="all">All channels</option></select></div>
+      <div class="row"><label for="channel-control">Channel</label><select id="channel-control"><option value="all">All channels</option><option value="none">No channels</option><option value="multiple" disabled>Multiple channels</option></select></div>
       <div class="row"><label for="event-control">Recorded event</label><select id="event-control"><option value="">Select an event</option></select></div>
       <div class="panel-actions"><button id="btn-source" type="button" disabled>Source</button><button id="btn-export" type="button">Export events</button></div>
       <p id="sample-status" class="notice" role="status">Reading runtime activity.</p>

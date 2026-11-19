@@ -102,7 +102,11 @@ button{cursor:pointer}
   position:absolute;left:68.241758%;width:16.593407%;height:2.515337%;
   z-index:2;padding:0;border:0;background:transparent;color:transparent
 }
-.scope-rail-button:focus-visible,#packet-close:focus-visible,#packet-list:focus-visible,
+.scope-filter-button{
+  position:absolute;z-index:2;height:1.840491%;
+  padding:0;border:0;background:transparent;color:transparent
+}
+.scope-rail-button:focus-visible,.scope-filter-button:focus-visible,#packet-close:focus-visible,#packet-list:focus-visible,
 .scope-packet summary:focus-visible{outline:1px solid var(--hot);outline-offset:2px}
 #packet-history{
   --chip-height:calc(100dvh * 34 / 1630);

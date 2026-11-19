@@ -19,9 +19,25 @@ const CHANNELS = [
 ];
 const CHANNEL_Y = new Map(CHANNELS.map(([key, , y]) => [key, y]));
 const CHANNEL_NAMES = new Map(CHANNELS.map(([key, label]) => [key, label]));
+const CHANNEL_KEYS = [...CHANNEL_NAMES.keys()];
 const RESOURCE_STEP = 5;
 const RESOURCE_COLUMNS = 36;
 const RAIL = { tip: 621, left: 637, right: 740, height: 34, panelLeft: 842 };
+const FILTER_LAYOUT = (() => {
+  const left = VIEW.x + 13;
+  let x = left, y = VIEW.top + 14;
+  return ["all", "heard", "inference", "tools", "memory", "media", "said", "tasks", "voice", "input"].map(key => {
+    const label = key === "all" ? "ALL" : CHANNEL_NAMES.get(key);
+    const width = Math.ceil(label.length * 6 * 2.36) + 14;
+    if (x + width > VIEW.right - 13) {
+      x = left;
+      y += 38;
+    }
+    const result = { key, label, x, y, width };
+    x += width + 8;
+    return result;
+  });
+})();
 
 
 const TIME_MARKS = [70, 245, 366, 426, 576];
@@ -266,7 +282,8 @@ class Renderer {
     for(const [key,label,y] of CHANNELS){
       if (this.openChannel === key) continue;
       const current=events.filter(event=>event.channel===key);
-      const active=this.settings.channel===key||current.some(event=>this.sim.t-event.end<12);
+      const active=this.settings.channels.has(key) && (this.settings.channels.size < CHANNEL_KEYS.length
+        || current.some(event=>this.sim.t-event.end<12));
       const {tip:x1,left:x2,right:x3,height:h}=RAIL;
       p.line(576,y,x1,y,active?PAL.orange:PAL.faint,2,active?.95:.75);
       p.poly([[x1,y],[x2,y-h/2],[x3,y-h/2],[x3,y+h/2],[x2,y+h/2],[x1,y]],
@@ -278,7 +295,7 @@ class Renderer {
   }
   drawEvents(){const c=this.c,p=this.p;
     c.save();c.beginPath();c.rect(60,345,514,1105);c.clip();
-    const events=this.allEvents.filter(e=>this.sim.t-e.end<=this.settings.window && this.sim.t>=e.end && (this.settings.channel==='all'||e.channel===this.settings.channel));
+    const events=this.allEvents.filter(e=>this.sim.t-e.end<=this.settings.window && this.sim.t>=e.end && this.settings.channels.has(e.channel));
     // Trace beds first, with crowns generated in a second pass.
     for(const e of events){
       const ageStart=this.sim.t-e.start,ageEnd=e.end===null?0:this.sim.t-e.end;
@@ -344,7 +361,7 @@ class Renderer {
     this.calloutFrame = now;
     const step = reduceMotion.matches || this.sim.paused ? 1 : 1 - Math.exp(-elapsed / 125);
     const live=this.allEvents.filter(e=>this.sim.t>=e.end && this.sim.t-e.end<=this.settings.window
-      && (this.settings.channel==='all'||e.channel===this.settings.channel));
+      && this.settings.channels.has(e.channel));
     const rows=selectAnnotations(live,this.sim.t,{
       hold:this.settings.labelHold,maxExpanded:this.settings.maxCallouts,maxCompact:2
     });
@@ -413,23 +430,12 @@ class Renderer {
   }
   drawSettings(){
     const p=this.p;
-    const keys=['all','heard','inference','tools','memory','media','said','tasks','voice'];
-    const left = VIEW.x + 13;
-    let x = left, y = VIEW.top + 14;
-    for (const key of keys) {
-      const active = this.settings.channel === key;
-      const value = key === 'all' ? 'ALL' : CHANNEL_NAMES.get(key);
-      const w = Math.ceil(value.length * 6 * 2.36) + 14;
-      if (x + w > VIEW.right - 13) {
-        x = left;
-        y += 38;
-      }
+    for (const {key,label,x,y,width:w} of FILTER_LAYOUT) {
+      const active = key === "all" ? this.settings.channels.size === CHANNEL_KEYS.length : this.settings.channels.has(key);
       p.rect(x,y,w,30,active?PAL.primary:PAL.medium,.76);
       p.rect(x+3,y+3,w-6,24,active?PAL.subdued:PAL.ink,.94);
-      p.text(value,x+6,y+6,2.36);
+      p.text(label,x+6,y+6,2.36);
       p.line(x,y+28,x+w,y+28,PAL.primary,2,.75);
-      this.hits.push({x,y:y-3,w,h:34,type:'channel',value:key,label:value});
-      x += w + 8;
     }
     const readout=this.sim.resources;
     if(Number.isFinite(readout.ram))p.text('RAM '+Math.round(readout.ram)+'%',589,229,2.45);
@@ -491,7 +497,7 @@ class Renderer {
 
 const $ = id => document.getElementById(id);
 const settings = {
-  channel: "all", window: 300, shyness: 30, labelHold: 2.5, maxCallouts: 2,
+  channels: new Set(CHANNEL_KEYS), window: 300, shyness: 30, labelHold: 2.5, maxCallouts: 2,
   gain: 0, limiter: true, compressor: true, debug: false,
 };
 const feed = {
@@ -510,6 +516,7 @@ const stage = canvas.parentElement;
 const windowMenu = $("scope-window");
 const weightMenu = $("scope-weights");
 const railButtons = new Map();
+const filterButtons = new Map();
 const packets = new Map();
 const packetDisclosures = new WeakMap();
 let packetAnimations = [];
@@ -644,7 +651,7 @@ function animate() {
 
 function updateEventOptions() {
   const selected = renderer.selected || "";
-  const choices = renderer.allEvents.filter(event => settings.channel === "all" || event.channel === settings.channel);
+  const choices = renderer.allEvents.filter(event => settings.channels.has(event.channel));
   const list = $("event-control");
   list.replaceChildren(new Option("Select an event", ""), ...choices.map(event =>
     new Option(CHANNEL_NAMES.get(event.channel) + " · " + event.label, event.key)));
@@ -652,13 +659,34 @@ function updateEventOptions() {
   $("btn-source").disabled = !list.value;
 }
 
-function selectChannel(channel) {
-  settings.channel = channel;
-  renderer.selected = null;
-  $("channel-control").value = channel;
+function setChannels(channels) {
+  settings.channels = new Set(channels);
+  const size = settings.channels.size;
+  const first = settings.channels.values().next().value;
+  const all = size === CHANNEL_KEYS.length;
+  $("channel-control").value = all ? "all" : size === 0 ? "none" : size === 1 ? first : "multiple";
+  for (const [key, button] of filterButtons) {
+    button.setAttribute("aria-pressed", String(key === "all" ? all : settings.channels.has(key)));
+  }
+  if (renderer.selected && !renderer.allEvents.some(event =>
+    event.key === renderer.selected && settings.channels.has(event.channel))) renderer.selected = null;
   updateEventOptions();
   updateRail();
   draw();
+}
+
+function selectChannel(channel) {
+  setChannels(channel === "all" ? CHANNEL_KEYS : channel === "none" ? [] : [channel]);
+}
+
+function toggleChannel(key) {
+  if (key === "all") {
+    setChannels(settings.channels.size === CHANNEL_KEYS.length ? [] : CHANNEL_KEYS);
+    return;
+  }
+  const selected = new Set(settings.channels);
+  if (!selected.delete(key)) selected.add(key);
+  setChannels(selected);
 }
 
 function selectTimeWindow(seconds) {
@@ -734,7 +762,7 @@ function updateRail() {
     } else {
       button.removeAttribute("aria-controls");
       button.removeAttribute("aria-expanded");
-      button.setAttribute("aria-pressed", String(settings.channel === channel));
+      button.setAttribute("aria-pressed", String(settings.channels.size === 1 && settings.channels.has(channel)));
     }
   }
 }
@@ -1092,7 +1120,6 @@ function fullscreen() {
 canvas.addEventListener("pointerdown", event => {
   const { x, y } = point(event);
   const hit = renderer.getHit(x, y);
-  if (hit?.type === "channel") selectChannel(hit.value === settings.channel ? "all" : hit.value);
   if (hit?.type === "event") inspectEvent(hit.value);
   if (hit?.type === "pause") pause();
 });
@@ -1109,6 +1136,19 @@ canvas.addEventListener("pointermove", event => {
   }
 });
 canvas.addEventListener("pointerleave", () => { $("hover-label").classList.remove("visible"); });
+for (const {key,label,x,y,width} of FILTER_LAYOUT) {
+  const button = labelNode("button", label);
+  button.type = "button";
+  button.className = "scope-filter-button";
+  button.style.left = x / VIEW.width * 100 + "%";
+  button.style.top = y / VIEW.height * 100 + "%";
+  button.style.width = width / VIEW.width * 100 + "%";
+  button.setAttribute("aria-label", "Filter " + label);
+  button.setAttribute("aria-pressed", "true");
+  button.addEventListener("click", () => toggleChannel(key));
+  filterButtons.set(key, button);
+  $("scope-filters").append(button);
+}
 for (const [key, label, y] of CHANNELS) {
   $("channel-control").add(new Option(label, key));
   const button = document.createElement("button");
@@ -1118,7 +1158,7 @@ for (const [key, label, y] of CHANNELS) {
   button.textContent = label;
   button.setAttribute("aria-label", label);
   button.addEventListener("click", () => {
-    if (!canOpenPackets()) selectChannel(settings.channel === key ? "all" : key);
+    if (!canOpenPackets()) selectChannel(settings.channels.size === 1 && settings.channels.has(key) ? "all" : key);
     else if (renderer.openChannel === key) closePackets();
     else openPackets(key);
   });
@@ -1197,9 +1237,12 @@ document.addEventListener("keydown", event => {
   if (event.key === "Enter" && event.target === canvas && renderer.selected) inspectEvent(renderer.selected);
   if (["ArrowUp", "ArrowDown"].includes(event.key) && event.target === canvas) {
     event.preventDefault();
-    const index = CHANNELS.findIndex(([key]) => key === settings.channel);
+    const index = settings.channels.size === 1
+      ? CHANNEL_KEYS.indexOf(settings.channels.values().next().value) : -1;
     const step = event.key === "ArrowDown" ? 1 : -1;
-    selectChannel(CHANNELS[(index + step + CHANNELS.length) % CHANNELS.length][0]);
+    const next = index < 0 ? (step > 0 ? 0 : CHANNEL_KEYS.length - 1)
+      : (index + step + CHANNEL_KEYS.length) % CHANNEL_KEYS.length;
+    selectChannel(CHANNEL_KEYS[next]);
   }
 });
 document.addEventListener("visibilitychange", () => {

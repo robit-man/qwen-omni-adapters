@@ -46,7 +46,9 @@ When language and perception share a worker, its model is counted once.
 
 ## Controls
 
-The scope fills the page. Label-width type filters wrap inside the instrument.
+The scope fills the page. Label-width filters wrap inside the instrument and
+toggle independently. **ALL** enables all channels from a partial selection
+and clears the plot when every channel is already enabled.
 When a square or wider viewport has room for a readable history, the pointed
 right label travels outward along its connector, then unfolds into a box the
 size of the plot. The triangular collapse control stays at the connector
