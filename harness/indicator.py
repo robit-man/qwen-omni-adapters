@@ -426,7 +426,7 @@ def build_indicator(
                 self._tools_item.set_sensitive(False)
             menu.append(self._tools_item)
 
-            self._reasoning_item = Gtk.CheckMenuItem(label="Show reasoning (slower)")
+            self._reasoning_item = Gtk.CheckMenuItem(label="Always reason (slower)")
             self._reasoning_item.set_active(reasoning_enabled)
             if on_reasoning is not None:
                 self._reasoning_item.connect(

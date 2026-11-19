@@ -1001,6 +1001,9 @@ class OmniDaemon:
             tts = self._start_tts(common)
         comprehension_model, comprehension_projector = self._comprehension_artifacts()
         comprehension: Child | None = None
+        concurrent_background_requested = os.environ.get("OMNI_CONCURRENT_BACKGROUND_INFERENCE") == "1"
+        configured_slots = self.config.comprehension_parallel_slots
+        parallel_candidate = concurrent_background_requested and configured_slots > 1 and not is_tegra()
         if self.config.enable_comprehension:
             server_command = [
                 str(_binary(self.config.repo_root, "llama-server")),
@@ -1022,7 +1025,9 @@ class OmniDaemon:
                 "-ngl",
                 "99",
                 "-c",
-                "{context}" if is_tegra() else str(self.config.context_tokens),
+                "{context}" if is_tegra() else str(
+                    self.config.context_tokens * (configured_slots if parallel_candidate else 1)
+                ),
                 "--parallel",
                 (
                     "{parallel}"
@@ -1169,6 +1174,30 @@ class OmniDaemon:
             "OMNI_PORTAL_HOST": "127.0.0.1",
             "OMNI_PORTAL_PORT": str(self.config.portal_port),
         }
+        if concurrent_background_requested:
+            # Verify actual execution capacity, including the full context per
+            # slot. Increasing only portal admission still queues on llama.cpp.
+            verified_slots = 1
+            if parallel_candidate and comprehension is not None and language_url == (
+                f"http://127.0.0.1:{self.config.comprehension_port}/v1/chat/completions"
+            ):
+                try:
+                    response = httpx.get(
+                        f"http://127.0.0.1:{self.config.comprehension_port}/slots", timeout=5
+                    )
+                    response.raise_for_status()
+                    slots = response.json()
+                    if isinstance(slots, list) and len(slots) == configured_slots and all(
+                        isinstance(slot, dict) and type(slot.get("n_ctx")) is int
+                        and slot["n_ctx"] >= self.config.context_tokens for slot in slots
+                    ):
+                        verified_slots = configured_slots
+                except (httpx.HTTPError, ValueError):
+                    pass
+            portal_env["OMNI_PORTAL_INFERENCE_SLOTS"] = str(verified_slots)
+            portal_env["OMNI_CONCURRENT_BACKGROUND_INFERENCE"] = (
+                "1" if verified_slots > 1 else "0"
+            )
         portal = self._spawn(
             "portal",
             [python, str(self.config.repo_root / "portal" / "app.py")],

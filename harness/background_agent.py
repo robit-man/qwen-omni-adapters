@@ -5685,6 +5685,7 @@ class BackgroundAgent:
                 if response.status_code == 401 and attempt == 0 and self._refresh_token():
                     continue
                 response.raise_for_status()
+                shares_inference = response.headers.get("X-Omni-Concurrent-Background") == "1"
                 done = threading.Event()
 
                 def cancel() -> None:
@@ -5725,7 +5726,7 @@ class BackgroundAgent:
                 try:
                     final: dict[str, Any] | None = None
                     while True:
-                        if self.foreground_active.is_set():
+                        if not shares_inference and self.foreground_active.is_set():
                             response.close()
                             raise _ForegroundPreempted(
                                 "background inference yielded to foreground speech"
@@ -5774,7 +5775,7 @@ class BackgroundAgent:
                         raise RuntimeError("background inference stream ended without a final")
                     return final
                 except httpx.HTTPError as error:
-                    if self.foreground_active.is_set():
+                    if not shares_inference and self.foreground_active.is_set():
                         raise _ForegroundPreempted(
                             "background inference yielded to foreground speech"
                         ) from error

@@ -36,6 +36,7 @@ class VadConfig:
     start_confirm_ms: float = 200.0
     onset_gap_ms: float = 60.0
     silence_ms: float = 760.0
+    trailing_silence_ms: float = 200.0
     min_active_ms: float = 400.0
     room_release_ms: float = 1_600.0
     # The browser keeps ten 4096-sample frames at 48 kHz (about 853 ms). The
@@ -254,6 +255,14 @@ class Vad:
 
         accepted = self._active_ms >= config.min_active_ms
         utterance = self.take_checkpoint()
+        # Silence used to decide when to submit does not all need to go to ASR.
+        # Preserve a short tail for quiet final consonants and leave weak room
+        # sound intact when it was held open by the separate strong-speech timer.
+        trim = math.floor(
+            (now_ms - self._last_active_at - config.trailing_silence_ms) / frame_ms
+        )
+        if 0 < trim < len(utterance.chunks):
+            del utterance.chunks[-trim:]
         self.reset(now_ms)
         return VadResult(
             "utterance" if accepted else "rejected",

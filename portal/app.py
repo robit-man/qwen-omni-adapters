@@ -410,6 +410,7 @@ class PortalConfig:
     timeout_s: float = 1200
     max_body_bytes: int = 96 * 1024 * 1024
     inference_slots: int = 1
+    concurrent_background_inference: bool = False
     max_inflight_requests: int = 4
     session_log_dir: Path | None = None
     session_log_ttl_s: float = DIAGNOSTIC_TTL_SECONDS
@@ -471,6 +472,7 @@ class PortalConfig:
             timeout_s=float(os.environ.get("OMNI_PORTAL_TIMEOUT_S", "1200")),
             max_body_bytes=int(os.environ.get("OMNI_PORTAL_MAX_BODY_BYTES", str(96 * 1024 * 1024))),
             inference_slots=max(1, int(os.environ.get("OMNI_PORTAL_INFERENCE_SLOTS", "1"))),
+            concurrent_background_inference=os.environ.get("OMNI_CONCURRENT_BACKGROUND_INFERENCE") == "1",
             max_inflight_requests=max(
                 1, int(os.environ.get("OMNI_PORTAL_MAX_INFLIGHT_REQUESTS", "4"))
             ),
@@ -695,6 +697,7 @@ class _InferenceTicket:
     session_id: str
     released: bool = False
     background_cancel: threading.Event | None = None
+    durable_task: bool = False
 
 
 class _InferenceQueue:
@@ -704,6 +707,7 @@ class _InferenceQueue:
         self.slots = max(1, slots)
         self.max_inflight = max(self.slots, max_inflight)
         self._gate = threading.BoundedSemaphore(self.slots)
+        self._durable_tasks = threading.BoundedSemaphore(self.slots - 1) if self.slots > 1 else None
         self._lock = threading.Lock()
         self._changed = threading.Condition(self._lock)
         self._inflight = 0
@@ -749,6 +753,20 @@ class _InferenceQueue:
             self._background[id(ticket)] = cancellation
             return ticket
 
+    def acquire_durable_task(self, session_id: str, timeout_s: float) -> _InferenceTicket | None:
+        """Leave at least one execution slot for foreground work."""
+        if self._durable_tasks is None:
+            return self.acquire(session_id, timeout_s)
+        deadline = time.monotonic() + timeout_s
+        if not self._durable_tasks.acquire(timeout=timeout_s):
+            return None
+        ticket = self.acquire(session_id, max(0.0, deadline - time.monotonic()))
+        if ticket is None:
+            self._durable_tasks.release()
+        else:
+            ticket.durable_task = True
+        return ticket
+
     def _remove_inflight(self, session_id: str, background_id: int | None = None) -> None:
         with self._changed:
             if background_id is not None:
@@ -769,6 +787,8 @@ class _InferenceQueue:
             self._active -= 1
         self._gate.release()
         self._remove_inflight(ticket.session_id, id(ticket))
+        if ticket.durable_task and self._durable_tasks is not None:
+            self._durable_tasks.release()
 
     def snapshot(self) -> dict[str, int]:
         with self._lock:
@@ -4359,6 +4379,7 @@ def create_app(
             return jsonify({"error": "request body must be a JSON object"}), 400
         requested_checkpoint = payload.pop("portal_voice_checkpoint", False) is True
         requested_preface = payload.pop("portal_voice_preface", False) is True
+        requested_auto_reasoning = payload.pop("portal_voice_auto_reasoning", False) is True
         live_turn = (isinstance(payload.get("omni"), Mapping)
                      and payload["omni"].get("require_speech") is True)
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
@@ -4404,6 +4425,15 @@ def create_app(
         if payload.get("stream") is not True:
             return jsonify({"error": "stream endpoint requires stream=true"}), 400
         session_id = request_session_id()
+        voice_auto_reasoning = (
+            requested_auto_reasoning and live_turn and not internal_background
+            and "think" not in payload
+            and tool_harness.can_read_conversation_history(session_id)
+        )
+        if voice_auto_reasoning:
+            # Initial voice routing may select the short direct reply. Any
+            # subsequent tool round keeps the deliberative mode.
+            payload["think"] = True
         voice_preface_enabled = requested_preface and live_turn and tool_harness.can_read_conversation_history(session_id)
         if voice_preface_enabled and isinstance(payload.get("messages"), list):
             payload["messages"].insert(0, {
@@ -4533,7 +4563,12 @@ def create_app(
             return jsonify({"error": str(exc)}), 400
         queue_started = time.monotonic()
         tool_traces.begin(session_id, request_id)
-        ticket = inference_queue.acquire(session_id, runtime.timeout_s)
+        concurrent_task = (
+            internal_background and not auto_tools and runtime.concurrent_background_inference
+            and inference_queue.slots > 1
+        )
+        admit = inference_queue.acquire_durable_task if concurrent_task else inference_queue.acquire
+        ticket = admit(session_id, runtime.timeout_s)
         if ticket is None:
             tool_traces.finish(session_id, request_id)
             if continuation_enabled:
@@ -4591,7 +4626,8 @@ def create_app(
 
         try:
             upstream_request = session.build_request(
-                "POST", runtime.adapter_url.rstrip("/") + "/stream", json=payload
+                "POST", runtime.adapter_url.rstrip("/") + "/stream", json=payload,
+                headers={"X-Omni-Voice-Reasoning": "auto"} if voice_auto_reasoning else None,
             )
             upstream = session.send(upstream_request, stream=True)
             diagnostics.record(
@@ -5046,6 +5082,8 @@ def create_app(
         )
         if not continuation_enabled:
             response.call_on_close(lambda: tool_traces.finish(session_id, request_id))
+        if concurrent_task:
+            response.headers["X-Omni-Concurrent-Background"] = "1"
         return response
 
     return app

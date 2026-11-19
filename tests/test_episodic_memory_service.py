@@ -205,6 +205,23 @@ def test_incoming_person_closes_a_running_encoding_stream_and_receives_the_lane(
     queue.release(foreground)
 
 
+def test_durable_inference_reserves_a_foreground_slot():
+    queue = _InferenceQueue(2, 4)
+    task = queue.acquire_durable_task("task", 0)
+    assert task is not None
+    assert queue.acquire_durable_task("second task", 0) is None
+    voice = queue.acquire("voice", 0)
+    assert voice is not None
+    assert queue.snapshot()["active"] == 2
+    queue.release(voice)
+    queue.release(task)
+    queue.release(task)
+    assert queue.snapshot()["inflight"] == 0
+    another = queue.acquire_durable_task("second task", 0)
+    assert another is not None
+    queue.release(another)
+
+
 def test_capture_keeps_sensory_channels_and_authorities_separate(tmp_path):
     from portal.episodic_memory import MemoryCapture
     memory = service(tmp_path)

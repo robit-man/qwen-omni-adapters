@@ -124,6 +124,7 @@ class CallConfig:
     # a hidden chain of thought is a silence the other person has to sit through.
     tools_enabled: bool = True
     reasoning_enabled: bool = False
+    reasoning_auto: bool = False
     # The portal owns its tool loop: schemas ride on the spoken request and it
     # keeps executing safe calls until the model returns a final answer.
     camera_enabled: bool = True
@@ -606,11 +607,6 @@ class CallSession:
                 }
             ],
         }
-        if earlier_speech:
-            message["content"] += (
-                "\nEarlier transcript from this same spoken turn, in order: "
-                + json.dumps(earlier_speech, ensure_ascii=False)
-            )
         if frame:
             key = (
                 "videos"
@@ -625,6 +621,12 @@ class CallSession:
         # (failure notes, task summaries, array direction) were text about the
         # machinery that the model narrated instead of answering.
         system_content = LIVE_CALL_SYSTEM_PROMPT
+        history = self._history_for_prompt()
+        if earlier_speech:
+            history.append({
+                "role": "user",
+                "content": "Earlier words from my same ongoing turn:\n" + earlier_speech,
+            })
         payload = {
             "model": self.config.model,
             "messages": [
@@ -632,7 +634,7 @@ class CallSession:
                     "role": "system",
                     "content": system_content,
                 },
-                *self._history_for_prompt(),
+                *history,
                 message,
             ],
             "omni": {
@@ -678,6 +680,11 @@ class CallSession:
                 payload["portal_client_location"] = dict(client_location)
         if with_tools and self.config.portal_tool_allowlist is not None:
             payload["portal_tool_allowlist"] = list(self.config.portal_tool_allowlist)
+        if self.config.reasoning_auto and not self.config.reasoning_enabled and not earlier_speech:
+            payload.pop("think")
+            payload["portal_voice_auto_reasoning"] = True
+        elif self.config.reasoning_auto and earlier_speech:
+            payload["think"] = True
         return payload
 
     def _build_synthesis_payload(self, text: str) -> dict[str, Any]:

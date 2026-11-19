@@ -28,6 +28,21 @@ See [design, research and validation boundaries](research/graph-memory-and-plann
 
 ## Bounded virtual context
 
+Desktop voice chooses reply depth in the existing speech routing pass. Only a
+clear social reply that needs no reasoning, recall, or tools takes the brief
+path. `--reasoning`, `--no-reasoning`, and `OMNI_CALL_REASONING` explicitly
+select a mode. The tray's **Always reason** option overrides automatic routing.
+
+On a discrete-memory host using the managed shared llama.cpp language worker,
+`OMNI_CONCURRENT_BACKGROUND_INFERENCE=1` and `OMNI_COMPREHENSION_PARALLEL=2`
+opt in to simultaneous foreground and durable-task inference. The supervisor
+allocates a full context per slot and verifies the backend's actual slot
+capacities before opening the portal lanes. At least one portal slot stays
+available to foreground requests while a task is generating. Existing
+foreground checks on task actions and memory-pressure cancellation still apply.
+The larger KV allocation needs GPU headroom. Default and Tegra deployments keep
+the single-lane behavior.
+
 Compact audio-bridge profiles default to a 16,384-token physical context. The
 portal can maintain a larger lossless, session-isolated evidence corpus through
 `OMNI_VIRTUAL_CONTEXT_MODE`:

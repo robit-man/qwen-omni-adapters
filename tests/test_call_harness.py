@@ -407,7 +407,8 @@ def test_continued_turn_preserves_earlier_transcript_and_live_routing(monkeypatc
                                  transcript_audio=checkpoint)
         payload = seen[0]
         assert payload["omni"]["require_speech"] is True
-        assert "start with three" in payload["messages"][-1]["content"]
+        assert payload["messages"][-2]["role"] == "user"
+        assert "start with three" in payload["messages"][-2]["content"]
         assert payload["messages"][-1]["audios"]
         assert result.transcript == "start with three add one"
     finally:

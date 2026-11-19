@@ -22,7 +22,7 @@ import wave
 from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -522,6 +522,7 @@ class _LiveTurnRoute:
     addressee: str = "AMBIGUOUS"
     tool_family: str = "none"
     speech_valid: bool = True
+    brief_reply: bool = False
 
     @property
     def tool_names(self) -> tuple[str, ...] | None:
@@ -537,7 +538,7 @@ class _LiveTurnRoute:
         return names or None
 
 
-def _live_addressee_messages(transcript: str) -> list[dict[str, str]]:
+def _live_addressee_messages(transcript: str, *, choose_reply_depth: bool = False) -> list[dict[str, str]]:
     """Build a bounded semantic turn-routing prompt from runtime identity."""
 
     agent_name = runtime_agent_name()
@@ -560,6 +561,19 @@ def _live_addressee_messages(transcript: str) -> list[dict[str, str]]:
                 {"role": "assistant", "content": disposition},
             )
         )
+    if choose_reply_depth:
+        messages[0]["content"] += (
+            " For a greeting, social nicety, or casual check-in requiring no "
+            "recall, deduction, explanation, or action, append |BRIEF to the "
+            "ADDRESSEE|NONE result. For arithmetic, questions of fact, any "
+            "request for an action, and uncertain cases keep the usual result."
+        )
+        messages.extend([
+            {"role": "user", "content": "Good morning, how are you doing?"},
+            {"role": "assistant", "content": "AMBIGUOUS|NONE|BRIEF"},
+            {"role": "user", "content": "Hey, what's two plus four?"},
+            {"role": "assistant", "content": "AMBIGUOUS|NONE"},
+        ])
     messages.append({"role": "user", "content": transcript})
     return messages
 
@@ -574,10 +588,13 @@ def _parse_live_turn_route(value: object) -> _LiveTurnRoute:
     addressee = addressee_text.strip().upper()
     if addressee not in _LIVE_ADDRESSEE_VALUES:
         addressee = "AMBIGUOUS"
-    family = family_text.strip().casefold() if separator else "none"
+    raw_family, _, depth = family_text.partition("|")
+    family = raw_family.strip().casefold() if separator else "none"
     if family not in _LIVE_TOOL_FAMILY_VALUES:
         family = "none"
-    return _LiveTurnRoute(addressee=addressee, tool_family=family)
+    brief = (addressee_text.strip().upper() in {"SELF", "AMBIGUOUS"}
+             and raw_family.strip().casefold() == "none" and depth.strip() == "BRIEF")
+    return _LiveTurnRoute(addressee=addressee, tool_family=family, brief_reply=brief)
 
 
 def _classify_live_turn(
@@ -585,6 +602,8 @@ def _classify_live_turn(
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
+    *,
+    choose_reply_depth: bool = False,
 ) -> _LiveTurnRoute | None:
     """Resolve live ownership and one semantic tool family in the existing gate.
 
@@ -595,7 +614,7 @@ def _classify_live_turn(
 
     if not config.live_addressee_gate:
         return None
-    messages = _live_addressee_messages(transcript)
+    messages = _live_addressee_messages(transcript, choose_reply_depth=choose_reply_depth)
     if config.language_api == "openai":
         payload: dict[str, Any] = {
             "model": config.language_model or parsed.model,
@@ -649,6 +668,8 @@ def _validated_live_observation(
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
+    *,
+    choose_reply_depth: bool = False,
 ) -> tuple[str | None, _LiveTurnRoute | None]:
     """Validate ASR before publishing it as user speech or routing a reply.
 
@@ -660,7 +681,7 @@ def _validated_live_observation(
 
     transcript = _observation_transcript(observation)
     route = (
-        _classify_live_turn(transcript, parsed, config, client)
+        _classify_live_turn(transcript, parsed, config, client, choose_reply_depth=choose_reply_depth)
         if _is_live_spoken_turn(parsed) and transcript
         else None
     )
@@ -2565,6 +2586,8 @@ def execute_stream(
         [ParsedAdapterRequest, str | None], tuple[str, ...] | None
     ]
     | None = None,
+    *,
+    choose_reply_depth: bool = False,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
 
@@ -2583,7 +2606,12 @@ def execute_stream(
         yield _stream_event("stage", stage="comprehension")
         observation = _comprehend(parsed, config, client)
         executed.append("comprehension")
-        observation, live_route = _validated_live_observation(observation, parsed, config, client)
+        auto_depth = choose_reply_depth and parsed.input_modalities == ("text", "audio")
+        observation, live_route = _validated_live_observation(
+            observation, parsed, config, client, choose_reply_depth=auto_depth,
+        )
+        if auto_depth and live_route is not None and live_route.brief_reply:
+            parsed = replace(parsed, passthrough={**parsed.passthrough, "think": False})
         transcript = _observation_transcript(observation)
         values: dict[str, Any] = {"content": observation,
             "evidence_provenance": {
@@ -3055,6 +3083,7 @@ def create_app(
             normalized = dict(body)
             normalized["stream"] = False
             parsed = parse_adapter_request(normalized)
+            choose_reply_depth = request.headers.get("X-Omni-Voice-Reasoning") == "auto"
         except OmniAdapterError as exc:
             return jsonify({"error": str(exc), "schema": ADAPTER_SCHEMA}), 400
 
@@ -3065,6 +3094,7 @@ def create_app(
                     runtime_config,
                     session,
                     decision_observer=observe_input_routing,
+                    choose_reply_depth=choose_reply_depth,
                 )
             except (AdapterStageError, httpx.HTTPError) as exc:
                 yield _stream_event("error", error=str(exc), schema=ADAPTER_SCHEMA)

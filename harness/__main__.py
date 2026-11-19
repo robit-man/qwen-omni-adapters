@@ -265,8 +265,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--reasoning",
         action=argparse.BooleanOptionalAction,
-        default=os.environ.get("OMNI_CALL_REASONING", "1") != "0",
-        help="reason before answering, as the browser client does (default on)",
+        default=None,
+        help="force reasoning on or off (default: choose per spoken turn)",
     )
     parser.add_argument("--no-indicator", action="store_true")
     parser.add_argument(
@@ -406,7 +406,11 @@ def main(argv: list[str] | None = None) -> int:
         input_channels=max(1, channels),
         input_channel=max(0, channel),
         tools_enabled=not args.no_tools,
-        reasoning_enabled=bool(args.reasoning),
+        reasoning_enabled=(
+            args.reasoning if args.reasoning is not None
+            else os.environ.get("OMNI_CALL_REASONING", "0") != "0"
+        ),
+        reasoning_auto=args.reasoning is None and "OMNI_CALL_REASONING" not in os.environ,
         camera_enabled=camera_on,
         camera_device=args.camera_device,
         # The daemon mints a fresh token every time it starts, so the harness

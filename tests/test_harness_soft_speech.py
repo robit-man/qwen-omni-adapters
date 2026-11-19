@@ -106,3 +106,12 @@ def test_a_soft_onset_that_dips_before_confirmation_is_kept():
     levels = [round(float(chunk[0]), 3) for chunk in utterance.chunks]
     first_loud = levels.index(0.04)
     assert levels[first_loud: first_loud + 6] == [0.04] * 6
+
+
+def test_endpoint_hold_does_not_send_all_its_silence_to_recognition():
+    config = VadConfig()
+    utterance = _run(Vad(config), _frames([(0.003, 2000), (0.05, 600), (0.003, 1000)]))
+    assert utterance is not None
+    levels = [round(float(chunk[0]), 3) for chunk in utterance.chunks]
+    last_loud = len(levels) - 1 - levels[::-1].index(0.05)
+    assert len(levels) - last_loud - 1 == config.trailing_silence_ms / 20

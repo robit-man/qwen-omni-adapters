@@ -1780,6 +1780,43 @@ def test_live_model_may_observe_addressed_elsewhere_speech_without_tts() -> None
     assert final["adapter"]["tts_skipped_reason"] == "speech_addressed_elsewhere"
 
 
+@pytest.mark.parametrize(("route", "automatic", "thinking"), [
+    ("AMBIGUOUS|NONE|BRIEF", True, False),
+    ("AMBIGUOUS|NONE|BRIEF", False, True),
+    ("AMBIGUOUS|NONE", True, True),
+    ("SELF|SYSTEM|BRIEF", True, True),
+    ("UNKNOWN|NONE|BRIEF", True, True),
+])
+def test_auto_voice_depth_requires_a_valid_brief_route(route, automatic, thinking):
+    language = []
+
+    def handler(request):
+        if request.url.host == "comprehension":
+            return httpx.Response(200, json={"text": "<speech_transcript>Good morning.</speech_transcript>"})
+        body = json.loads(request.content)
+        if not body["stream"]:
+            return httpx.Response(200, json={"message": {"content": route}})
+        language.append(body)
+        return httpx.Response(200, content=b'{"message":{"content":"Morning."},"done":true}\n')
+
+    parsed = parse_adapter_request(_base_request(
+        messages=[
+            {"role": "user", "content": "Earlier words from my same ongoing turn: keep these words."},
+            {"role": "user", "content": "Audio is attached.", "audios": [{"data": _encoded(_wav(16000))}]},
+        ],
+        omni={"task": "chat", "require_speech": True},
+        think=True,
+    ))
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        events = list(execute_stream(
+            parsed, _adapter_config(live_addressee_gate=True), client, choose_reply_depth=automatic,
+        ))
+    assert language[0]["think"] is thinking
+    assert language[0]["messages"][-2]["content"].endswith("keep these words.")
+    assert language[0]["messages"][-1]["content"] == "Good morning."
+    assert b'"type":"final"' in events[-1]
+
+
 def test_live_model_control_may_silence_ambiguous_room_speech() -> None:
     requested_hosts: list[str] = []
 
