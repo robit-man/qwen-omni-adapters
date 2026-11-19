@@ -185,15 +185,19 @@ def stalled_http_stream(mode):
 
 
 @pytest.mark.parametrize("mode", ["stall", "trickle", "headers"])
-def test_wall_deadline_interrupts_real_socket_and_preserves_partial_evidence(tmp_path, mode):
+def test_wall_deadline_interrupts_real_socket_and_preserves_partial_evidence(tmp_path, monkeypatch, mode):
     journal = tmp_path / "events.jsonl"
-    started = time.monotonic()
-    with stalled_http_stream(mode) as (endpoint, disconnected, requests), httpx.Client(timeout=.01, trust_env=False) as client:
+    raw = signal_wav()
+    # Audio conversion has its own test and runs before the transport deadline.
+    normalized = asr_wav(raw)
+    monkeypatch.setattr("runtime.computer_use_speech.asr_wav", lambda _raw: normalized)
+    with httpx.Client(timeout=.01, trust_env=False) as client, stalled_http_stream(mode) as (endpoint, disconnected, requests):
+        started = time.monotonic()
         with pytest.raises(TimeoutError, match="bounded live window"):
-            audio_turn(client, endpoint, "test-omni", signal_wav(), max_seconds=.2, evidence_path=journal)
+            audio_turn(client, endpoint, "test-omni", raw, max_seconds=.2, evidence_path=journal)
+        assert time.monotonic() - started < 1.5
         assert disconnected.wait(.5)
         assert requests == [1]
-    assert time.monotonic() - started < 1.5
     events = [json.loads(line) for line in journal.read_text().splitlines()]
     assert events[-1]["error"] == "speech_action_deadline_exceeded"
     assert events[-1]["source"] == "acceptance_transport"
