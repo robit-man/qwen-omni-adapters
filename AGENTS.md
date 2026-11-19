@@ -16,6 +16,13 @@ Do not restart or stop an existing deployment unless the user asked for it.
 `portal/start.sh --status` is read-only. A new checkout uses its own
 `runtime-data` directory and ports may conflict with an already running copy.
 
+## Publishing completed features
+
+After implementing a feature and passing the required validation, commit the
+changes and push them to `origin/main` as part of completing the task. This is
+standing authorization for the push. Verify the remote commit and report its
+hash. Managed installations may redeploy automatically when main moves.
+
 ## Iteration discipline
 
 Prevent over-iteration. Before editing, state one concrete failing acceptance

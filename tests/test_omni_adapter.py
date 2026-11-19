@@ -1087,6 +1087,103 @@ def test_comprehension_payload_tags_video_for_qwen_style_server(monkeypatch) -> 
     assert payload["max_tokens"] == 2048
 
 
+def test_media_detail_reinspects_current_audio_without_replacing_transcript() -> None:
+    from runtime import adapter_server
+
+    seen = []
+    def backend(request):
+        payload = json.loads(request.content)
+        seen.append(payload)
+        assert payload["cache_prompt"] is False
+        if len(seen) == 1:
+            return httpx.Response(200, json={"text":
+                "<speech_transcript>Original words.</speech_transcript><audio_observation>Music plays.</audio_observation>"})
+        assert len(payload["messages"]) == 2
+        media, directive = payload["messages"][1]["content"]
+        assert media == seen[0]["messages"][-1]["content"][0]
+        assert "Music plays." in directive["text"]
+        assert "Original words." not in directive["text"]
+        assert "distinct voices" in directive["text"]
+        return httpx.Response(200, json={"text":
+            "<speech_transcript>Invented words.</speech_transcript>"
+            "<audio_observation>Two distinguishable voices overlap over a steady piano rhythm.</audio_observation>"
+            "<visual_observation>Invented view.</visual_observation>"})
+
+    parsed = parse_adapter_request(_base_request(
+        messages=[{"role": "user", "content": "Transcribe this and listen closely.",
+                   "audios": [{"data": _encoded(_wav(16000))}]}],
+        omni={"task": "transcribe"},
+    ))
+    with httpx.Client(transport=httpx.MockTransport(backend)) as client:
+        result = adapter_server._comprehend(
+            parsed, Config("http://comp", "omni", "http://ollama", "http://tts", 30,
+                           detailed_media_analysis=True), client,
+        )
+    assert len(seen) == 2
+    assert adapter_server._observation_transcript(result) == "Original words."
+    assert "Two distinguishable voices" in (adapter_server._observation_audio(result) or "")
+    assert adapter_server._observation_visual(result) is None
+
+
+def test_trained_audio_bridge_retains_its_released_prompt_by_default() -> None:
+    from runtime import adapter_server
+
+    calls = []
+    def backend(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(200, json={"text": "<speech_transcript>Keep this.</speech_transcript>"})
+
+    parsed = parse_adapter_request(_base_request(
+        messages=[{"role": "user", "content": "", "audios": [{"data": _encoded(_wav(16000))}]}],
+        omni={"task": "transcribe"},
+    ))
+    with httpx.Client(transport=httpx.MockTransport(backend)) as client:
+        result = adapter_server._comprehend(
+            parsed, Config("http://comp", "omni", "http://ollama", "http://tts", 30,
+                           detailed_media_analysis=True, comprehension_disable_thinking=True), client,
+        )
+    assert result == "<speech_transcript>Keep this.</speech_transcript>"
+    assert len(calls) == 1
+    assert calls[0]["messages"][0]["content"] == adapter_server.TRAINED_AUDIO_SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_media_detail_reinspects_visual_video_and_handles_unavailable_followup(monkeypatch, unavailable) -> None:
+    from runtime import adapter_server
+
+    monkeypatch.setattr(adapter_server, "_video_is_pipe_readable", lambda _data: True)
+    seen = []
+    def backend(request):
+        payload = json.loads(request.content)
+        seen.append(payload)
+        assert payload["cache_prompt"] is False
+        if len(seen) == 1:
+            return httpx.Response(200, json={"text": "<visual_observation>A person moves.</visual_observation>"})
+        media, directive = payload["messages"][1]["content"]
+        assert media == seen[0]["messages"][-1]["content"][0]
+        assert "legible text" in directive["text"]
+        if unavailable:
+            return httpx.Response(503)
+        return httpx.Response(200, json={"text":
+            "<visual_observation>A blue tag becomes visible after the person turns.</visual_observation>"
+            "<audio_observation>Invented sound.</audio_observation>"})
+
+    parsed = parse_adapter_request(_base_request(
+        messages=[{"role": "user", "content": "Describe.", "videos": [{"mime_type":
+                   "video/mp4", "data": _encoded(_mp4())}]}],
+        omni={"task": "describe", "include_audio_from_video": False},
+    ))
+    with httpx.Client(transport=httpx.MockTransport(backend)) as client:
+        result = adapter_server._comprehend(
+            parsed, Config("http://comp", "omni", "http://ollama", "http://tts", 30,
+                           detailed_media_analysis=True), client,
+        )
+    assert len(seen) == 2
+    assert ("blue tag" in result) is not unavailable
+    assert "<visual_observation>A person moves." in result
+    assert adapter_server._observation_audio(result) is None
+
+
 def test_chat_comprehension_payload_forbids_conversational_media_reply() -> None:
     parsed = parse_adapter_request(
         _base_request(

@@ -2031,17 +2031,20 @@ def test_observatory_page_is_read_only_token_free_and_no_store() -> None:
     assert b"Agent Observatory" in response.data
     assert b">EGG<" not in response.data
     assert b'id="context-graph"' not in response.data
-    assert response.data.count(b'role="tab"') == 5
+    assert response.data.count(b'role="tab"') == 4
     assert b'id="view-tools"' in response.data
-    assert response.data.count(b'role="tabpanel"') == 5
+    assert response.data.count(b'role="tabpanel"') == 4
+    assert b'id="tab-events"' not in response.data
+    assert b'id="view-events"' not in response.data
+    states = response.data.split(b'id="view-states"', 1)[1].split(b'id="view-tools"', 1)[0]
+    assert b'id="state-flow"' in states
+    assert b'id="event-raster"' in states
+    assert b'id="timeline-list"' in states
     assert b'aria-label="Runtime review"' in response.data
-    assert b'id="timeline-list"' in response.data
     assert b'id="memory-node-records"' in response.data
     assert b'id="memory-graph"' in response.data
     assert b'id="work-current"' in response.data
     assert b'id="component-network"' in response.data
-    assert b'id="event-raster"' in response.data
-    assert b'id="state-flow"' in response.data
     assert b'id="memory-plot"' not in response.data
     assert b'id="time"' not in response.data
     assert b"Retained experience" not in response.data

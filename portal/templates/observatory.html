@@ -10,7 +10,7 @@
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/VT323-Regular.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="stylesheet" href="/assets/observatory.css?v=20261117-signals">
+  <link rel="stylesheet" href="/assets/observatory.css?v=20261118-states">
 </head>
 <body class="observatory-page lcd-render-fallback" data-model="{{ model }}" data-session-scope="{{ session_scope }}">
   <a class="skip-link" href="#review">Skip to runtime review</a>
@@ -32,7 +32,6 @@
     <nav class="observatory-navigation" aria-label="Observatory views">
             <div class="review-tabs" role="tablist" aria-label="Runtime review">
               <button class="chip" id="tab-weights" type="button" role="tab" data-tab="weights" aria-selected="true" aria-controls="view-weights">Active weights</button>
-              <button class="chip" id="tab-events" type="button" role="tab" data-tab="events" aria-selected="false" aria-controls="view-events" tabindex="-1">Inference events</button>
               <button class="chip" id="tab-states" type="button" role="tab" data-tab="states" aria-selected="false" aria-controls="view-states" tabindex="-1">States</button>
               <button class="chip" id="tab-tools" type="button" role="tab" data-tab="tools" aria-selected="false" aria-controls="view-tools" tabindex="-1">Tools</button>
               <button class="chip" id="tab-memory" type="button" role="tab" data-tab="memory" aria-selected="false" aria-controls="view-memory" tabindex="-1">Memory</button>
@@ -75,29 +74,42 @@
         </div></details>
       </section>
 
-      <section id="view-events" class="review-view" role="tabpanel" aria-labelledby="tab-events" tabindex="0" hidden>
-        <header class="section-heading"><h2>Inference events</h2><p id="timeline-meta">Retained request &amp; tool events</p></header>
-        <div class="visualization events-visual">
-          <div class="event-overview"><div class="frame activity-frame"><span class="corner l lit">CURRENT ACTIVITY</span><strong class="activity-value d14 lit" id="activity-label">READING</strong><span id="activity-source" class="muted">Awaiting runtime observation</span></div><dl class="signal-totals" id="signal-totals"></dl></div>
-          <div class="raster-toolbar"><span>Observed activity</span><div role="group" aria-label="Live timeline window"><button class="chip" data-window="60" aria-pressed="true" type="button">1 min</button><button class="chip" data-window="300" aria-pressed="false" type="button">5 min</button><button class="chip" data-window="900" aria-pressed="false" type="button">15 min</button></div></div>
-          <div class="event-raster" id="event-raster" aria-label="Live activity by signal"></div>
-          <p id="raster-selection" class="scope-note" role="status">Select an event to inspect its source.</p>
-        </div>
-        <details class="review-details"><summary>Event records & filters</summary><div class="detail-scroll">
-        <div class="event-controls">
-          <div class="range-control" role="group" aria-label="Event time range"><button class="chip" type="button" data-range="today" aria-pressed="true">Today</button><button class="chip" type="button" data-range="7d" aria-pressed="false">7 days</button><button class="chip" type="button" data-range="retained" aria-pressed="false">Retained</button></div>
-          <div class="filter-control" role="group" aria-label="Event type"><button class="chip" type="button" data-filter="all" aria-pressed="true">All events</button><button class="chip" type="button" data-filter="hearing" aria-pressed="false">Heard speech</button><button class="chip" type="button" data-filter="llm" aria-pressed="false">LLM</button><button class="chip" type="button" data-filter="speaking" aria-pressed="false">Speaking</button><button class="chip" type="button" data-filter="vision" aria-pressed="false">Vision</button><button class="chip" type="button" data-filter="tools" aria-pressed="false">Tools</button></div>
-        </div>
-        <ol class="timeline-list" id="timeline-list"></ol>
-        <p class="panel-empty" id="timeline-empty" hidden>No inference events in this range. Try Retained to review older events.</p>
-        <button class="chip load-more" id="timeline-more" type="button" hidden>Show more events</button>
-        <p class="scope-note">Content-redacted diagnostics · newest first · times use the local UTC offset above. Retained events are a bounded sample.</p>
-        </div></details>
-      </section>
-
       <section id="view-states" class="review-view" role="tabpanel" aria-labelledby="tab-states" tabindex="0" hidden>
-        <header class="section-heading"><h2>States</h2><p>Runtime, voice loop &amp; work ledger</p></header>
-        <div class="visualization states-visual"><div class="state-flow" id="state-flow" aria-label="Voice loop states"></div><section class="state-signals" aria-labelledby="state-signals-heading"><header class="signal-heading"><div><h3 id="state-signals-heading">Heard · done · said</h3><p class="scope-note" id="state-signal-scope">Reading source events…</p></div><div role="group" aria-label="Conversation signal window"><button class="chip" type="button" data-signal-window="60" aria-pressed="false">1 min</button><button class="chip" type="button" data-signal-window="300" aria-pressed="true">5 min</button><button class="chip" type="button" data-signal-window="900" aria-pressed="false">15 min</button></div></header><div id="state-signal-lanes"></div><p class="scope-note">Timestamped source text · tool returns do not establish task completion · generated audio does not prove physical playback.</p></section><div class="state-meter-grid" id="state-meters"></div><div class="state-history" id="state-history" aria-label="Observed state transitions"></div></div>
+        <header class="section-heading"><h2>States</h2></header>
+        <div class="visualization states-visual">
+          <div class="state-flow" id="state-flow" aria-label="Voice loop states"></div>
+          <section class="state-signals" aria-labelledby="state-signals-heading">
+            <header class="signal-heading">
+              <div><h3 id="state-signals-heading">Conversation timeline</h3><p class="scope-note" id="state-signal-scope">Reading source events…</p></div>
+              <div role="group" aria-label="Time window for both timelines">
+                <button class="chip" type="button" data-window="60" aria-pressed="false">1 min</button>
+                <button class="chip" type="button" data-window="300" aria-pressed="true">5 min</button>
+                <button class="chip" type="button" data-window="900" aria-pressed="false">15 min</button>
+              </div>
+            </header>
+            <div id="state-signal-lanes"></div>
+            <p class="scope-note">Timestamped source text · tool returns do not establish task completion · generated audio does not prove physical playback.</p>
+          </section>
+          <div class="state-meter-grid" id="state-meters"></div>
+          <section class="state-inference" aria-labelledby="state-inference-heading">
+            <header class="signal-heading"><div><h3 id="state-inference-heading">Inference events</h3><p class="scope-note">Content-redacted runtime diagnostics</p></div></header>
+            <div id="event-raster" aria-label="Live activity by signal"></div>
+            <p id="raster-selection" class="scope-note" role="status">Select an event to inspect its source.</p>
+            <details class="review-details">
+              <summary>Event records &amp; filters <span id="timeline-meta" class="muted"></span></summary>
+              <div class="event-records">
+                <div class="event-controls">
+                  <div class="range-control" role="group" aria-label="Event time range"><button class="chip" type="button" data-range="today" aria-pressed="true">Today</button><button class="chip" type="button" data-range="7d" aria-pressed="false">7 days</button><button class="chip" type="button" data-range="retained" aria-pressed="false">Retained</button></div>
+                  <div class="filter-control" role="group" aria-label="Event type"><button class="chip" type="button" data-filter="all" aria-pressed="true">All events</button><button class="chip" type="button" data-filter="hearing" aria-pressed="false">Heard speech</button><button class="chip" type="button" data-filter="llm" aria-pressed="false">LLM</button><button class="chip" type="button" data-filter="speaking" aria-pressed="false">Speaking</button><button class="chip" type="button" data-filter="vision" aria-pressed="false">Vision</button><button class="chip" type="button" data-filter="tools" aria-pressed="false">Tools</button></div>
+                </div>
+                <ol class="timeline-list" id="timeline-list"></ol>
+                <p class="panel-empty" id="timeline-empty" hidden>No inference events in this range. Try Retained to review older events.</p>
+                <button class="chip load-more" id="timeline-more" type="button" hidden>Show more events</button>
+                <p class="scope-note">Newest first · local time · retained events are a bounded sample.</p>
+              </div>
+            </details>
+          </section>
+        </div>
         <details class="review-details"><summary>State details & work ledger</summary><div class="detail-scroll">
         <dl class="facts state-facts" id="live-readout"></dl>
         <h3 class="subheading">Current work</h3><div id="work-current"></div>
@@ -146,12 +158,12 @@
     <footer class="observatory-footer"><span>RETAINED EVIDENCE</span><div><button class="text-button open-chat" type="button" aria-controls="observatory-chat" aria-expanded="false">Open chat</button><a id="chat-link" href="/">Chat in new tab</a></div></footer>
   </main>
   <p class="sr-only" id="observatory-announcer" aria-live="polite"></p>
-  <script src="/assets/state-signals.js?v=20261117" defer></script>
+  <script src="/assets/state-signals.js?v=20261118-states" defer></script>
   <script src="/assets/tool-activity.js?v=20261117-details" defer></script>
   <script src="/assets/task-plan.js?v=20261117" defer></script>
   <script src="/assets/mcp-connections.js?v=20261117" defer></script>
   <script src="/assets/memory-graph.js?v=20261117-behaviors" defer></script>
-  <script src="/assets/observatory.js?v=20261117-signals" defer></script>
+  <script src="/assets/observatory.js?v=20261118-states" defer></script>
   <script src="/assets/lcd-surface.js?v=20261116-glass" defer></script>
 </body>
 </html>

@@ -228,7 +228,8 @@ def test_restore_is_own_scope_historical_and_idempotent_and_excludes_current_epi
     memory.close()
 
 
-def test_portal_captures_actual_text_and_stream_observations_and_trash(tmp_path, monkeypatch):
+@pytest.mark.parametrize("detached", [False, True])
+def test_portal_captures_actual_text_and_stream_observations_and_trash(tmp_path, monkeypatch, detached):
     from portal.app import PortalConfig, create_app
     memory = service(tmp_path / "graph")
     monkeypatch.setattr("portal.app.create_memory_service", lambda *_a, **_kw: memory)
@@ -238,6 +239,7 @@ def test_portal_captures_actual_text_and_stream_observations_and_trash(tmp_path,
             return httpx.Response(200, content=(
                 '{"type":"observation","transcript":"I heard a bell","audio_observation":"A bell rang",'
                 '"evidence_provenance":{"current_media_modalities":["audio"],"current_visual_input":false}}\n'
+                '{"type":"stage","stage":"language"}\n'
                 '{"type":"final","response":{"message":{"role":"assistant","content":"Understood"},"adapter":{}}}\n'))
         return httpx.Response(200, json={"message": {"role": "assistant", "content": "I remember", "thinking": "HIDDENTHOUGHT"}, "adapter": {}})
     app = create_app(PortalConfig(adapter_url="http://adapter/api/chat", adapter_health_url="http://adapter/healthz",
@@ -253,9 +255,17 @@ def test_portal_captures_actual_text_and_stream_observations_and_trash(tmp_path,
         "stream": False, "response_modalities": ["text"], "speech_mode": "never"}
     assert client.post("/api/chat", json=body, headers=headers).status_code == 200
     body.update(stream=True, portal_user_text="")
+    if detached:
+        body.update(portal_detached_turn=True, portal_turn_id="retained-test-turn")
     result = client.post("/api/chat/stream", json=body, headers=headers)
     assert result.status_code == 200
     assert b'"type":"final"' in result.data
+    runtime_id = result.headers["X-Omni-Request-ID"]
+    dashboard = client.get("/api/observatory?activity=1", headers=headers).json
+    assert any(event["event"] == "inference_stage" and event["request_id"] == runtime_id
+               for event in dashboard["timeline"])
+    assert {item["label"] for item in dashboard["activity_sources"]["sources"]
+            if item["request_id"] == runtime_id} == {"Reply text", "Sound observation", "Speech transcript"}
     view = memory.snapshot("browser-session-one")["session"]
     assert view["modalities"]["speech"] == view["modalities"]["sound"] == 1
     assert "The amber box is mine" in json.dumps(view)

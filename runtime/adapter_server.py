@@ -90,6 +90,8 @@ class Config:
     # is known to degenerate, so this stays opt-in per deployment profile.
     comprehension_disable_thinking: bool = False
     comprehension_repeat_penalty: float = 1.0
+    detailed_media_analysis: bool = False
+    detailed_audio_analysis: bool | None = None
     tts_stream_frames: int = 8
     spoken_max_sentences: int = 2
     spoken_max_tts_blocks: int = 4
@@ -147,6 +149,11 @@ class Config:
             ),
             comprehension_repeat_penalty=float(
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
+            ),
+            detailed_media_analysis=os.environ.get("OMNI_DETAILED_MEDIA_ANALYSIS", "1") == "1",
+            detailed_audio_analysis=(
+                os.environ["OMNI_DETAILED_AUDIO_ANALYSIS"] == "1"
+                if "OMNI_DETAILED_AUDIO_ANALYSIS" in os.environ else None
             ),
             tts_stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
             spoken_max_sentences=int(
@@ -446,6 +453,7 @@ def _is_empty_audio_meta(value: str) -> bool:
             "no sound content is available",
             "no audio input was provided",
             "no audio file was provided",
+            "cannot actually perceive or analyze the audio content",
         )
     )
 
@@ -1645,6 +1653,67 @@ def _require_comprehension(config: Config) -> None:
         )
 
 
+def _refine_media_observation(
+    observation: str, payload: Mapping[str, Any], config: Config, client: httpx.Client
+) -> str:
+    # Reuse the prepared parts from the newest media message in this request.
+    # Neither the transcript nor prior dialogue is part of this pass.
+    media_types = {"input_audio", "image_url", "input_video"}
+    media: list[dict[str, Any]] = []
+    for message in reversed(payload["messages"][1:]):
+        media = [part for part in message["content"] if part.get("type") in media_types]
+        if media:
+            break
+    if not media:
+        return observation
+    kinds = {part["type"] for part in media}
+    audio_enabled = config.detailed_audio_analysis
+    if audio_enabled is None:
+        # The trained bridge's released audio prompt is optimized for ASR.
+        # Its specialized follow-up miscounted voices in a two-voice fixture.
+        audio_enabled = not config.comprehension_disable_thinking
+    audio = "input_audio" in kinds and audio_enabled
+    visual = bool(kinds & {"image_url", "input_video"})
+    if not audio:
+        media = [part for part in media if part["type"] != "input_audio"]
+    if not media:
+        return observation
+    prompts = [
+        context_text("directives", name)
+        for enabled, name in ((audio, "media_refine_audio"), (visual, "media_refine_visual"))
+        if enabled
+    ]
+    orientation = json.dumps({
+        "audio": (_observation_audio(observation) or "")[:500] if audio else "",
+        "visual": (_observation_visual(observation) or "")[:500] if visual else "",
+    }, ensure_ascii=False)
+    followup = {
+        **payload,
+        "messages": [
+            {"role": "system", "content": context_text("prompts", "media_refinement_system")},
+            {"role": "user", "content": [
+                *media, {"type": "text", "text": "\n".join(prompts) + "\nEarlier observations, which may be wrong: " + orientation}
+            ]},
+        ],
+        "max_tokens": min(payload["max_tokens"], 384),
+    }
+    try:
+        response = client.post(config.comprehension_url, json=followup, timeout=min(config.timeout_s, 30))
+        detail = _assistant_text(_json_response(response, "media detail"), "media detail")
+    except (httpx.HTTPError, AdapterStageError) as exc:
+        LOGGER.info("Media detail unavailable (%s)", type(exc).__name__)
+        return observation
+    additions = []
+    for enabled, tag, extract in (
+        (audio, "audio_observation", _observation_audio),
+        (visual, "visual_observation", _observation_visual),
+    ):
+        value = extract(detail) if enabled else None
+        if value and "<" not in value and ">" not in value and value != extract(observation):
+            additions.append(f"<{tag}>{value[:2000]}</{tag}>")
+    return "\n".join([observation, *additions])
+
+
 def _comprehend(
     parsed: ParsedAdapterRequest,
     config: Config,
@@ -1669,17 +1738,21 @@ def _comprehend(
         if frame_cap in attempted:
             continue
         attempted.add(frame_cap)
-        response = client.post(
-            config.comprehension_url,
-            json=build_comprehension_payload(parsed, config, max_video_frames=frame_cap),
-        )
+        payload = build_comprehension_payload(parsed, config, max_video_frames=frame_cap)
+        response = client.post(config.comprehension_url, json=payload)
         last_response = response
         if _context_overflow(response) and frame_cap > 1:
             continue
-        return _assistant_text(
+        observation = _assistant_text(
             _json_response(response, "comprehension"),
             "comprehension",
         )
+        if config.detailed_media_analysis and not any(
+            message.images and "<computer_visual_evidence>" in message.content
+            for message in parsed.messages
+        ):
+            return _refine_media_observation(observation, payload, config, client)
+        return observation
     if last_response is None:  # pragma: no cover - frame_caps is never empty
         raise AdapterStageError("comprehension was not attempted")
     return _assistant_text(

@@ -4412,6 +4412,7 @@ def create_app(
                 episodic_memory.restore_conversation(session_id, continuations.snapshot(session_id)["turns"])
             memory_capture = MemoryCapture(episodic_memory, session_id,
                 supplied_turn_id if continuation_enabled else request_id,
+                request_id=request_id,
                 user_text=(str(memory_user_text) if isinstance(memory_user_text, str) else context_text if not has_media else ""),
                 context_text=context_text if has_media else "", media=diagnostic_fields, live_turn=live_turn,
                 internal_background=internal_background, synthesis_only=synthesis_only(payload), media_receipts=diagnostic_media_ids)

@@ -213,7 +213,7 @@ class EpisodicMemory:
         """Bounded, current-window source text for this already authorized store."""
         with self._lock:
             rows = self._db.execute("""SELECT * FROM event_sources WHERE occurred_at>=?
-                AND modality IN ('speech','text','tool') ORDER BY occurred_at DESC,id DESC LIMIT ?""",
+                AND modality IN ('speech','sound','text','tool') ORDER BY occurred_at DESC,id DESC LIMIT ?""",
                 (since, max(1, min(60, int(limit))))).fetchall()
             return [self._event(row) for row in rows]
 

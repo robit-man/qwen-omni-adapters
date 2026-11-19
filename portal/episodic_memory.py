@@ -301,6 +301,8 @@ class EpisodicMemoryService:
                 if source["modality"] == "speech":
                     lane = "heard"
                     label = "Speech transcript" if provenance.get("origin") == "validated_adapter_observation" else "Retained speech" if source["authority"] != "client_report" else "Reported speech"
+                elif source["modality"] == "sound" and provenance.get("origin") == "validated_adapter_observation":
+                    lane, label = "heard", "Sound observation"
                 elif source["authority"] == "user_statement" and provenance.get("origin") == "submitted_user_text":
                     lane, label = "heard", "Typed input"
                 elif source["authority"] == "assistant_generated" and provenance.get("origin") == "completed_language_response":
@@ -318,7 +320,8 @@ class EpisodicMemoryService:
                     text = f"{receipt.get('tool', source['actor'])} · {'returned' if receipt.get('returned_ok') else 'failed'}"
                 elif lane == "said" and provenance.get("spoken_text"):
                     text = provenance["spoken_text"]
-                result["sources"].append({"id": str(source["event_id"]), "request_id": source["episode"],
+                result["sources"].append({"id": str(source["event_id"]),
+                    "request_id": provenance.get("runtime_request_id") or source["episode"],
                     "lane": lane, "label": label, "text": text[:8000], "text_truncated": len(text) > 8000,
                     "at": source["occurred_at"], "authority": source["authority"], "actor": source["actor"],
                     "addressee": source["annotations"].get("speech_addressee", provenance.get("speech_addressee", "UNKNOWN")),
@@ -617,10 +620,12 @@ class MemoryCapture:
     """Observe trusted transport events; never infer a modality from prose."""
 
     def __init__(self, service: EpisodicMemoryService | None, session_id: str, episode: str, *,
+                 request_id: str | None = None,
                  user_text: str = "", context_text: str = "", media: Mapping[str, bool] | None = None,
                  live_turn: bool = False, internal_background: bool = False,
                  synthesis_only: bool = False, media_receipts: Sequence[Mapping[str, Any]] = ()) -> None:
         self.service, self.session_id, self.episode = service, session_id, episode
+        self.request_id = request_id or episode
         self.generation = service.generation(session_id) if service else 0
         self.live_turn, self.internal_background, self.synthesis_only = live_turn, internal_background, synthesis_only
         self.received_at = time.time()
@@ -647,7 +652,8 @@ class MemoryCapture:
         self.service.capture(self.session_id, generation=self.generation, episode=self.episode,
             key=f"{self.episode}:{key}", modality=modality, authority=authority, actor=actor, text=text,
             occurred_at=self.received_at if at is None else at,
-            provenance={"producer": "portal_transport", "timestamp_origin": "portal_received_at", **dict(provenance)})
+            provenance={"producer": "portal_transport", "timestamp_origin": "portal_received_at",
+                "runtime_request_id": self.request_id, **dict(provenance)})
 
     def stage(self, stage: str) -> None:
         if stage == "comprehension":

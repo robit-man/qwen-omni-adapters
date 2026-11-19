@@ -95,7 +95,7 @@ The sans stack owns conversation and controls. The utility mono stack owns compa
 
 The single chat column is capped at `shell-max` and uses one bounded conversation scroller between a fixed top control rail and a natural-height composer. Safe-area insets protect phone chrome. Popovers are anchored without affecting flow; dialogs stay within the visual viewport and keep controls reachable. Media reserves its intrinsic aspect ratio and uses `object-fit: contain` where cropping would remove evidence.
 
-The observatory is a full-window application. Its approved visual reference is [Nick Gallo's 2026 LCD clock](https://www.nickgallo.dev/projects/clock/), with the extracted frame, segment, phosphor, wire, pixel-grid and hatched-meter vocabulary repurposed for runtime data. Five top chips select Active weights, Inference events, States, Tools, or Memory. Each view owns a different responsive instrument, rather than a shared clock or a scaled picture. The document does not scroll: the header, tabs and footer remain in the app frame; visualizations and expandable detail ledgers own bounded inner scrolling. On phones the tab chips form two compact rows. Chat opens beside the active instrument on desktop and occupies the workspace on narrow screens.
+The observatory is a full-window application. Its approved visual reference is [Nick Gallo's 2026 LCD clock](https://www.nickgallo.dev/projects/clock/), with the extracted frame, segment, phosphor, wire, pixel-grid and hatched-meter vocabulary repurposed for runtime data. Four top chips select Active weights, States, Tools, or Memory. States puts current voice activity and the conversation timeline above the inference raster and its expandable event records. The two timelines use one time-window control. The header, tabs and footer stay in the app frame while the instrument and detail surfaces scroll. On phones the tab chips form two compact rows. Chat opens beside the active instrument on desktop and occupies the workspace on narrow screens.
 
 ## Elevation & Depth
 
@@ -159,7 +159,7 @@ The map and inspector retain the amber frames, VT323 labels and DSEG7 counts. Se
 
 Tools adds a task selector with the controller's current committed frontier; States keeps voice-loop and admission instruments. The header reports task status, phase, next transition, plan revision and environment version. Connected step cards show explicit states: planned, evidence acquired, awaiting verification, verified, or a reported action/effect/verification failure. Current and selected steps use amber borders; verified status also gains an underline. A selected step exposes its tool family, operation, retained selection explanation, expected effect, target, acceptance test, verification family and executor receipt IDs, alongside requirement statuses and their evidence. This makes tool choice and substep completion inspectable without displaying private reasoning. Missing plans, explanations or receipts have explicit text; discovery and command success alone never become invented progress or completion.
 
-The plan workbench expands into the available Tools surface down to the footer. The step list and evidence inspector have no fixed height cap or nested scrollers; the Tools surface owns overflow. Their two-column workbench stacks at viewport widths of 900px or less. Labels and evidence wrap within the app frame; the five peer tabs and whole-window scrolling contract remain unchanged.
+The plan workbench expands into the available Tools surface down to the footer. The Tools surface scrolls the step list and evidence inspector together. Their two-column workbench stacks at viewport widths of 900px or less. Labels and evidence wrap within the app frame.
 
 ### MCP connections
 
@@ -197,8 +197,10 @@ is not reassigned. Embedded chat controls use the same sodium-yellow palette on
 black, including selected and recording states; the idle mic helper is absent.
 
 Dispatch modules expand into private, on-demand argument and output readouts.
-States uses three horizontal source-time rails for heard, done and said text:
-amber polyps retain exact source labels and connect to their actual timeline
-position. Generated speech stays distinct from confirmed playback. Visualization
+States uses a shared source-time ruler with four tracks for heard, processing,
+tool returns and said events. Fine time marks use the available width and amber
+event boxes age left at their observed timestamps. Selecting a box opens its
+source excerpt and attribution. Processing shows recorded stage metadata and
+generated speech stays distinct from confirmed playback. Visualization
 surfaces have vertical padding, no horizontal padding and no outer border; the
 individual instrument frames remain. Review chips have a 170px maximum width.

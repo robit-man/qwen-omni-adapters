@@ -489,6 +489,18 @@ the next request contains different base64. Media correctness requires a fresh
 slot evaluation for every audio, image, and video turn. A red → blue → red live
 regression must describe red → blue → red in that order.
 
+The adapter then makes one bounded detail pass over the prepared parts of the
+current attachment. It examines speaker count, vocal qualities, music and ambient
+sounds, or small visual features, visible text and temporal changes. The first
+pass supplies the transcript. The second pass adds observations for present
+modalities. Ordinary comprehension remains available if refinement fails. GUI
+grounding uses its dedicated single-frame perception prompt. Set
+`OMNI_DETAILED_MEDIA_ANALYSIS=0` for single-pass operation.
+The trained audio bridge defaults to its released audio perception prompt.
+Enable experimental acoustic refinement there with
+`OMNI_DETAILED_AUDIO_ANALYSIS=1`. A failed detail pass leaves the initial
+observation available.
+
 Production decoders must bound duration, resolution, frame count, memory, and
 wall time; preserve frame order and timestamps; and report sampling/clipping.
 

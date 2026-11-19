@@ -273,7 +273,7 @@ def pointer_world(monkeypatch, *, start=(30, 40)):
         if command == ["getmouselocation", "--shell"]:
             return SimpleNamespace(returncode=0, stdout=f"X={pointer[0]}\nY={pointer[1]}\nWINDOW=17\n")
         if command[0] == "mousemove":
-            pointer[:] = [int(command[-2])+GEOMETRY["x"], int(command[-1])+GEOMETRY["y"]]
+            pointer[:] = [int(command[-2]), int(command[-1])]
         return SimpleNamespace(returncode=0, stdout="")
     monkeypatch.setattr(native.subprocess, "run", run)
     return identity, calls, run
@@ -950,7 +950,7 @@ def dense_pointer_dialog(dialog, monkeypatch):
             return SimpleNamespace(returncode=0, stdout=f"X={pointer[0]}\nY={pointer[1]}\nWINDOW=17\n")
         if argv[1] == "mousemove":
             commands.append("move")
-            pointer[:] = [int(argv[-2])+GEOMETRY["x"], int(argv[-1])+GEOMETRY["y"]]
+            pointer[:] = [int(argv[-2]), int(argv[-1])]
             return SimpleNamespace(returncode=0, stdout="")
         if argv[1] == "click":
             commands.append("click")

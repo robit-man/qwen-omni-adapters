@@ -39,7 +39,8 @@ The shell owns `100dvh`, with a fixed header, navigation and footer. The documen
 never scrolls. The selected view fills the remaining workspace. Its instrument
 and expandable detail ledger have bounded independent scrolling. The four peer
 tabs implement the tablist/tabpanel model, one tab stop, arrows, Home and End.
-Selected view and event filters remain URL query state. Cards and grids reflow;
+Selected view and event filters remain URL query state. Older `?tab=events`
+links open States and preserve their event filters. Cards and grids reflow;
 state lettering sizes against its card through container query units, including
 when the chat pane narrows the instrument. No page or instrument is scaled down
 as a picture.
@@ -72,13 +73,15 @@ its request-scoped release policy stay distinct from service health; GPU
 residency is shown only when the worker reports it explicitly. Reported bytes
 are not represented as a complete GPU-allocation inventory.
 
-The event raster offers one-, five- and fifteen-minute windows. Markers use real
+States shows the voice-loop phases, conversation timeline and inference raster.
+Both timelines share one-, five- and fifteen-minute windows. Raster markers use
 source timestamps and select a source/retention receipt. Record filters and
-pagination live in an expandable ledger. Typed instrumentation covers received
+pagination live in the expandable event records below the raster. Typed instrumentation covers received
 input modality flags, comprehension/language/TTS stages, perception completion,
 recognized-speech presence, sound/visual-evidence presence, and audio start/end.
-No transcript, acoustic description, visual description, model delta or PCM is
-recorded. Sound-only observations never become heard-speech events. Audio output
+The raster and its event records omit transcripts, acoustic and visual
+descriptions, model deltas, and PCM. The conversation timeline displays
+separately authorized source events. Sound-only observations never become heard-speech events. Audio output
 is labeled output/synthesis; it is not proof that physical speakers were heard.
 Voice-loop status transitions are a bounded in-memory observation tail, retaining
 the status source's timestamp. Stale state is never highlighted as current.

@@ -91,7 +91,7 @@ def _window_coordinate_fixture(monkeypatch):
     def run(command, **_kwargs):
         commands.append(command)
         if command[1] == "mousemove":
-            location.update(x=surface["x"]+int(command[-2]), y=surface["y"]+int(command[-1]))
+            location.update(x=int(command[-2]), y=int(command[-1]))
         stdout = f"X={location['x']}\nY={location['y']}\nWINDOW=17\n" if command[1] == "getmouselocation" else ""
         return SimpleNamespace(returncode=0, stdout=stdout)
     monkeypatch.setattr("portal.native_ui.subprocess.run", run)
@@ -106,7 +106,7 @@ def test_collapsed_screen_mapping_uses_exact_csd_dimensions_native_window_hit_an
     assert state["coordinate_binding"]["content"] == {"x": 111, "y": 62, "width": 360, "height": 491}
     assert fixture.adapter.perform(fixture.action("Preview", "click"))["status"] == "dispatched"
     assert hits == [(48, 267, "window")]
-    assert ["xdotool", "mousemove", "--sync", "--window", "17", "109", "322"] in commands
+    assert ["xdotool", "mousemove", "--sync", "159", "329"] in commands
     assert commands[-1] == ["xdotool", "click", "--repeat", "1", "--delay", "70", "1"]
 
 
@@ -223,7 +223,7 @@ def _pointer_fixture(monkeypatch):
     def run(command, **_kwargs):
         commands.append(command)
         if command[1] == "mousemove":
-            location.update(x=100+int(command[-2]), y=200+int(command[-1]))
+            location.update(x=int(command[-2]), y=int(command[-1]))
         stdout = f"X={location['x']}\nY={location['y']}\nWINDOW=17\n" if command[1] == "getmouselocation" else ""
         return SimpleNamespace(returncode=0, stdout=stdout)
 
@@ -237,7 +237,7 @@ def test_explicit_pointer_clicks_derive_native_geometry_and_target_one_window(mo
     action = fixture.action("Preview", verb)
     assert fixture.adapter.perform(action)["status"] == "dispatched"
     assert commands[0] == ["xdotool", "getmouselocation", "--shell"]
-    assert commands[1] == ["xdotool", "mousemove", "--sync", "--window", "17", "100", "80"]
+    assert commands[1] == ["xdotool", "mousemove", "--sync", "200", "280"]
     assert commands[-1] == ["xdotool", "click", "--repeat", count, "--delay", "70", button]
     assert "x" not in action["args"] and "y" not in action["args"]
 
@@ -360,7 +360,7 @@ def test_native_drag_and_scroll_use_observed_destination_and_bounded_input(monke
     action = fixture.action("Preview", "drag_drop", {"to_node_id": destination["id"]})
     assert fixture.adapter.perform(action)["status"] == "dispatched"
     assert [command[1] for command in commands] == ["getmouselocation", "mousemove", "getmouselocation", "mousedown", "mousemove", "getmouselocation", "mouseup"]
-    assert commands[-3] == ["xdotool", "mousemove", "--sync", "--window", "17", "340", "80"]
+    assert commands[-3] == ["xdotool", "mousemove", "--sync", "440", "280"]
     commands.clear()
     action = fixture.action("Preview", "scroll", {"direction": "down"})
     assert fixture.adapter.perform(action)["status"] == "dispatched"

@@ -7,15 +7,16 @@
   const REFRESH_MS = 2_000;
   const STALE_MS = 25_000;
   const PAGE_SIZE = 18;
-  const TABS = ["weights", "events", "states", "tools", "memory"];
+  const TABS = ["weights", "states", "tools", "memory"];
   const query = new URLSearchParams(location.search);
+  const requestedTab = query.get("tab") === "events" ? "states" : query.get("tab");
   const state = {
     token: "", snapshot: null, refreshing: false, live: true,
-    tab: TABS.includes(query.get("tab")) ? query.get("tab") : "weights",
+    tab: TABS.includes(requestedTab) ? requestedTab : "weights",
     range: ["today", "7d", "retained"].includes(query.get("range")) ? query.get("range") : "today",
     filter: ["all", "conversation", "tools", "hearing", "llm", "speaking", "vision"].includes(query.get("events")) ? query.get("events") : "all",
     limit: PAGE_SIZE, controller: null, lastSuccessAt: 0,
-    agent: null, savingIdentity: false, identityUpdatedAt: 0, window: 60, selectedEventId: null,
+    agent: null, savingIdentity: false, identityUpdatedAt: 0, window: 300, selectedEventId: null,
     chatActivity: null, chatObservedAt: 0,
   };
   const pad = (value, width = 2) => String(value).padStart(width, "0");
@@ -186,7 +187,7 @@
     }
   }
 
-  const SIGNALS = [["hearing", "Heard speech"], ["audio", "Sound input"], ["vision", "Image / video"], ["llm", "LLM"], ["speaking", "Speech output"], ["tools", "Tools"], ["documents", "Documents"]];
+  const SIGNALS = [["hearing", "Heard speech"], ["audio", "Sound input"], ["vision", "Image / video"], ["llm", "LLM"], ["speaking", "Speech output"], ["tools", "Tools"], ["documents", "Documents"], ["presence", "Voice loop"]];
   function signalOf(item) {
     return item.signal || (item.category === "tools" ? "tools" : "llm");
   }
@@ -271,17 +272,12 @@
     return { phases, chat, known: Boolean(chat || (harness.available && harness.fresh) || phases.size) };
   }
   function renderEventInstrument(snapshot) {
-    const observed = observedActivity(snapshot);
-    const current = ["speaking", "thinking", "hearing", "listening"].find(phase => observed.phases.has(phase));
-    const activity = current ? current.toUpperCase() : observed.chat ? "CHAT READY" : "NO LIVE ACTIVITY";
-    $("activity-label").textContent = activity.replaceAll(" ", "!");
-    $("activity-label").setAttribute("aria-label", activity);
-    $("activity-source").textContent = current ? observed.phases.get(current).join(" · ") : observed.chat ? "Text chat ready · chat microphone off" : "Waiting for an observed chat or voice activity";
     const now = Date.now();
     const from = now - state.window * 1000;
-    const events = (snapshot.timeline || []).filter(item => parsedDate(item.at) && new Date(item.at).getTime() >= from && new Date(item.at).getTime() <= now);
-    const counts = SIGNALS.slice(0, 6).map(([signal, label]) => [label, String(events.filter(item => signalOf(item) === signal).length)]);
-    facts("signal-totals", counts);
+    const events = (snapshot.timeline || []).filter(item => {
+      const at = parsedDate(item.at)?.getTime();
+      return at >= from && at <= now;
+    });
     const focusId = document.activeElement?.dataset.eventId;
     const rows = SIGNALS.map(([signal, label]) => {
       const row = create("div", "event-lane");
@@ -303,7 +299,7 @@
       return row;
     });
     const axis = create("div", "raster-axis");
-    axis.append(create("span", "", `${state.window < 60 ? state.window + "s" : state.window / 60 + "m"} ago`), create("span", "", "Now"));
+    axis.append(create("span", "", `${state.window / 60}m ago`), create("span", "", "Now"));
     $("event-raster").replaceChildren(...rows, axis);
     if (focusId) $("event-raster").querySelector(`[data-event-id="${CSS.escape(focusId)}"]`)?.focus({ preventScroll: true });
     if (!events.some(item => item.id === state.selectedEventId)) {
@@ -313,7 +309,10 @@
     if (!events.length) $("raster-selection").textContent = "No events observed in this window. The timeline fills as inputs, inference stages, speech output, and tools arrive.";
   }
   function renderStateInstrument(snapshot) {
-    window.OmniStateSignals?.render(snapshot.activity_sources);
+    const requestIds = new Set((snapshot.activity_sources?.sources || []).map(item => item.request_id).filter(Boolean));
+    const processing = (snapshot.timeline || []).filter(item =>
+      item.signal === "llm" && item.event === "inference_stage" && requestIds.has(item.request_id));
+    window.OmniStateSignals?.render(snapshot.activity_sources, processing);
     const observed = observedActivity(snapshot);
     const phases = [["listening", "Listening"], ["hearing", "Hearing"], ["thinking", "Thinking"], ["speaking", "Speaking"]];
     $("state-flow").replaceChildren(...phases.map(([phase, label]) => {
@@ -330,13 +329,6 @@
     if (numeric(queue.inflight) && numeric(queue.limit)) meters.push(meter("Admission capacity", Number(queue.inflight), Number(queue.limit), `${queue.inflight} / ${queue.limit} admitted`));
     if (numeric(memory.used_percent)) meters.push(meter("Host RAM", Number(memory.used_percent), 100, `${Number(memory.used_percent).toFixed(1)}% used`));
     $("state-meters").replaceChildren(...meters);
-    const transitions = (snapshot.timeline || []).filter(item => item.source === "voice-loop status" || ["request_received", "inference_stage", "audio_stream_started", "audio_stream_ended", "request_complete"].includes(item.event)).slice(0, 8).reverse();
-    $("state-history").replaceChildren(...transitions.map(item => {
-      const entry = create("div", "state-history-entry");
-      entry.append(create("time", "", timestamp(item.at)), create("span", "", item.label));
-      return entry;
-    }));
-    if (!transitions.length) $("state-history").append(create("p", "muted", "Chat and daemon transitions appear here as activity is observed."));
   }
   function renderMemoryInstrument(snapshot) {
     window.OmniMemoryGraph?.render(snapshot);
@@ -554,10 +546,7 @@
       $("observatory-workspace").classList.remove("chat-open");
       document.querySelectorAll(".open-chat").forEach(item => item.setAttribute("aria-expanded", "false"));
       document.querySelector(".open-chat").focus();
-      if (state.snapshot) {
-        renderStateInstrument(state.snapshot);
-        renderEventInstrument(state.snapshot);
-      }
+      if (state.snapshot) renderStateInstrument(state.snapshot);
       requestAnimationFrame(drawWires);
     });
     $("chat-frame").addEventListener("load", () => {
@@ -576,10 +565,7 @@
       state.chatActivity = { stages: Array.isArray(data.stages) ? data.stages.slice(0, 16).filter(stage => ["queued", "comprehension", "language", "tts"].includes(stage)) : [],
         microphone: data.microphone === true, hearing: data.hearing === true, playing: data.playing === true };
       state.chatObservedAt = Date.now();
-      if (state.snapshot) {
-        renderStateInstrument(state.snapshot);
-        renderEventInstrument(state.snapshot);
-      }
+      if (state.snapshot) renderStateInstrument(state.snapshot);
     });
     $("copy-chat-link").addEventListener("click", async () => {
       try {
@@ -644,6 +630,7 @@
     document.querySelectorAll("[data-window]").forEach(button => button.addEventListener("click", () => {
       state.window = Number(button.dataset.window);
       document.querySelectorAll("[data-window]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+      window.OmniStateSignals?.setWindow(state.window);
       if (state.snapshot) renderEventInstrument(state.snapshot);
     }));
     new ResizeObserver(drawWires).observe($("review"));

@@ -1757,6 +1757,12 @@ def _pointer_dispatch(identity: Mapping[str, Any], geometry: Mapping[str, int], 
             failed_exception(error)
             raise
 
+    def move(position: tuple[int, int]) -> bool:
+        # A window-relative XTEST move can add the X11 border to these already
+        # resolved screen coordinates. Verify the exact XID again after moving.
+        x, y = position
+        return command(["mousemove", "--sync", str(x), str(y)])
+
     def at_target(position: tuple[int, int], *, required: bool = False) -> bool:
         def mismatch(cause: str) -> bool:
             if required:
@@ -1793,12 +1799,10 @@ def _pointer_dispatch(identity: Mapping[str, Any], geometry: Mapping[str, int], 
         phase = "geometry_before_move"
         if not geometry_matches():
             return rejected(cause="geometry_mismatch")
-        window_id = identity["window_id"]
-        x, y = point[0] - geometry["x"], point[1] - geometry["y"]
         # Skip unchanged-position movement only with the existing exact pointer
         # window/coordinates. Each new-path chosen input then checks activation.
         phase = "pointer_before_move"
-        if not at_target(point) and not command(["mousemove", "--sync", "--window", window_id, str(x), str(y)]):
+        if not at_target(point) and not move(point):
             return rejected()
         phase = "foreground_after_move"
         if current() != identity:
@@ -1815,8 +1819,7 @@ def _pointer_dispatch(identity: Mapping[str, Any], geometry: Mapping[str, int], 
                     # Original ACTIVE path retains its established behavior.
                     ok = command(["mousedown", "1"])
                     try:
-                        ok = command(["mousemove", "--sync", "--window", window_id,
-                                      str(destination[0] - geometry["x"]), str(destination[1] - geometry["y"])]) and ok
+                        ok = move(destination) and ok
                         phase = "drag_arrival"
                         ok = at_target(destination, required=True) and ok
                     finally:
@@ -1826,8 +1829,7 @@ def _pointer_dispatch(identity: Mapping[str, Any], geometry: Mapping[str, int], 
                     try:
                         ok = command(["mousedown", "1"])
                         if ok:
-                            ok = command(["mousemove", "--sync", "--window", window_id,
-                                str(destination[0] - geometry["x"]), str(destination[1] - geometry["y"])])
+                            ok = move(destination)
                             phase = "drag_arrival"
                             ok = at_target(destination, required=True) and ok
                     finally:
