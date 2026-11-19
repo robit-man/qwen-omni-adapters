@@ -197,3 +197,11 @@ click, speech, alarm and early-speech fixtures still pass. Both the shared VAD
 and its browser fallback carry this calibration rule. A page reload is needed
 to update an already-running capture graph; restarting model weights cannot
 change JavaScript already loaded in a tab.
+
+The desktop loop also clears a tentative hearing state when onset is
+abandoned. Confirmation accepts brief gaps between voiced frames while
+still requiring sustained speech energy. A continuous capture sends
+successive perception-only checkpoints. Each recognized fragment becomes
+part of the same turn, and a checkpoint without usable speech can release
+a detector held open by the room. A final answer still goes through the
+ordinary live-speech routing gate.

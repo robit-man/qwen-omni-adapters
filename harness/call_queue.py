@@ -38,6 +38,8 @@ class Pending:
     active_ms: float = 0.0
     segments: int = 0
     truncated: bool = False
+    transcript_prefix: tuple[str, ...] = ()
+    transcript_audio: np.ndarray | None = None
 
     def __bool__(self) -> bool:
         return self.samples > 0 and self.segments > 0

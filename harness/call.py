@@ -47,7 +47,7 @@ from harness.respeaker import (
     ReSpeaker,
     describe_direction,
 )
-from harness.vad import Vad, VadConfig
+from harness.vad import Utterance, Vad, VadConfig
 from portal.background_tasks import BackgroundTaskStore
 from qwen_omni_adapters.context import live_call_system_prompt
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
@@ -55,6 +55,7 @@ from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 logger = logging.getLogger(__name__)
 
 SCHEMA = "robit.ollama.omni-adapter.v1"
+SPEECH_CHECKPOINT_MS = 6_000.0
 
 LIVE_CALL_SYSTEM_PROMPT = live_call_system_prompt()
 
@@ -570,6 +571,7 @@ class CallSession:
         frame: dict[str, Any] | None,
         *,
         with_tools: bool | None = None,
+        earlier_speech: str = "",
     ) -> dict[str, Any]:
         if with_tools is None:
             with_tools = self.config.tools_enabled
@@ -604,6 +606,11 @@ class CallSession:
                 }
             ],
         }
+        if earlier_speech:
+            message["content"] += (
+                "\nEarlier transcript from this same spoken turn, in order: "
+                + json.dumps(earlier_speech, ensure_ascii=False)
+            )
         if frame:
             key = (
                 "videos"
@@ -783,14 +790,19 @@ class CallSession:
             result.error = f"{type(error).__name__}: {error}"
         return result
 
-    def take_turn(self, samples: np.ndarray, segments: int = 1) -> TurnResult:
+    def take_turn(self, samples: np.ndarray, segments: int = 1,
+                  *, transcript_prefix: tuple[str, ...] = (),
+                  transcript_audio: np.ndarray | None = None) -> TurnResult:
         """Capture every decoded turn, including interrupted/error exits."""
         submitted_at = time.time()
-        result = self._take_turn(samples, segments)
+        result = (self._take_turn(samples, segments, transcript_prefix=transcript_prefix, transcript_audio=transcript_audio)
+                  if transcript_prefix else self._take_turn(samples, segments))
         self._persist(result, occurred_at=submitted_at)
         return result
 
-    def _take_turn(self, samples: np.ndarray, segments: int = 1) -> TurnResult:
+    def _take_turn(self, samples: np.ndarray, segments: int = 1,
+                   *, transcript_prefix: tuple[str, ...] = (),
+                   transcript_audio: np.ndarray | None = None) -> TurnResult:
         """Answer what was heard, with tools in the answer-producing pass.
 
         This is the same chain as the cloudflared browser: the portal exposes
@@ -813,6 +825,16 @@ class CallSession:
             except Exception as error:  # noqa: BLE001 - one turn is not the call
                 return TurnResult(error=f"comprehension is not ready: {error}")
 
+        earlier_speech = ""
+        if transcript_prefix and transcript_audio is not None:
+            tail = self.comprehend_interruption(samples) if samples.size else TurnResult()
+            if tail.error:
+                return TurnResult(transcript=" ".join(transcript_prefix), error=tail.error)
+            if tail.transcript and not self._is_recent_playback_echo(tail.transcript):
+                earlier_speech = " ".join(transcript_prefix)
+            else:
+                samples = transcript_audio
+                earlier_speech = " ".join(transcript_prefix[:-1])
         audio = to_wav(normalize_speech(samples))
         if self.config.evidence_trace is not None:
             self.config.evidence_trace("turn_audio", {"wav": audio, "segments": segments,
@@ -829,8 +851,11 @@ class CallSession:
             segments,
             None,
             with_tools=self.config.tools_enabled,
+            earlier_speech=earlier_speech,
         )
         result = self._run(payload)
+        if earlier_speech and result.transcript:
+            result.transcript = earlier_speech + " " + result.transcript
         if result.echo_suppressed:
             return result
         if result.interrupted:
@@ -874,6 +899,7 @@ class CallSession:
                         segments,
                         frame,
                         with_tools=self.config.tools_enabled,
+                        earlier_speech=earlier_speech,
                     ),
                 )
                 result.tools_used = list(
@@ -1504,7 +1530,9 @@ def run_call_loop(
                 if pending is not None:
                     session.direction = describe_direction(array.direction)
                     result = session.take_turn(
-                        pending.audio(), segments=max(1, pending.segments)
+                        pending.audio(), segments=max(1, pending.segments),
+                        **({"transcript_prefix": pending.transcript_prefix, "transcript_audio": pending.transcript_audio}
+                           if pending.transcript_prefix else {}),
                     )
                     if result.interrupted:
                         logger.info("reply yielded to the speaker")
@@ -1564,6 +1592,14 @@ def run_call_loop(
     barge = BargeInState()
     barge_resolution = threading.Event()
     barge_decisions: queue.Queue[tuple[str, Pending, TurnResult]] = queue.Queue()
+    checkpoints: queue.Queue[tuple[Utterance, TurnResult]] = queue.Queue(maxsize=1)
+    checkpoint_pending = False
+    checkpoint_deadline: float | None = None
+    transcript_prefix: list[str] = []
+    transcript_audio: np.ndarray | None = None
+
+    def recognize_checkpoint(portion: Utterance) -> None:
+        checkpoints.put((portion, session.comprehend_interruption(portion.samples())))
 
     def comprehend_barge(pending: Pending) -> None:
         """Resolve a paused interruption without discarding the current reply."""
@@ -1641,6 +1677,45 @@ def run_call_loop(
                     notify("listening", "")
                     listening_announced = True
                 now_ms += frame_ms
+                try:
+                    portion, recognized = checkpoints.get_nowait()
+                except queue.Empty:
+                    pass
+                else:
+                    checkpoint_pending = False
+                    if recognized.error:
+                        checkpoint_deadline = None
+                        if vad.speaking:
+                            vad.restore_checkpoint(portion)
+                        else:
+                            with lock:
+                                waiting.prepend(portion.samples(), portion.active_duration_ms)
+                    elif recognized.transcript and not session._is_recent_playback_echo(recognized.transcript):
+                        transcript_prefix.append(recognized.transcript)
+                        transcript_audio = portion.samples()
+                    else:
+                        # A noisy room can keep the amplitude detector open
+                        # after speech stops. Use the recognition result to
+                        # close that stretch, preserving speech already heard.
+                        if vad.speaking:
+                            tail = vad.take_checkpoint()
+                            with lock:
+                                if transcript_prefix or waiting:
+                                    waiting.add(tail.samples(), tail.active_duration_ms)
+                            vad.reset(now_ms, calibrate=True)
+                            near_end_active.clear()
+                            display.set_interruption(False)
+                        checkpoint_deadline = None
+                        with lock:
+                            has_audio = bool(waiting)
+                        if transcript_prefix or has_audio:
+                            settle_until = time.monotonic() + config.utterance_settle_s
+                        elif not busy.is_set():
+                            settle_until = None
+                            foreground_active.clear()
+                            if session.background_agent is not None:
+                                session.background_agent.wake()
+                            notify("listening", "")
                 verdict = vad.process(
                     frame,
                     now_ms,
@@ -1671,6 +1746,7 @@ def run_call_loop(
                     # Still talking, so nothing is finished being said.
                     settle_until = None
                     if verdict.event == "start":
+                        checkpoint_deadline = now_ms + SPEECH_CHECKPOINT_MS
                         # A confirmed near-end speech start immediately owns the
                         # shared model lane. Waiting until end-of-utterance leaves a
                         # long background generation running while the person talks,
@@ -1725,7 +1801,17 @@ def run_call_loop(
                         foreground_active.clear()
                         if session.background_agent is not None:
                             session.background_agent.wake()
+                elif verdict.event == "idle" and near_end_active.is_set():
+                    # A tentative onset is shown immediately. Clear it when
+                    # the detector abandons the candidate before confirmation.
+                    near_end_active.clear()
+                    display.set_interruption(False)
+                    if settle_until is None:
+                        with lock:
+                            if waiting or transcript_prefix:
+                                settle_until = now + config.utterance_settle_s
                 elif verdict.event == "utterance" and verdict.utterance is not None:
+                    checkpoint_deadline = None
                     # Confirmed speech has owned the foreground/model lane since
                     # its VAD start. Acceptance keeps that ownership through ASR,
                     # reasoning, and reply; rejected speech releases it above.
@@ -1779,7 +1865,15 @@ def run_call_loop(
                     # the room has changed, so the floor is learned again.
                     vad.reset(now_ms, calibrate=True)
 
-                if settle_until is None or now < settle_until:
+                if (vad.speaking and checkpoint_deadline is not None
+                        and now_ms >= checkpoint_deadline and not checkpoint_pending and not busy.is_set()):
+                    checkpoint_pending = True
+                    checkpoint_deadline = now_ms + SPEECH_CHECKPOINT_MS
+                    threading.Thread(
+                        target=recognize_checkpoint, args=(vad.take_checkpoint(),),
+                        name="omni-speech-checkpoint", daemon=True,
+                    ).start()
+                if checkpoint_pending or settle_until is None or now < settle_until:
                     continue
                 if busy.is_set():
                     # A reply that ducked and paused is retained while a
@@ -1807,16 +1901,22 @@ def run_call_loop(
                         ).start()
                     continue
                 with lock:
-                    if not waiting:
+                    if not waiting and not transcript_prefix:
                         settle_until = None
                         continue
                     pending = waiting.take()
+                pending.transcript_prefix = tuple(transcript_prefix)
+                pending.transcript_audio = transcript_audio
                 settle_until = None
                 try:
                     work.put_nowait(pending)
                 except queue.Full:
                     with lock:
                         waiting.prepend(pending.audio(), pending.active_ms)
+                    settle_until = time.monotonic() + .1
+                else:
+                    transcript_prefix.clear()
+                    transcript_audio = None
     finally:
         worker_stop.set()
         agent_stop.set()

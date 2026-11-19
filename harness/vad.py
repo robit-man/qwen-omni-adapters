@@ -34,8 +34,10 @@ class VadConfig:
     noise_multiplier: float = 2.75
     release_multiplier: float = 1.6
     start_confirm_ms: float = 200.0
+    onset_gap_ms: float = 60.0
     silence_ms: float = 760.0
     min_active_ms: float = 400.0
+    room_release_ms: float = 1_600.0
     # The browser keeps ten 4096-sample frames at 48 kHz (about 853 ms). The
     # harness reads 20 ms frames, so the same count kept a quarter of that and
     # soft onsets lost their first word. Pre-roll is a duration, not a count.
@@ -72,13 +74,19 @@ class Vad:
     config: VadConfig = field(default_factory=VadConfig)
     _ready_at: float = 0.0
     _noise_floor: float = 0.0
+    _calibration_floor: float = math.inf
     _pre_roll: list[np.ndarray] = field(default_factory=list)
     _candidate_frames: list[np.ndarray] = field(default_factory=list)
     _candidate_started_at: float | None = None
+    _candidate_active_ms: float = 0.0
+    _candidate_last_active_at: float = 0.0
     _frames: list[np.ndarray] = field(default_factory=list)
     _speaking: bool = False
     _active_ms: float = 0.0
+    _reported_active_ms: float = 0.0
     _last_active_at: float = 0.0
+    _last_strong_at: float = 0.0
+    _strong_ms: float = 0.0
 
     def __post_init__(self) -> None:
         self._noise_floor = self.config.initial_noise_floor
@@ -94,13 +102,19 @@ class Vad:
 
     def reset(self, now: float = 0.0, *, calibrate: bool = False) -> None:
         self._ready_at = now + (self.config.calibration_ms if calibrate else 0.0)
+        self._calibration_floor = math.inf
         self._pre_roll = []
         self._candidate_frames = []
         self._candidate_started_at = None
+        self._candidate_active_ms = 0.0
+        self._candidate_last_active_at = 0.0
         self._frames = []
         self._speaking = False
         self._active_ms = 0.0
+        self._reported_active_ms = 0.0
         self._last_active_at = 0.0
+        self._last_strong_at = 0.0
+        self._strong_ms = 0.0
 
     def _trim_pre_roll(self, frame_ms: float) -> None:
         keep = max(1, math.ceil(self.config.pre_roll_ms / max(frame_ms, 1e-3)))
@@ -111,6 +125,17 @@ class Vad:
         self._noise_floor = max(
             0.0005, self._noise_floor * (1.0 - weight) + level * weight
         )
+
+    def take_checkpoint(self) -> Utterance:
+        """Drain the captured portion without ending or recalibrating the turn."""
+        portion = Utterance(self._frames, self._active_ms - self._reported_active_ms)
+        self._frames = []
+        self._reported_active_ms = self._active_ms
+        return portion
+
+    def restore_checkpoint(self, portion: Utterance) -> None:
+        self._frames = [*portion.chunks, *self._frames]
+        self._reported_active_ms -= portion.active_duration_ms
 
     def process(
         self,
@@ -134,6 +159,9 @@ class Vad:
         config = self.config
 
         if now_ms < self._ready_at:
+            # The first frame is the room baseline, even when it is loud.
+            self._calibration_floor = min(self._calibration_floor, level)
+            self._noise_floor = max(0.0005, self._calibration_floor)
             escape = max(
                 config.calibration_escape_threshold,
                 self._noise_floor * config.calibration_escape_multiplier,
@@ -143,7 +171,6 @@ class Vad:
                 # swallow the start of a real sentence.
                 self._ready_at = now_ms
             else:
-                self._update_noise_floor(level, 0.12)
                 self._pre_roll = []
                 return VadResult("calibrating", False, level=level, threshold=escape)
 
@@ -163,10 +190,15 @@ class Vad:
                 # software VAD confirmation needed to interrupt itself.
                 self._candidate_frames = []
                 self._candidate_started_at = None
+                self._candidate_active_ms = 0.0
                 return VadResult(
                     "idle", False, level=level, threshold=start_threshold
                 )
             if level < start_threshold:
+                if (self._candidate_started_at is not None
+                        and now_ms - self._candidate_last_active_at <= config.onset_gap_ms):
+                    self._candidate_frames.append(samples)
+                    return VadResult("candidate", False, level=level, threshold=start_threshold)
                 self._update_noise_floor(level)
                 if self._candidate_frames:
                     # A soft onset that dips before confirmation is still the
@@ -175,6 +207,7 @@ class Vad:
                     self._trim_pre_roll(frame_ms)
                 self._candidate_frames = []
                 self._candidate_started_at = None
+                self._candidate_active_ms = 0.0
                 return VadResult("idle", False, level=level, threshold=start_threshold)
 
             if self._candidate_started_at is None:
@@ -186,7 +219,9 @@ class Vad:
             else:
                 self._candidate_frames.append(samples)
 
-            if now_ms - self._candidate_started_at < config.start_confirm_ms:
+            self._candidate_active_ms += frame_ms
+            self._candidate_last_active_at = now_ms
+            if self._candidate_active_ms <= config.start_confirm_ms:
                 return VadResult(
                     "candidate", False, level=level, threshold=start_threshold
                 )
@@ -194,21 +229,31 @@ class Vad:
             self._speaking = True
             self._frames = self._candidate_frames
             self._candidate_frames = []
-            self._active_ms = max(
-                frame_ms, now_ms - self._candidate_started_at + frame_ms
-            )
+            self._active_ms = self._candidate_active_ms
             self._last_active_at = now_ms
+            self._last_strong_at = now_ms
+            self._strong_ms = config.start_confirm_ms
             return VadResult("start", True, level=level, threshold=start_threshold)
 
         self._frames.append(samples)
         if level >= release_threshold:
             self._last_active_at = now_ms
             self._active_ms += frame_ms
-        if now_ms - self._last_active_at < config.silence_ms:
+        if level >= start_threshold:
+            self._strong_ms += frame_ms
+            if self._strong_ms >= config.start_confirm_ms / 2:
+                self._last_strong_at = now_ms
+        else:
+            self._strong_ms = 0.0
+        # Steady room sound can sit above the release threshold after speech
+        # ends. Keep accepting soft syllables, but require renewed, sustained
+        # speech-level activity to keep the recording open indefinitely.
+        if (now_ms - self._last_active_at < config.silence_ms
+                and now_ms - self._last_strong_at < config.room_release_ms):
             return VadResult("active", True, level=level, threshold=release_threshold)
 
-        utterance = Utterance(chunks=self._frames, active_duration_ms=self._active_ms)
-        accepted = utterance.active_duration_ms >= config.min_active_ms
+        accepted = self._active_ms >= config.min_active_ms
+        utterance = self.take_checkpoint()
         self.reset(now_ms)
         return VadResult(
             "utterance" if accepted else "rejected",

@@ -329,13 +329,12 @@ def test_the_first_syllable_is_kept() -> None:
 
 
 def test_loud_speech_escapes_calibration_instead_of_being_swallowed() -> None:
-    """Someone who speaks immediately should not lose their first sentence."""
+    """Speech can escape calibration once a room level is observed."""
 
     vad = Vad(VadConfig())
-    results, _ = feed(vad, 0.4, 300)
+    _, now = feed(vad, 0.02, 60)
+    results, _ = feed(vad, 0.4, 300, now)
 
-    # Loud enough to clear the escape threshold on the first frame, so the
-    # calibration window is abandoned rather than waited out.
     assert results[0].event != "calibrating"
     assert any(result.event == "start" for result in results)
     assert vad.speaking
@@ -344,6 +343,74 @@ def test_loud_speech_escapes_calibration_instead_of_being_swallowed() -> None:
     patient = Vad(VadConfig())
     quiet, _ = feed(patient, 0.001, 200)
     assert {result.event for result in quiet} == {"calibrating"}
+
+
+def test_loud_room_at_start_calibrates_without_latching_a_turn() -> None:
+    vad = Vad(VadConfig())
+    results, now = feed(vad, 0.065, 8_000)
+    assert {result.event for result in results} == {"calibrating", "idle"}
+    _, now = feed(vad, 0.3, 680, now)
+    results, _ = feed(vad, 0.065, 1_200, now)
+    assert sum(result.event == "utterance" for result in results) == 1
+    assert not vad.speaking
+
+
+def test_onset_can_confirm_across_short_phoneme_gaps_but_not_clicks() -> None:
+    vad, now = calibrated()
+    click, now = feed(vad, 0.25, FRAME_MS, now)
+    tail, now = feed(vad, 0.001, 200, now)
+    assert click[0].event == "candidate" and tail[-1].event == "idle"
+    events = []
+    for _ in range(5):
+        loud, now = feed(vad, 0.25, 60, now)
+        quiet, now = feed(vad, 0.001, 40, now)
+        events.extend(result.event for result in loud + quiet)
+    assert events.count("start") == 1 and vad.speaking
+
+
+def test_raised_room_floor_releases_speech_without_a_turn_length_cap() -> None:
+    vad = Vad(VadConfig())
+    _, now = feed(vad, 0.022, 900)
+    spoken, now = feed(vad, 0.25, 24_000, now)
+    assert vad.speaking and all(result.event != "utterance" for result in spoken)
+    tail, _ = feed(vad, 0.04, 2_000, now)
+    utterances = [result.utterance for result in tail if result.event == "utterance"]
+    assert len(utterances) == 1 and utterances[0] is not None
+    assert utterances[0].active_duration_ms >= 24_000
+    assert not vad.speaking
+
+
+def test_recognition_checkpoints_drain_audio_and_leave_the_turn_open() -> None:
+    vad, now = calibrated()
+    _, now = feed(vad, 0.25, 8_000, now)
+    first = vad.take_checkpoint()
+    assert vad.speaking and first.active_duration_ms >= 8_000 - FRAME_MS
+    _, now = feed(vad, 0.25, 8_000, now)
+    second = vad.take_checkpoint()
+    assert vad.speaking and second.active_duration_ms == 8_000
+    assert second.samples().size == RATE * 8
+    vad.restore_checkpoint(second)
+    assert vad.take_checkpoint().samples().size == RATE * 8
+
+
+def test_continued_turn_preserves_earlier_transcript_and_live_routing(monkeypatch) -> None:
+    call = CallSession(CallConfig(token="t", model="m"))
+    checkpoint = tone(0.15)
+    tail = tone(0.001)
+    seen = []
+    monkeypatch.setattr(call, "comprehend_interruption", lambda _samples: TurnResult())
+    monkeypatch.setattr(call, "_run", lambda payload: seen.append(payload)
+                        or TurnResult(transcript="add one", reply="Four.", speech_addressee="SELF"))
+    try:
+        result = call._take_turn(tail, transcript_prefix=("start with three", "add one"),
+                                 transcript_audio=checkpoint)
+        payload = seen[0]
+        assert payload["omni"]["require_speech"] is True
+        assert "start with three" in payload["messages"][-1]["content"]
+        assert payload["messages"][-1]["audios"]
+        assert result.transcript == "start with three add one"
+    finally:
+        call.close()
 
 
 def test_the_noise_floor_rises_with_a_noisy_room() -> None:
