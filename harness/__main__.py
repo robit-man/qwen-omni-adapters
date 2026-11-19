@@ -74,21 +74,26 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
-def _published_access_url(repo_root: Path) -> str:
-    """Read the URL owned by the currently live daemon and tunnel only."""
-
+def _ready_daemon_status(repo_root: Path) -> dict[str, Any] | None:
     status_path = repo_root / "runtime-data" / "state" / "daemon-status.json"
     try:
         status = json.loads(status_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return ""
+        return None
     if not isinstance(status, dict) or status.get("state") != "ready":
-        return ""
+        return None
     try:
         daemon_pid = int(status.get("pid") or 0)
     except (TypeError, ValueError):
-        return ""
-    if not _pid_alive(daemon_pid):
+        return None
+    return status if _pid_alive(daemon_pid) else None
+
+
+def _published_access_url(repo_root: Path) -> str:
+    """Read the URL owned by the currently live daemon and tunnel only."""
+
+    status = _ready_daemon_status(repo_root)
+    if status is None:
         return ""
     children = status.get("children")
     tunnel_pid = 0
@@ -562,10 +567,15 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as error:
             logger.warning("could not open task archive %s: %s", task_archive, error)
 
+    def dashboard_token() -> str:
+        if indicator_required and _ready_daemon_status(repo_root) is None:
+            return ""
+        return _available_token(args.token)
+
     def open_dashboard() -> tuple[bool, str]:
-        current_token = _available_token(args.token)
+        current_token = dashboard_token()
         if not current_token:
-            return False, "Dashboard access key is not available yet"
+            return False, "Dashboard is waiting for the portal"
         # The GTK process owns the clipboard and desktop application registry,
         # so it performs both user-facing actions after receiving this URL.
         return True, _observatory_url(args.portal, current_token)
@@ -585,6 +595,7 @@ def main(argv: list[str] | None = None) -> int:
             on_reasoning=set_reasoning,
             on_camera=set_camera,
             on_open_dashboard=open_dashboard,
+            dashboard_ready=lambda: bool(dashboard_token()),
             tools_enabled=config.tools_enabled,
             reasoning_enabled=config.reasoning_enabled,
             camera_enabled=config.camera_enabled,

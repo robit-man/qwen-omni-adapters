@@ -4,6 +4,7 @@ import inspect
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -226,6 +227,41 @@ def test_indicator_exposes_dashboard_and_repository_updates() -> None:
     assert "Software update failed — retry" in source
     assert "on_open_dashboard()" in source
     assert "on_update()" in source
+
+
+def test_portal_actions_follow_readiness_without_launching_the_dashboard(monkeypatch) -> None:
+    def menu():
+        children = []
+        return Mock(append=children.append, get_children=lambda: children)
+
+    gtk = SimpleNamespace(Menu=menu, MenuItem=Mock(side_effect=Mock),
+                          CheckMenuItem=Mock(side_effect=Mock), SeparatorMenuItem=object)
+    callbacks = []
+    glib = SimpleNamespace(timeout_add_seconds=lambda _seconds, callback: callbacks.append(callback))
+    monkeypatch.setattr(indicator_module, "_indicator_modules",
+                        lambda: (Mock(), glib, gtk, Mock(), "test"))
+    state = {"dashboard": False, "public": ""}
+    open_dashboard = Mock()
+    indicator = build_indicator(**_indicator_arguments(), on_open_dashboard=open_dashboard,
+                                dashboard_ready=lambda: state["dashboard"], endpoint=lambda: state["public"])
+
+    assert indicator._dashboard_item.set_sensitive.call_args.args == (False,)
+    assert indicator._endpoint_item.set_sensitive.call_args.args == (False,)
+    assert callbacks == [indicator._refresh_portal_actions]
+    state["dashboard"] = True
+    assert callbacks[0]()
+    indicator._dashboard_item.set_label.assert_called_with("Dashboard")
+    indicator._dashboard_item.set_sensitive.assert_called_with(True)
+    indicator._endpoint_item.set_sensitive.assert_called_with(False)
+    state["public"] = "https://fixture.invalid/"
+    assert callbacks[0]()
+    indicator._endpoint_item.set_label.assert_called_with("Copy public link")
+    indicator._endpoint_item.set_sensitive.assert_called_with(True)
+    state.update(dashboard=False, public="")
+    assert callbacks[0]()
+    indicator._dashboard_item.set_sensitive.assert_called_with(False)
+    indicator._endpoint_item.set_sensitive.assert_called_with(False)
+    open_dashboard.assert_not_called()
 
 
 def test_dashboard_action_opens_browser_and_only_copies_as_a_fallback() -> None:

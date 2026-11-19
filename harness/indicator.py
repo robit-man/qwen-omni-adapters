@@ -354,6 +354,7 @@ def build_indicator(
     on_reasoning: Callable[[bool], None] | None = None,
     on_camera: Callable[[bool], None] | None = None,
     on_open_dashboard: Callable[[], tuple[bool, str]] | None = None,
+    dashboard_ready: Callable[[], bool] | None = None,
     tools_enabled: bool = True,
     reasoning_enabled: bool = False,
     camera_enabled: bool = True,
@@ -404,6 +405,7 @@ def build_indicator(
             self._voices = voices
             self._update_signature: object = None
             self._updates = updates
+            self._portal_action_state: tuple[bool, bool] | None = None
 
             menu = Gtk.Menu()
             self._menu = menu
@@ -444,13 +446,11 @@ def build_indicator(
 
             self._dashboard_item = Gtk.MenuItem(label="Dashboard")
             self._dashboard_item.connect("activate", lambda *_: self._open_dashboard())
-            self._dashboard_item.set_sensitive(on_open_dashboard is not None)
             menu.append(self._dashboard_item)
 
             menu.append(Gtk.SeparatorMenuItem())
             self._endpoint_item = Gtk.MenuItem(label="Copy public link")
             self._endpoint_item.connect("activate", lambda *_: self._copy_endpoint())
-            self._endpoint_item.set_sensitive(endpoint is not None)
             menu.append(self._endpoint_item)
             self._endpoint = endpoint
 
@@ -503,6 +503,7 @@ def build_indicator(
             quit_item.connect("activate", lambda *_: self._quit())
             menu.append(quit_item)
 
+            self._refresh_portal_actions()
             menu.show_all()
             self._indicator.set_menu(menu)
             self._indicator.set_label("Omni", "Omni")
@@ -519,6 +520,8 @@ def build_indicator(
                 GLib.timeout_add_seconds(1, self._refresh_voices)
             if tasks is not None:
                 GLib.timeout_add_seconds(1, self._refresh_tasks)
+            if dashboard_ready is not None or endpoint is not None:
+                GLib.timeout_add_seconds(1, self._refresh_portal_actions)
             if updates is not None:
                 GLib.timeout_add_seconds(5, self._refresh_update)
 
@@ -531,6 +534,18 @@ def build_indicator(
             active = bool(item.get_active())
             if on_camera is not None:
                 on_camera(active)
+
+        def _refresh_portal_actions(self) -> bool:
+            dashboard = on_open_dashboard is not None and (dashboard_ready is None or dashboard_ready())
+            public = self._endpoint is not None and bool(self._endpoint())
+            state = (dashboard, public)
+            if state != self._portal_action_state:
+                self._portal_action_state = state
+                self._dashboard_item.set_label("Dashboard" if dashboard else "Dashboard unavailable")
+                self._dashboard_item.set_sensitive(dashboard)
+                self._endpoint_item.set_label("Copy public link" if public else "Public link unavailable")
+                self._endpoint_item.set_sensitive(public)
+            return True
 
         def _open_dashboard(self) -> None:
             if on_open_dashboard is None:
