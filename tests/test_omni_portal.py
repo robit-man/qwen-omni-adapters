@@ -2386,7 +2386,9 @@ def test_portal_assets_include_markdown_call_flow_and_neutral_composer() -> None
     assert "Retrying interrupted model stream" in javascript
     assert "BARGE_VAD_OPTIONS" in javascript
     assert "think: wantsThinking" in javascript
-    assert "think: showThinking" in javascript
+    assert "showThinking ? { think: true }" in javascript
+    assert "portal_voice_auto_reasoning: true" in javascript
+    assert "portal_voice_preface: true" in javascript
     assert "built.wantsThinking" in javascript
     assert "num_predict" not in javascript
     assert "max_frames: 24" in javascript
