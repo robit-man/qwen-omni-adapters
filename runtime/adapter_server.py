@@ -7,6 +7,7 @@ tag and its custom namespaced GGUF sidecar layer.
 
 from __future__ import annotations
 
+import atexit
 import base64
 import copy
 import hashlib
@@ -2648,9 +2649,9 @@ class _FastVoiceReply:
 
 def _fast_voice_reply(
     parsed: ParsedAdapterRequest, config: Config, client: httpx.Client,
+    recognize: Callable[[bytes], str],
 ) -> _FastVoiceReply | None:
-    if (not config.fast_voice_asr_model or not config.inkling_native_reasoning or config.language_api != "openai"
-            or not _is_live_spoken_turn(parsed) or parsed.input_modalities != ("text", "audio")):
+    if not _is_live_spoken_turn(parsed) or parsed.input_modalities != ("text", "audio"):
         return None
     current = next((message for message in reversed(parsed.messages) if message.role == "user"), None)
     if current is None or len(current.audios) != 1:
@@ -2658,15 +2659,10 @@ def _fast_voice_reply(
     clip = current.audios[0]
     if clip.mime_type != "audio/wav" or len(clip.data) > fast_voice_asr.MAX_AUDIO_BYTES:
         return None
-    worker = Path(fast_voice_asr.__file__).resolve()
+    transcript = recognize(clip.data)
+    if not transcript or any(ch in transcript for ch in "<>"):
+        return None
     try:
-        recognition = subprocess.run(  # noqa: S603 - operator-configured offline interpreter
-            [config.fast_voice_asr_python, str(worker), config.fast_voice_asr_model],
-            input=clip.data, capture_output=True, timeout=4, check=True,
-        )
-        transcript = json.loads(recognition.stdout)
-        if not isinstance(transcript, str) or not transcript or any(ch in transcript for ch in "<>"):
-            return None
         recent = [
             {"role": message.role, "content": message.content[:250]}
             for message in parsed.messages if message is not current
@@ -2688,7 +2684,7 @@ def _fast_voice_reply(
             "max_tokens": 56, "temperature": 0, "stream": False, "cache_prompt": False,
         }, timeout=min(config.timeout_s, 7))
         reply = _language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"]
-    except (OSError, ValueError, subprocess.SubprocessError, httpx.HTTPError, AdapterStageError):
+    except (ValueError, httpx.HTTPError, AdapterStageError):
         return None
     mode, _, speech = reply.partition(":")
     speech = " ".join(speech.split())
@@ -2707,7 +2703,7 @@ def execute_stream(
     | None = None,
     *,
     choose_reply_depth: bool = False,
-    fast_voice: bool = False,
+    fast_recognize: Callable[[bytes], str] | None = None,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
 
@@ -2721,9 +2717,9 @@ def execute_stream(
     speech_addressee: str | None = None
     live_route: _LiveTurnRoute | None = None
     fast_reply = None
-    if fast_voice and config.fast_voice_asr_model:
+    if fast_recognize is not None:
         yield _stream_event("stage", stage="comprehension")
-        fast_reply = _fast_voice_reply(parsed, config, client)
+        fast_reply = _fast_voice_reply(parsed, config, client, fast_recognize)
     if fast_reply is not None:
         observation = f"<speech_transcript>{fast_reply.transcript}</speech_transcript>"
         executed.extend(("comprehension", "language"))
@@ -3102,6 +3098,15 @@ def create_app(
     app = Flask(__name__)
     runtime_config = config or Config.from_environment()
     session = client or httpx.Client(timeout=runtime_config.timeout_s)
+    recognizer = None
+    if runtime_config.fast_voice_asr_model and runtime_config.inkling_native_reasoning and runtime_config.language_api == "openai":
+        try:
+            recognizer = fast_voice_asr.FastVoiceRecognizer(
+                runtime_config.fast_voice_asr_python, runtime_config.fast_voice_asr_model,
+            )
+            atexit.register(recognizer.close)
+        except OSError:
+            logging.getLogger("omni.adapter").warning("fast speech recognizer could not start")
     plane = decision_plane
     enabled = os.environ.get("OMNI_DECISION_PLANE_ENABLED", "0").strip().lower() not in {
         "0",
@@ -3237,7 +3242,7 @@ def create_app(
                     session,
                     decision_observer=observe_input_routing,
                     choose_reply_depth=voice_routing == "auto",
-                    fast_voice=voice_routing == "fast",
+                    fast_recognize=recognizer if voice_routing == "fast" else None,
                 )
             except (AdapterStageError, httpx.HTTPError) as exc:
                 yield _stream_event("error", error=str(exc), schema=ADAPTER_SCHEMA)
