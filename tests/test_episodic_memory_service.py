@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
 import pytest
@@ -203,6 +205,67 @@ def test_incoming_person_closes_a_running_encoding_stream_and_receives_the_lane(
     thread.join(1)
     assert result == [None]
     queue.release(foreground)
+
+
+def test_foreground_interrupts_an_encoding_stream_blocked_on_a_real_socket():
+    sent, finish = threading.Event(), threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            self.send_response(200)
+            self.send_header("Content-Length", "1024")
+            self.end_headers()
+            self.wfile.write(b'{"type":"stage","stage":"language"}\n')
+            self.wfile.flush()
+            sent.set()
+            finish.wait(3)
+            self.close_connection = True
+
+    queue = _InferenceQueue(1, 1)
+    result = []
+    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        host, port = server.server_address
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        encoder = AdapterMemoryEncoder(f"http://{host}:{port}/api/chat", "model", queue)
+        worker = threading.Thread(target=lambda: result.append(encoder("memory", "{}", threading.Event())))
+        worker.start()
+        try:
+            assert sent.wait(2)
+            foreground = queue.acquire("voice", 1)
+            assert foreground is not None
+            queue.release(foreground)
+            worker.join(1)
+            assert result == [None]
+        finally:
+            finish.set()
+            server.shutdown()
+            worker.join(3)
+
+
+def test_disconnected_queued_turn_releases_admission_before_the_active_turn_finishes():
+    queue = _InferenceQueue(1, 2)
+    active = queue.acquire("first", 0)
+    assert active is not None
+    disconnected = threading.Event()
+    result = []
+    queued = threading.Thread(target=lambda: result.append(queue.acquire("queued", 3, cancelled=disconnected.is_set)))
+    queued.start()
+    try:
+        deadline = time.monotonic() + 1
+        while queue.snapshot()["queued"] != 1 and time.monotonic() < deadline:
+            time.sleep(.01)
+        assert queue.snapshot()["queued"] == 1
+        disconnected.set()
+        queued.join(1)
+        assert result == [None]
+        assert queue.snapshot()["inflight"] == 1
+    finally:
+        queue.release(active)
+        queued.join(3)
 
 
 def test_durable_inference_reserves_a_foreground_slot():

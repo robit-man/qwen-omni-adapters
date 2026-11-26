@@ -294,6 +294,8 @@ session. A failed or interrupted playback sends `played: false` and prevents
 the pending action from running. This handshake preserves existing tool and
 conversation-archive permissions. An authenticated `POST /api/voice/warm`
 can request optional TTS warming under the worker's existing memory policy.
+Spoken tool continuations retain the original output token cap after the
+microphone admission gate has been satisfied.
 
 An authenticated portal caller may set `portal_tool_allowlist` to a JSON array
 of unique, exact names from the portal's pinned tool registry, for example

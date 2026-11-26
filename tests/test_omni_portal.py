@@ -7084,7 +7084,8 @@ def test_initial_sound_only_capture_keeps_speech_gate_and_executes_no_tools(monk
 
 
 @pytest.mark.parametrize("streaming", [False, True])
-def test_original_spoken_turn_budget_survives_disabled_continuation_speech_gate(monkeypatch, streaming):
+@pytest.mark.parametrize("requested,budget", [(None, 512), (96, 96), (4096, 512)])
+def test_original_spoken_turn_budget_survives_disabled_continuation_speech_gate(monkeypatch, streaming, requested, budget):
     requests = []
     monkeypatch.setattr("portal.app.LIVE_TOOL_ROUNDS", 2)
     monkeypatch.setattr(PortalToolHarness, "execute", lambda *_args: {"rendered": True})
@@ -7103,13 +7104,17 @@ def test_original_spoken_turn_budget_survives_disabled_continuation_speech_gate(
         return _spoken_adapter_response(reply, streaming=streaming)
 
     app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(handler)))
+    payload = _spoken_tool_request(streaming=streaming)
+    if requested is not None:
+        payload["options"] = {"num_predict": requested}
     response = app.test_client().post("/api/chat/stream" if streaming else "/api/chat",
-                                     headers={"Authorization": f"Bearer {TOKEN}"}, json=_spoken_tool_request(streaming=streaming))
+                                     headers={"Authorization": f"Bearer {TOKEN}"}, json=payload)
     final = json.loads(response.data.splitlines()[-1])["response"] if streaming else response.json
     assert final["message"]["content"] == "I stopped at the spoken-turn limit."
     assert len(requests) == 3
     assert requests[0]["omni"]["require_speech"] is True
     assert all(body["omni"]["require_speech"] is False for body in requests[1:])
+    assert all(body["options"]["num_predict"] == budget for body in requests)
 
 
 def test_cancelled_spoken_stream_cannot_execute_pending_tool_or_followup(monkeypatch):

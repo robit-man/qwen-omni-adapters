@@ -20,6 +20,7 @@ import httpx
 
 from qwen_omni_adapters.contract import ADAPTER_SCHEMA
 from qwen_omni_adapters.episodic_memory import MAX_EVENT_CHARS, EpisodicMemory
+from qwen_omni_adapters.http_stream import abort_response
 
 _PERCEPTION_TAG = re.compile(
     r"<(speech_transcript|audio_observation|visual_observation)>(.*?)</\1>",
@@ -101,6 +102,7 @@ class AdapterMemoryEncoder:
                     cancellation.set()
                     try:
                         if holder:
+                            abort_response(holder[0])
                             holder[0].close()
                         client.close()
                     except Exception:

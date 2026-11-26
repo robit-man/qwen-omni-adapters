@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -409,6 +409,7 @@ class PortalConfig:
     voice_profile: Mapping[str, Any] = field(default_factory=dict)
     voice_profile_path: Path | None = None
     timeout_s: float = 1200
+    spoken_output_tokens: int = 512
     max_body_bytes: int = 96 * 1024 * 1024
     inference_slots: int = 1
     concurrent_background_inference: bool = False
@@ -468,6 +469,7 @@ class PortalConfig:
             ).strip(),
             model=os.environ.get("OMNI_MODEL", DEFAULT_MODEL).strip(),
             access_token=access_token,
+            spoken_output_tokens=max(1, int(os.environ.get("OMNI_SPOKEN_LANGUAGE_MAX_OUTPUT_TOKENS", "512"))),
             voice_profile=load_voice_profile(profile_path),
             voice_profile_path=profile_path,
             timeout_s=float(os.environ.get("OMNI_PORTAL_TIMEOUT_S", "1200")),
@@ -717,8 +719,11 @@ class _InferenceQueue:
         self._background: dict[int, threading.Event] = {}
         self._foreground_waiters = 0
 
-    def acquire(self, session_id: str, timeout_s: float) -> _InferenceTicket | None:
+    def acquire(
+        self, session_id: str, timeout_s: float, *, cancelled: Callable[[], bool] | None = None,
+    ) -> _InferenceTicket | None:
         deadline = time.monotonic() + timeout_s
+        poll_s = 0.1 if cancelled is not None else float("inf")
         with self._changed:
             self._foreground_waiters += 1
             try:
@@ -726,21 +731,25 @@ class _InferenceQueue:
                     cancellation.set()
                 while self._inflight >= self.max_inflight and self._background:
                     remaining = deadline - time.monotonic()
-                    if remaining <= 0:
+                    if remaining <= 0 or (cancelled is not None and cancelled()):
                         return None
-                    self._changed.wait(remaining)
+                    self._changed.wait(min(remaining, poll_s))
                 if self._inflight >= self.max_inflight:
                     return None
                 self._inflight += 1
                 self._sessions[session_id] = self._sessions.get(session_id, 0) + 1
             finally:
                 self._foreground_waiters -= 1
-        if not self._gate.acquire(timeout=max(0, deadline - time.monotonic())):
-            self._remove_inflight(session_id)
-            return None
-        with self._lock:
-            self._active += 1
-        return _InferenceTicket(session_id=session_id)
+        while cancelled is None or not cancelled():
+            remaining = max(0, deadline - time.monotonic())
+            if self._gate.acquire(timeout=min(remaining, poll_s)):
+                with self._lock:
+                    self._active += 1
+                return _InferenceTicket(session_id=session_id)
+            if remaining <= poll_s:
+                break
+        self._remove_inflight(session_id)
+        return None
 
     def acquire_background(self, session_id: str, cancellation: threading.Event) -> _InferenceTicket | None:
         """An optional encoding pass yields its lane to an incoming person."""
@@ -3181,6 +3190,20 @@ def create_app(
             raise PortalRequestError("portal think must be a boolean")
         payload["think"] = think
 
+    def apply_spoken_output_budget(payload: dict[str, Any]) -> None:
+        omni = payload.get("omni")
+        if (not isinstance(omni, Mapping) or omni.get("require_speech") is not True
+                or omni.get("task", "chat") != "chat"):
+            return
+        # Tool continuations disable microphone admission once speech has been
+        # accepted. Keep the spoken output reservation across those rounds.
+        supplied = payload.get("options")
+        options = dict(supplied) if isinstance(supplied, Mapping) else {}
+        limit = max(1, runtime.spoken_output_tokens)
+        requested = options.get("num_predict", payload.get("max_tokens"))
+        options["num_predict"] = min(requested, limit) if type(requested) is int and requested > 0 else limit
+        payload["options"] = options
+
     def apply_client_location(
         payload: dict[str, Any], session_id: str, *, tools_enabled: bool
     ) -> None:
@@ -4097,6 +4120,7 @@ def create_app(
             diagnostic_fields["tools_requested"] = auto_tools
             diagnostic_media_ids = _request_media_digests(payload)
             apply_reasoning_mode(payload)
+            apply_spoken_output_budget(payload)
             apply_voice_profile(payload)
             if synthesis_only(payload):
                 # A synthesis pass is a literal transport from one settled
@@ -4468,6 +4492,7 @@ def create_app(
         diagnostic_media_ids = _request_media_digests(payload)
         try:
             apply_reasoning_mode(payload)
+            apply_spoken_output_budget(payload)
             apply_voice_profile(payload)
             if synthesis_only(payload):
                 # Do not turn settled speech text back into a conversation
@@ -4582,10 +4607,18 @@ def create_app(
             internal_background and not auto_tools and runtime.concurrent_background_inference
             and inference_queue.slots > 1
         )
-        admit = inference_queue.acquire_durable_task if concurrent_task else inference_queue.acquire
-        ticket = admit(session_id, runtime.timeout_s)
+        if concurrent_task:
+            ticket = inference_queue.acquire_durable_task(session_id, runtime.timeout_s)
+        else:
+            ticket = inference_queue.acquire(session_id, runtime.timeout_s, cancelled=disconnected)
         if ticket is None:
             tool_traces.finish(session_id, request_id)
+            if disconnected is not None and disconnected():
+                diagnostics.record(session_id, "request_complete", {
+                    "request_id": request_id, "status": 499,
+                    "total_ms": (time.monotonic() - started) * 1000,
+                }, request_id=request_id)
+                return Response(status=499)
             if continuation_enabled:
                 continuations.event(
                     session_id,
@@ -4735,8 +4768,11 @@ def create_app(
                         ).raise_for_status()
                     except httpx.HTTPError:
                         app.logger.debug("speech graph was unavailable ahead of follow-up")
-                active_ticket = inference_queue.acquire(session_id, runtime.timeout_s)
+                active_ticket = inference_queue.acquire(session_id, runtime.timeout_s, cancelled=disconnected)
                 if active_ticket is None:
+                    if disconnected is not None and disconnected():
+                        final_status = 499
+                        return False
                     final_status = 503
                     yield event_bytes({"type": "error", "error": "Inference queue is full or timed out."})
                     return False
