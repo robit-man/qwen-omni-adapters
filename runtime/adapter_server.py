@@ -2647,6 +2647,17 @@ class _FastVoiceReply:
     followup: bool
 
 
+_FAST_VOICE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "route": {"type": "string", "enum": ["reply", "check", "quiet"]},
+        "speech": {"type": "string"},
+    },
+    "required": ["route", "speech"],
+    "additionalProperties": False,
+}
+
+
 def _fast_voice_reply(
     parsed: ParsedAdapterRequest, config: Config, client: httpx.Client,
     recognize: Callable[[bytes], str],
@@ -2672,25 +2683,31 @@ def _fast_voice_reply(
             "model": config.language_model or parsed.model,
             "messages": [
                 {"role": "system", "content": (
-                    f"You are {runtime_agent_name()} in a live conversation. Give one short spoken sentence. "
-                    "Output REPLY: then your answer when you can resolve the ask from the recent exchange "
-                    "or what you already know. Output CHECK: then acknowledge the ask in one short sentence "
-                    "when it needs more thought, current evidence or an action. Never claim work has "
-                    "already happened. If the speaker is addressing someone else or only talking aloud, output QUIET."
+                    f"You are {runtime_agent_name()} in a voice conversation. Use route reply for a direct answer "
+                    "you know now, including greetings and connection checks. Use check for an action, missing facts "
+                    "or more thought, and say what you will check. Use quiet for ambient speech or another addressee. "
+                    "The speech field is one short natural sentence."
                 )},
                 *recent, {"role": "user", "content": transcript},
             ],
             "reasoning_effort": "none", "reasoning_budget_tokens": 0,
-            "max_tokens": 56, "temperature": 0, "stream": False, "cache_prompt": False,
+            "max_tokens": 64, "temperature": 0, "stream": False, "cache_prompt": False,
+            "response_format": {"type": "json_schema", "json_schema": {
+                "name": "spoken_turn", "strict": True, "schema": _FAST_VOICE_SCHEMA,
+            }},
         }, timeout=min(config.timeout_s, 7))
-        reply = _language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"]
+        reply = json.loads(_language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"])
     except (ValueError, httpx.HTTPError, AdapterStageError):
         return None
-    mode, _, speech = reply.partition(":")
-    speech = " ".join(speech.split())
-    if mode.strip().upper() not in {"REPLY", "CHECK"} or not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
+    if not isinstance(reply, dict) or reply.get("route") not in {"reply", "check"}:
         return None
-    return _FastVoiceReply(transcript, speech, mode.strip().upper() == "CHECK")
+    speech = reply.get("speech")
+    if not isinstance(speech, str):
+        return None
+    speech = " ".join(speech.split())
+    if not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
+        return None
+    return _FastVoiceReply(transcript, speech, reply["route"] == "check")
 
 
 def execute_stream(

@@ -3388,7 +3388,7 @@ def _live_spoken_request() -> object:
     )
 
 
-@pytest.mark.parametrize("mode", ["REPLY", "CHECK"])
+@pytest.mark.parametrize("mode", ["reply", "check"])
 def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
     requests = []
 
@@ -3396,7 +3396,7 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
         payload = json.loads(request.content)
         requests.append(payload)
         return httpx.Response(200, json={"choices": [{
-            "message": {"content": f"{mode}: I hear you."},
+            "message": {"content": json.dumps({"route": mode, "speech": "I hear you."})},
         }]})
 
     config = _adapter_config(language_api="openai", inkling_native_reasoning=True)
@@ -3408,9 +3408,10 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
 
     assert len(requests) == 1
     assert requests[0]["reasoning_effort"] == "none" and requests[0]["reasoning_budget_tokens"] == 0
+    assert requests[0]["response_format"]["json_schema"]["strict"] is True
     assert requests[0]["messages"][-1]["content"] == "Egg, can you hear me?"
     assert events[-1]["response"]["message"]["content"] == "I hear you."
-    assert events[-1]["response"]["adapter"].get("fast_voice_followup", False) is (mode == "CHECK")
+    assert events[-1]["response"]["adapter"].get("fast_voice_followup", False) is (mode == "check")
 
 
 def test_live_spoken_turn_carries_the_words_without_describing_the_voice() -> None:
