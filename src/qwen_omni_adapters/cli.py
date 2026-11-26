@@ -47,6 +47,8 @@ def _run(command: list[str], timeout: int = 30) -> tuple[bool, str]:
 
 
 def _doctor(args: argparse.Namespace) -> int:
+    from qwen_omni_adapters.daemon import _binary
+
     system = platform.system()
     tegra = is_tegra()
     broker = probe_gpu_broker()
@@ -73,14 +75,10 @@ def _doctor(args: argparse.Namespace) -> int:
         },
     }
     repo_root = Path(__file__).resolve().parents[2]
-    binaries = {}
-    for name in ("llama-server", "llama-tts"):
-        candidates = [
-            repo_root / "vendor" / "llama.cpp" / "build" / "bin" / name,
-            repo_root / "vendor" / "llama.cpp" / "build" / "bin" / f"{name}.exe",
-            repo_root / "vendor" / "llama.cpp" / "build" / "bin" / "Release" / f"{name}.exe",
-        ]
-        binaries[name] = next((path for path in candidates if path.is_file()), candidates[0])
+    binaries = {
+        name: _binary(repo_root, name, args.model)
+        for name in ("llama-server", "llama-tts")
+    }
     checks["llama_cpp"] = {
         name: {"path": str(path), "executable": path.is_file() and path.stat().st_mode & 0o111 != 0}
         for name, path in binaries.items()

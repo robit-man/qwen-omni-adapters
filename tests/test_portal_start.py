@@ -72,6 +72,7 @@ def test_broker_launcher_supplies_required_lease_metadata(tmp_path: Path, durati
     shutil.copy2(Path("portal/start.sh"), launcher)
     cache = tmp_path / "components"
     cache.mkdir()
+    (cache / ".robit-omni-portal-cache").write_text("sha256:test\n")
     for name in ("comprehension-model", "comprehension-projector", "tts-model", "tts-projector"):
         (cache / f"{name}.gguf").touch()
 
@@ -95,6 +96,7 @@ if name == "python":
     cache = Path(os.environ["OMNI_COMPONENT_CACHE"])
     print(json.dumps({
         "profile": "trained-audio-bridge",
+        "layer": {"digest": "sha256:test"},
         "standard_layers": {
             "language_model": {"path": str(cache / "comprehension-model.gguf")},
             "projector": {"path": str(cache / "comprehension-projector.gguf")},
@@ -296,6 +298,7 @@ elif sys.argv[1:2] == ['-c']:
 @pytest.mark.parametrize("logical_tag,profile,language_default,overrides", [
     ("robit/ornith-1.5-omni-audio-bridge:q4km", "trained-audio-bridge", "1", {}),
     ("robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km", "trained-audio-bridge", "0", {}),
+    ("robit/inkling-2-mini-omni:iq4-xs", "trained-audio-bridge", "0", {}),
     ("robit/ornith-1.5-omni:q4km", "legacy-cascade", "1", {}),
     ("robit/qwen3.8-27b-e03-obliterated-omni:q4km", "legacy-cascade", "0", {}),
     ("test/unknown-ornith-bridge:q4km", "trained-audio-bridge", "0", {}),
@@ -344,8 +347,9 @@ if sys.argv[1:4] == ['-m', 'qwen_omni_adapters', 'resolve']:
     cache = Path(os.environ['OMNI_COMPONENT_CACHE'])
     print(json.dumps({'profile': os.environ['FIXTURE_PROFILE'], 'standard_layers': {
         'language_model': {'path': str(cache / 'comprehension-model.gguf')},
-        'projector': {'path': str(cache / 'comprehension-projector.gguf')},
-    }}))
+        'projector': {'path': str(cache / 'vision-source.gguf')},
+    }, 'layer': {'digest': 'sha256:test'},
+        'split_projector': os.environ['OMNI_MODEL'].startswith('robit/inkling-2-mini-omni:')}))
 elif sys.argv[1:2] == ['-']:
     # Execute the launcher's actual MODEL_BY_TAG lookup, not a fixture boolean.
     os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
@@ -375,6 +379,7 @@ elif sys.argv[1].endswith('/runtime/adapter_server.py'):
                    'language_disable_thinking': config.language_disable_thinking},
         'audio_chat_payload': {'trained_prompt': payload['messages'][0]['content'] == TRAINED_AUDIO_SYSTEM_PROMPT,
                                'chat_template_kwargs': payload.get('chat_template_kwargs'),
+                               'reasoning_effort': payload.get('reasoning_effort'),
                                'repeat_penalty': payload.get('repeat_penalty', 1.0),
                                'cache_prompt': payload['cache_prompt']},
         'gpu_modules_imported': [name for name in ('torch', 'moondream', 'kestrel') if name in sys.modules],
@@ -393,7 +398,8 @@ wait_http() { wait "$4"; }
 launch_adapter_fixture() {
   local decision_ready=0
 '''
-    script += block + "\n}\nresolve_runtime_profile\nlaunch_adapter_fixture\n"
+    (cache / "vision-source.gguf").touch()
+    script += block + '\n}\nresolve_runtime_profile\nprintf "%s\\n" "$COMP_PROJECTOR_GGUF"\nlaunch_adapter_fixture\n'
     root = Path.cwd()
     env = {key: value for key, value in os.environ.items() if not key.startswith("OMNI_")}
     env.update({"OMNI_MODEL": logical_tag, "OMNI_PYTHON_BIN": str(driver),
@@ -407,7 +413,11 @@ launch_adapter_fixture() {
         if (tmp_path / "runtime-data/logs/adapter.log").exists() else "")
     evidence = json.loads(record.read_text())
     expected_comp = overrides.get("OMNI_COMPREHENSION_DISABLE_THINKING", "1" if profile == "trained-audio-bridge" else "0")
-    expected_repeat = float(overrides.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.1" if profile == "trained-audio-bridge" else "1.0"))
+    inkling = logical_tag.startswith("robit/inkling-2-mini-omni:")
+    expected_repeat = float(overrides.get(
+        "OMNI_COMPREHENSION_REPEAT_PENALTY",
+        "1.1" if profile == "trained-audio-bridge" and not inkling else "1.0",
+    ))
     expected_language = overrides.get("OMNI_LANGUAGE_DISABLE_THINKING", language_default)
     assert evidence["environment"]["OMNI_COMPREHENSION_DISABLE_THINKING"] == expected_comp
     assert evidence["environment"]["OMNI_LANGUAGE_DISABLE_THINKING"] == expected_language
@@ -418,10 +428,13 @@ launch_adapter_fixture() {
                                   "language_disable_thinking": expected_language == "1"}
     assert evidence["audio_chat_payload"] == {
         "trained_prompt": expected_comp == "1", "repeat_penalty": expected_repeat,
-        "chat_template_kwargs": {"enable_thinking": False} if expected_comp == "1" else None,
+        "chat_template_kwargs": {"enable_thinking": False} if expected_comp == "1" and not inkling else None,
+        "reasoning_effort": "none" if inkling else None,
         "cache_prompt": False,
     }
     assert evidence["gpu_modules_imported"] == []
+    if inkling:
+        assert str(cache / "comprehension-projector.gguf") in completed.stdout
     if profile == "trained-audio-bridge":
         assert evidence["environment"]["OMNI_LANGUAGE_MODEL"] == "local-audio-bridge"
         assert evidence["environment"]["OMNI_LANGUAGE_API"] == "openai"

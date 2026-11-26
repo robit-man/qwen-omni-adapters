@@ -89,6 +89,7 @@ class Config:
     # no-thinking prefill. Stock Qwen3-Omni is not: its explicit false branch
     # is known to degenerate, so this stays opt-in per deployment profile.
     comprehension_disable_thinking: bool = False
+    inkling_native_reasoning: bool = False
     comprehension_repeat_penalty: float = 1.0
     detailed_media_analysis: bool = False
     detailed_audio_analysis: bool | None = None
@@ -147,6 +148,7 @@ class Config:
             comprehension_disable_thinking=(
                 os.environ.get("OMNI_COMPREHENSION_DISABLE_THINKING", "0") == "1"
             ),
+            inkling_native_reasoning=os.environ.get("OMNI_INKLING_NATIVE_REASONING", "0") == "1",
             comprehension_repeat_penalty=float(
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
@@ -460,7 +462,7 @@ def _is_empty_audio_meta(value: str) -> bool:
 
 def _thinking_requested(parsed: ParsedAdapterRequest) -> bool:
     value = parsed.passthrough.get("think", False)
-    return value is True or isinstance(value, str)
+    return value is True or (isinstance(value, str) and value != "none")
 
 
 def _is_live_spoken_turn(parsed: ParsedAdapterRequest) -> bool:
@@ -623,9 +625,12 @@ def _classify_live_turn(
             "temperature": 0,
             "max_tokens": 16,
             "cache_prompt": False,
-            "chat_template_kwargs": {"enable_thinking": False},
-            "stop": ["<|im_start|>", "<|im_end|>"],
         }
+        if config.inkling_native_reasoning:
+            payload["reasoning_effort"] = "none"
+        else:
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
+            payload["stop"] = ["<|im_start|>", "<|im_end|>"]
     else:
         payload = {
             "model": config.language_model or parsed.model,
@@ -1271,7 +1276,12 @@ def build_comprehension_payload(
             "use_audio_in_video": parsed.include_audio_from_video,
         },
     }
-    if config.comprehension_disable_thinking:
+    if config.inkling_native_reasoning:
+        mixed_audio_image = {"audio", "image"}.issubset(media_modalities)
+        payload["reasoning_effort"] = "minimal" if mixed_audio_image else "none"
+        if mixed_audio_image:
+            payload["max_tokens"] = min(payload["max_tokens"], 768)
+    elif config.comprehension_disable_thinking:
         payload["chat_template_kwargs"] = {"enable_thinking": False}
     if config.comprehension_repeat_penalty != 1.0:
         payload["repeat_penalty"] = config.comprehension_repeat_penalty
@@ -1740,6 +1750,9 @@ def _comprehend(
     config: Config,
     client: httpx.Client,
 ) -> str:
+    inkling_audio_image = config.inkling_native_reasoning and (
+        set(parsed.input_modalities) - {"text"} == {"audio", "image"}
+    )
     videos = [video for message in parsed.messages for video in message.videos]
     requested_cap = min(
         MAX_VIDEO_FRAMES,
@@ -1764,10 +1777,15 @@ def _comprehend(
         last_response = response
         if _context_overflow(response) and frame_cap > 1:
             continue
-        observation = _assistant_text(
-            _json_response(response, "comprehension"),
-            "comprehension",
-        )
+        result = _json_response(response, "comprehension")
+        try:
+            observation = _assistant_text(result, "comprehension")
+        except AdapterStageError:
+            if not inkling_audio_image:
+                raise
+            observation = ""
+        if inkling_audio_image:
+            return _recover_inkling_mixed_observation(observation, parsed, config, client)
         if config.detailed_media_analysis and not any(
             message.images and "<computer_visual_evidence>" in message.content
             for message in parsed.messages
@@ -1779,6 +1797,35 @@ def _comprehend(
     return _assistant_text(
         _json_response(last_response, "comprehension"),
         "comprehension",
+    )
+
+
+def _recover_inkling_mixed_observation(
+    observation: str, parsed: ParsedAdapterRequest, config: Config, client: httpx.Client,
+) -> str:
+    speech = _observation_transcript(observation)
+    audio = _observation_audio(observation)
+    visual = _observation_visual(observation)
+    needs_audio = not (speech or audio) or (parsed.require_speech and not speech)
+    if not needs_audio and visual:
+        return observation
+
+    # A joint turn can finish in the worker's reasoning channel. Recover
+    # missing evidence from the same turn on the same resident decoder.
+    isolated = replace(config, detailed_media_analysis=False)
+    if needs_audio:
+        audio_messages = tuple(replace(message, images=()) for message in parsed.messages)
+        result = _comprehend(replace(parsed, messages=audio_messages, task="chat"), isolated, client)
+        speech = _observation_transcript(result) or speech
+        audio = _observation_audio(result) or audio
+    if not visual:
+        image_messages = tuple(replace(message, audios=()) for message in parsed.messages)
+        result = _comprehend(replace(parsed, messages=image_messages, task="chat"), isolated, client)
+        visual = _observation_visual(result)
+    return "\n".join(
+        f"<{tag}>{value}</{tag}>"
+        for tag, value in (("speech_transcript", speech), ("audio_observation", audio), ("visual_observation", visual))
+        if value
     )
 
 
@@ -1919,20 +1966,23 @@ def build_language_payload(
         # boolean, including the default false, explicitly: omission can enable
         # hidden reasoning in the language model's template. Preserve unrelated
         # template options without changing the user's messages.
-        template_kwargs = payload.get("chat_template_kwargs")
-        payload["chat_template_kwargs"] = {
-            **(dict(template_kwargs) if isinstance(template_kwargs, Mapping) else {}),
-            "enable_thinking": thinking_requested,
-        }
-        # Stop at the turn boundary. Without this the model occasionally runs
-        # past its own end-of-turn and begins writing the next one, and the
-        # reply arrives as the bare role header -- "user", or "user\nHello".
-        # It is intermittent, which makes it worse: the same question answers
-        # correctly most times and nonsensically the rest.
-        payload.setdefault(
-            "stop",
-            ["<|im_start|>", "<|im_end|>", "\nuser\n", "\nassistant\n"],
-        )
+        if config is not None and config.inkling_native_reasoning:
+            think = parsed.passthrough.get("think")
+            if isinstance(think, str) and think in {"none", "minimal", "low", "medium", "high", "xhigh", "max"}:
+                payload["reasoning_effort"] = think
+            else:
+                payload["reasoning_effort"] = "high" if thinking_requested else "none"
+        else:
+            template_kwargs = payload.get("chat_template_kwargs")
+            payload["chat_template_kwargs"] = {
+                **(dict(template_kwargs) if isinstance(template_kwargs, Mapping) else {}),
+                "enable_thinking": thinking_requested,
+            }
+            # Stop before a Qwen response starts a second turn.
+            payload.setdefault(
+                "stop",
+                ["<|im_start|>", "<|im_end|>", "\nuser\n", "\nassistant\n"],
+            )
         options = parsed.passthrough.get("options")
         if isinstance(options, Mapping):
             # Carry the sampling controls the OpenAI schema does define.
@@ -2129,6 +2179,8 @@ def _required_tool_retry_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     # no prompt token or synthetic tool call substitutes for them.
     if "think" in retry:
         retry["think"] = False
+    if "reasoning_effort" in retry:
+        retry["reasoning_effort"] = "none"
     template_kwargs = retry.get("chat_template_kwargs")
     if isinstance(template_kwargs, Mapping) and "enable_thinking" in template_kwargs:
         retry["chat_template_kwargs"] = {

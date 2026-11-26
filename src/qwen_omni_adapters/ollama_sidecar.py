@@ -5,10 +5,15 @@ import json
 import os
 import shutil
 from pathlib import Path
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Any
 
 from qwen_omni_adapters.single_gguf import (
+    COMPREHENSION_PROJECTOR_COMPONENT,
     LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
+    SPLIT_AUDIO_BRIDGE_SCHEMA,
+    _add_reader_tensor,
+    _require_gguf,
     inspect_monolithic_gguf,
     materialize_component_view,
 )
@@ -68,7 +73,7 @@ def resolve_models_dir(explicit: Path | None = None) -> Path:
             continue
         resolved = resolved.resolve()
         existing.append(resolved)
-        if (resolved / "manifests").is_dir():
+        if any((resolved / folder).is_dir() for folder in ("manifests-v2", "manifests")):
             populated.append(resolved)
     for choice in (populated, existing):
         if choice:
@@ -98,6 +103,10 @@ def manifest_path(model: str, models_dir: Path) -> Path:
         parts.insert(0, "library")
     if len(parts) < 2 or not all(parts) or not tag:
         raise OllamaSidecarError(f"invalid Ollama model reference: {model!r}")
+    v2_registry = "ollama.com" if registry == DEFAULT_REGISTRY else registry
+    v2_path = models_dir / "manifests-v2" / v2_registry / Path(*parts) / tag
+    if v2_path.is_symlink() or v2_path.is_file():
+        return v2_path
     return models_dir / "manifests" / registry / Path(*parts) / tag
 
 
@@ -172,6 +181,32 @@ def _install_blob(source: Path, destination: Path) -> str:
     return digest
 
 
+def _write_manifest(path: Path, root: Path, manifest: dict[str, Any]) -> None:
+    contents = json.dumps(manifest, separators=(",", ":"), sort_keys=True)
+    with TemporaryDirectory(prefix=".omni-manifest-", dir=path.parent) as directory:
+        partial = Path(directory) / "manifest"
+        partial.write_text(contents, encoding="utf-8")
+        if root / "manifests-v2" in path.parents:
+            # V2 tags point to content-addressed manifests that other tags can share.
+            partial.chmod(0o644)
+            digest = _install_blob(partial, root / "blobs")
+            blob = root / "blobs" / f"sha256-{digest}"
+            pointer = Path(directory) / "tag"
+            pointer.symlink_to(os.path.relpath(blob, start=path.parent))
+            partial = pointer
+        os.replace(partial, path)
+
+
+def _verify_split_layer_bindings(
+    inspection: dict[str, Any], standard_layers: dict[str, dict[str, Any]],
+) -> None:
+    digests = inspection["manifest"]["standard_layers"]["digests"]
+    for name, digest in digests.items():
+        actual = standard_layers.get(name) or {}
+        if not actual.get("available") or actual["layer"].get("digest") != digest:
+            raise OllamaSidecarError(f"split audio sidecar requires the bound {name} layer {digest}")
+
+
 def attach_ollama_sidecar(
     *,
     model: str,
@@ -186,6 +221,8 @@ def attach_ollama_sidecar(
     root = resolve_models_dir(models_dir)
     path = manifest_path(model, root)
     manifest = _read_manifest(path)
+    if inspection["manifest"]["schema"] == SPLIT_AUDIO_BRIDGE_SCHEMA:
+        _verify_split_layer_bindings(inspection, _resolve_standard_layers(manifest, root))
     digest = _install_blob(bundle, root / "blobs")
     layer = {
         "mediaType": OMNI_LAYER_MEDIA_TYPE,
@@ -205,12 +242,7 @@ def attach_ollama_sidecar(
         if existing.get("mediaType") != OMNI_LAYER_MEDIA_TYPE
     ]
     manifest["layers"] = [*retained, layer]
-    partial = path.with_name(path.name + ".partial")
-    partial.write_text(
-        json.dumps(manifest, separators=(",", ":"), sort_keys=True),
-        encoding="utf-8",
-    )
-    os.replace(partial, path)
+    _write_manifest(path, root, manifest)
     return {
         "model": model,
         "manifest": str(path),
@@ -253,12 +285,15 @@ def resolve_ollama_sidecar(
     if not inspection["valid"]:
         raise OllamaSidecarError(f"Omni sidecar failed inspection: {inspection['errors']}")
     schema = (inspection.get("manifest") or {}).get("schema")
+    split_projector = schema == SPLIT_AUDIO_BRIDGE_SCHEMA
     profile = (
         "trained-audio-bridge"
-        if schema == LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA
+        if schema in {LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA, SPLIT_AUDIO_BRIDGE_SCHEMA}
         else "legacy-cascade"
     )
     standard_layers = _resolve_standard_layers(manifest, root)
+    if split_projector:
+        _verify_split_layer_bindings(inspection, standard_layers)
     if profile == "trained-audio-bridge":
         required = {"language_model", "projector"}
         missing = sorted(
@@ -278,7 +313,93 @@ def resolve_ollama_sidecar(
         "bundle": str(blob),
         "inspection": inspection,
         "profile": profile,
+        "split_projector": split_projector,
         "standard_layers": standard_layers,
+    }
+
+
+def _materialize_split_projector(
+    *, bundle: Path, vision: Path, output: Path, overwrite: bool,
+) -> dict[str, Any]:
+    gguf, np = _require_gguf()
+    if output.resolve() in {bundle.resolve(), vision.resolve()}:
+        raise OllamaSidecarError("runtime projector cannot overwrite its source layers")
+    if output.exists() and not overwrite:
+        raise OllamaSidecarError(f"runtime projector already exists: {output}")
+    image = gguf.GGUFReader(str(vision))
+    audio = gguf.GGUFReader(str(bundle))
+    audio_prefix = COMPREHENSION_PROJECTOR_COMPONENT.metadata_prefix
+    tensor_prefix = COMPREHENSION_PROJECTOR_COMPONENT.tensor_prefix
+    audio_fields = {
+        name.removeprefix(audio_prefix): field
+        for name, field in audio.fields.items()
+        if name.startswith(audio_prefix + "clip.audio.")
+        or name == audio_prefix + "clip.has_audio_encoder"
+    }
+    audio_tensors = {
+        tensor.name.removeprefix(tensor_prefix): tensor
+        for tensor in audio.tensors
+        if tensor.name.startswith(tensor_prefix)
+    }
+    if (
+        image.fields["general.architecture"].contents() != "clip"
+        or not image.get_field("clip.has_vision_encoder")
+        or not image.fields["clip.has_vision_encoder"].contents()
+        or (image.get_field("clip.has_audio_encoder") and image.fields["clip.has_audio_encoder"].contents())
+        or any(tensor.name.startswith(("a.", "mm.a.")) for tensor in image.tensors)
+    ):
+        raise OllamaSidecarError("split audio requires an image-only CLIP layer")
+    vision_width = image.get_field("clip.vision.projection_dim")
+    audio_width = audio_fields.get("clip.audio.projection_dim")
+    audio_enabled = audio_fields.get("clip.has_audio_encoder")
+    audio_type = audio_fields.get("clip.audio.projector_type")
+    weight = audio_tensors.get("mm.a.mlp.2.weight")
+    bias = audio_tensors.get("mm.a.mlp.2.bias")
+    if (
+        not vision_width or not audio_width or vision_width.contents() != audio_width.contents()
+        or not audio_enabled or not audio_enabled.contents()
+        or not audio_type or audio_type.contents() != "qwen3a"
+        or weight is None or tuple(weight.shape) != (1280, audio_width.contents())
+        or bias is None or tuple(bias.shape) != (audio_width.contents(),)
+        or any(not name.startswith(("a.", "mm.a.")) for name in audio_tensors)
+    ):
+        raise OllamaSidecarError("split audio and image projector geometry does not match")
+
+    excluded = {"GGUF.version", "GGUF.tensor_count", "GGUF.kv_count", "general.architecture", "clip.projector_type"}
+    fields = {name: field for name, field in image.fields.items() if name not in excluded}
+    if "clip.vision.projector_type" not in fields:
+        projector_type = image.get_field("clip.projector_type")
+        if not projector_type:
+            raise OllamaSidecarError("image projector type is missing")
+        fields["clip.vision.projector_type"] = projector_type
+    fields.update(audio_fields)
+
+    with NamedTemporaryFile(dir=output.parent, prefix=output.name + ".", delete=False) as tmp:
+        partial = Path(tmp.name)
+    writer = gguf.GGUFWriter(str(partial), arch="clip")
+    try:
+        try:
+            for name, field in fields.items():
+                value = field.contents()
+                if not isinstance(value, list) or value:
+                    writer.add_key_value(name, value, field.types[0])
+            for tensor in image.tensors:
+                _add_reader_tensor(writer, tensor, tensor.name, np)
+            for name, tensor in audio_tensors.items():
+                _add_reader_tensor(writer, tensor, name, np)
+            writer.write_header_to_file()
+            writer.write_kv_data_to_file()
+            writer.write_tensors_to_file()
+        finally:
+            writer.close()
+        partial.replace(output)
+    finally:
+        partial.unlink(missing_ok=True)
+    return {
+        "output": str(output),
+        "size_bytes": output.stat().st_size,
+        "tensor_count": len(image.tensors) + len(audio_tensors),
+        "sha256": _sha256(output),
     }
 
 
@@ -297,6 +418,8 @@ def prepare_ollama_sidecar(
         if resolved["profile"] == "trained-audio-bridge"
         else RUNTIME_VIEWS
     )
+    if resolved["split_projector"]:
+        default_views = ("comprehension_projector", *default_views)
     selected_views = default_views if views is None else views
     unknown = sorted(set(selected_views) - set(RUNTIME_VIEWS))
     if unknown:
@@ -321,12 +444,25 @@ def prepare_ollama_sidecar(
     outputs: dict[str, dict[str, Any]] = {}
     for view in selected_views:
         output = destination / (view.replace("_", "-") + ".gguf")
-        outputs[view] = materialize_component_view(
-            bundle_gguf=Path(resolved["bundle"]),
-            view=view,
-            out_gguf=output,
-            overwrite=overwrite,
-        )
+        if resolved["split_projector"] and view == "comprehension_projector":
+            outputs[view] = _materialize_split_projector(
+                bundle=Path(resolved["bundle"]),
+                vision=Path(resolved["standard_layers"]["projector"]["path"]),
+                output=output,
+                overwrite=overwrite,
+            )
+        else:
+            outputs[view] = materialize_component_view(
+                bundle_gguf=Path(resolved["bundle"]),
+                view=view,
+                out_gguf=output,
+                overwrite=overwrite,
+            )
+    if resolved["split_projector"] and set(default_views).issubset(outputs):
+        marker = destination / "split-audio.sha256"
+        temporary = marker.with_suffix(".partial")
+        temporary.write_text(resolved["layer"]["digest"] + "\n", encoding="utf-8")
+        temporary.replace(marker)
     return {
         "model": model,
         "bundle": resolved["bundle"],

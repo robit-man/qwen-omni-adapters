@@ -169,7 +169,7 @@ if ((BUILD_LLAMA)); then
       exit 1
     }
   done
-  "$REPO_ROOT/scripts/build_llama_cpp.sh"
+  OMNI_MODEL="$MODEL" "$REPO_ROOT/scripts/build_llama_cpp.sh"
 fi
 
 if ((PULL_MODELS)); then

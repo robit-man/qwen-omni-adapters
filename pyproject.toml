@@ -33,6 +33,8 @@ dev = [
 ]
 
 [project.scripts]
+omni-adapters = "qwen_omni_adapters.cli:main"
+omni-adapters-daemon = "qwen_omni_adapters.daemon:main"
 qwen-omni = "qwen_omni_adapters.cli:main"
 qwen-omni-daemon = "qwen_omni_adapters.daemon:main"
 

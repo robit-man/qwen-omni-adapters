@@ -347,6 +347,18 @@ def _kv_gib_per_token(model: Path, command: list[str]) -> float:
     )
     prefix = f"{architecture}."
     layers = _gguf_scalar(reader, prefix + "block_count")
+    if architecture == "inkling2_loop":
+        start = _gguf_scalar(reader, prefix + "loop.start")
+        end = _gguf_scalar(reader, prefix + "loop.end")
+        passes = _gguf_scalar(reader, prefix + "loop.count")
+        sliding = reader.fields[prefix + "attention.sliding_window_pattern"].contents()
+        if len(sliding) != layers or not 0 <= start < end <= layers or passes < 1:
+            raise ValueError("invalid Inkling loop cache metadata")
+        # Sliding-window buffers have a bounded size and belong to the base
+        # residency. Full-attention buffers grow at each loop pass.
+        layers = sum(not windowed for windowed in sliding) + (
+            (passes - 1) * sum(not windowed for windowed in sliding[start:end])
+        )
     heads = _gguf_scalar(reader, prefix + "attention.head_count_kv")
     key = _gguf_scalar(reader, prefix + "attention.key_length")
     value = _gguf_scalar(reader, prefix + "attention.value_length")

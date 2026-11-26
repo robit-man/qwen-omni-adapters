@@ -63,6 +63,7 @@ Run without arguments for the arrow-key guided Jetson installer.
 Profiles:
   ornith15             Standard Ornith 1.5 9B audio bridge (about 8.15 GiB)
   qwen38               Qwen3.8 27B E03 Obliterated audio bridge (about 18.33 GiB)
+  inkling2-mini        Inkling 2 Mini IQ4_XS Omni preview (about 16.69 GiB)
 
 Options:
   --profile NAME       Select a profile without opening the model menu
@@ -77,8 +78,7 @@ Options:
   --list-models        Print the deployable bridge profiles
   --help               Show this help
 
-The old full-Omni tags remain usable through explicit OMNI_MODEL settings, but
-the guided installer deliberately offers only the two reduced audio bridges.
+Legacy full-Omni tags remain available through explicit OMNI_MODEL settings.
 EOF
 }
 
@@ -86,6 +86,7 @@ list_models() {
   cat <<'EOF'
 ornith15|robit/ornith-1.5-omni-audio-bridge:q4km|8.15 GiB|Standard Ornith 1.5 9B; recommended on 32 GB Jetson
 qwen38|robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km|18.33 GiB|Qwen3.8 27B E03 Obliterated; higher memory requirement
+inkling2-mini|robit/inkling-2-mini-omni:iq4-xs|16.69 GiB|Inkling 2 Mini IQ4_XS Omni preview
 EOF
 }
 
@@ -227,8 +228,13 @@ resolve_profile() {
       PROFILE_TITLE='Qwen3.8 27B E03 Obliterated audio bridge'
       PROFILE_SIZE='18.33 GiB'
       ;;
+    inkling2-mini)
+      OMNI_MODEL=robit/inkling-2-mini-omni:iq4-xs
+      PROFILE_TITLE='Inkling 2 Mini IQ4_XS Omni'
+      PROFILE_SIZE='16.69 GiB'
+      ;;
     *)
-      die "unknown profile '$PROFILE' (expected ornith15 or qwen38)"
+      die "unknown profile '$PROFILE' (expected ornith15, qwen38, or inkling2-mini)"
       ;;
   esac
 
@@ -267,17 +273,19 @@ choose_action() {
 }
 
 choose_profile() {
-  local selected current
+  local selected current key tag size label
+  local -a profiles=() choices=()
   current=$(configured_model)
   local default_index=0
-  [[ $current == *qwen3.8-27b-e03-obliterated-omni-audio-bridge* ]] && default_index=1
-  select_menu selected 'Select the logical Omni model (↑/↓, Enter):' "$default_index" \
-    'Standard Ornith 1.5 9B bridge — 8.15 GiB (recommended for 32 GB)' \
-    'Qwen3.8 27B E03 Obliterated bridge — 18.33 GiB (more capability, less headroom)'
-  case $selected in
-    0) PROFILE=ornith15 ;;
-    1) PROFILE=qwen38 ;;
-  esac
+  while IFS='|' read -r key tag size label; do
+    if [[ $current == "$tag" || $current == */"$tag" ]]; then
+      default_index=${#profiles[@]}
+    fi
+    profiles+=("$key")
+    choices+=("$label — $size")
+  done < <(list_models)
+  select_menu selected 'Select the logical Omni model (↑/↓, Enter):' "$default_index" "${choices[@]}"
+  PROFILE=${profiles[selected]}
 }
 
 choose_harness() {
@@ -568,13 +576,20 @@ backup_service_unit() {
 }
 
 install_environment() {
-  local temporary cache_type=f16 background_residency_mode=conversation context_tokens=16384
+  local temporary cache_type=f16 background_residency_mode=conversation context_tokens=16384 pointing=1
   # The Ornith bridge's q8 KV profile on the 32 GB AGX Orin exposes a 64K
   # ceiling. The launcher admits only a tier funded by measured live residency,
   # the GGUF-derived KV slope, and the shared operational reserve, so this is
   # not an unconditional 64K allocation. Keep f16 everywhere else until the
   # exact model/platform pair has equivalent live evidence.
-  if [[ $PROFILE == ornith15 ]] && is_tegra; then
+  if [[ $PROFILE == inkling2-mini ]]; then
+    cache_type=q8_0
+    context_tokens=8192
+    pointing=0
+    if is_tegra; then
+      background_residency_mode=action
+    fi
+  elif [[ $PROFILE == ornith15 ]] && is_tegra; then
     cache_type=q8_0
     background_residency_mode=action
     context_tokens=65536
@@ -598,7 +613,7 @@ install_environment() {
     printf 'OMNI_MODEL=%s\n' "$OMNI_MODEL"
     printf 'OMNI_LANGUAGE_MODEL=%s\n' "$OMNI_LANGUAGE_MODEL"
     printf 'OMNI_ENABLE_COMPREHENSION=1\n'
-    printf 'OMNI_ENABLE_POINTING=1\n'
+    printf 'OMNI_ENABLE_POINTING=%s\n' "$pointing"
     # Treat resident attention as L0 RAM. The ceiling is profile-qualified;
     # the live launcher still picks the largest tier that measured weights,
     # KV, and the shared operational reserve can safely fund.
@@ -1318,7 +1333,7 @@ deploy_service() {
 
 while (($#)); do
   case $1 in
-    ornith15|ornith15-audio-bridge|ornith15-bridge|qwen38|qwen38-audio-bridge|qwen38-bridge)
+    ornith15|ornith15-audio-bridge|ornith15-bridge|qwen38|qwen38-audio-bridge|qwen38-bridge|inkling2-mini)
       [[ -z $PROFILE ]] || die 'select only one profile'
       PROFILE=$1
       ;;
@@ -1368,7 +1383,7 @@ if ((DRY_RUN == 0)) && [[ ${OMNI_DEPLOY_LOCK_HELD:-0} != 1 ]] && command -v floc
   fi
 fi
 
-printf 'Qwen Omni guided deployment\n'
+printf 'Omni Adapters guided deployment\n'
 printf '  Platform: %s\n' "$(if is_tegra; then printf 'NVIDIA Jetson/Tegra (%s)' "$(tegra_soc)"; else printf '%s/%s' "$(uname -s)" "$(uname -m)"; fi)"
 printf '  Memory:   %s GiB\n' "$(memory_gib)"
 printf '  State:    %s\n' "$(deployment_state)"

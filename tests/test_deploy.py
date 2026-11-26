@@ -26,14 +26,15 @@ def _run(*arguments: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_guided_deployer_lists_only_the_two_release_audio_bridges() -> None:
+def test_guided_deployer_lists_three_release_audio_bridges() -> None:
     completed = _run("--list-models")
 
     assert completed.returncode == 0
     assert "robit/ornith-1.5-omni-audio-bridge:q4km" in completed.stdout
     assert "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km" in completed.stdout
+    assert "inkling2-mini|robit/inkling-2-mini-omni:iq4-xs|16.69 GiB" in completed.stdout
     assert "ornith-1.5-obliterated" not in completed.stdout
-    assert len(completed.stdout.strip().splitlines()) == 2
+    assert len(completed.stdout.strip().splitlines()) == 3
 
 
 def test_noninteractive_dry_run_uses_one_bridge_tag_for_both_stages() -> None:
@@ -59,6 +60,29 @@ def test_noninteractive_dry_run_uses_one_bridge_tag_for_both_stages() -> None:
     assert "systemctl start qwen-omni-adapters.service" in completed.stdout
     assert "start the desktop indicator immediately" in completed.stdout
     assert "do not run generation smoke" in completed.stdout
+
+
+def test_inkling_candidate_dry_run_uses_one_model_tag() -> None:
+    completed = _run(
+        "inkling2-mini", "--action", "deploy", "--no-update", "--no-harness",
+        "--no-camera", "--no-auto-update", "--yes", "--dry-run",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    tag = "robit/inkling-2-mini-omni:iq4-xs"
+    assert f"OMNI_MODEL={tag}" in completed.stdout
+    assert f"OMNI_LANGUAGE_MODEL={tag}" in completed.stdout
+
+
+def test_inkling_download_uses_the_published_tag_without_starting_services() -> None:
+    completed = _run(
+        "inkling2-mini", "--action", "download", "--no-auto-update", "--yes", "--dry-run",
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "ollama pull robit/inkling-2-mini-omni:iq4-xs" in completed.stdout
+    assert "systemctl start" not in completed.stdout
+    assert "scripts/bootstrap.sh --refresh-models" not in completed.stdout
 
 
 def test_fresh_host_installs_missing_prerequisites_before_bootstrap(tmp_path: Path) -> None:
@@ -344,11 +368,14 @@ def test_guided_deploy_prints_broker_proof_without_direct_daemon_control() -> No
     assert "--status" not in final_status  # launcher status would print the access URL
 
 
-@pytest.mark.parametrize("current_model,keys", [
-    ("", b"\x1b[B\r"),
-    ("robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km", b"\x1b[B\x1b[B\r"),
+@pytest.mark.parametrize("current_model,keys,expected_tag", [
+    ("", b"\x1b[B\r", "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"),
+    ("robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+     b"\x1b[B\x1b[B\x1b[B\r", "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km"),
+    ("", b"\x1b[A\r", "robit/inkling-2-mini-omni:iq4-xs"),
+    ("robit/inkling-2-mini-omni:iq4-xs", b"\r", "robit/inkling-2-mini-omni:iq4-xs"),
 ])
-def test_arrow_key_menu_selects_qwen_bridge(tmp_path: Path, current_model: str, keys: bytes) -> None:
+def test_arrow_key_menu_selects_bridge(tmp_path: Path, current_model: str, keys: bytes, expected_tag: str) -> None:
     # Isolate saved configuration; exercising zero-index wrap catches errexit
     # failures independently of the developer machine's currently chosen model.
     deploy = tmp_path / "deploy.sh"
@@ -418,7 +445,7 @@ def test_arrow_key_menu_selects_qwen_bridge(tmp_path: Path, current_model: str, 
     assert selected_model, rendered
     assert selected_service, rendered
     assert process.returncode == 0, rendered
-    assert "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km" in rendered
+    assert f"OMNI_MODEL={expected_tag}" in rendered
     assert "Services:   core daemon + always-listening harness" in rendered
     assert "scripts/bootstrap.sh --refresh-models --with-harness" in rendered
 

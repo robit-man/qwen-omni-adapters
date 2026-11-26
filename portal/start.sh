@@ -29,6 +29,21 @@ METRICS_PORT=${OMNI_CLOUDFLARED_METRICS_PORT:-49312}
 COMP_VRAM_MIB=${OMNI_COMPREHENSION_VRAM_MIB:-45000}
 COMP_CONTEXT_TOKENS=${OMNI_COMPREHENSION_CONTEXT_TOKENS:-65536}
 COMP_PARALLEL_SLOTS=${OMNI_COMPREHENSION_PARALLEL:-1}
+TTS_CONTEXT_TOKENS=${OMNI_TTS_CONTEXT_TOKENS:-0}
+LLAMA_BIN_DIR="$REPO_ROOT/vendor/llama.cpp/build/bin"
+INKLING_NATIVE=0
+COMP_SERVER_ARGS=()
+if [[ "$MODEL" == robit/inkling-2-mini-omni:* ]]; then
+  INKLING_NATIVE=1
+  LLAMA_BIN_DIR="$REPO_ROOT/vendor/llama.cpp-inkling/build/bin"
+  COMP_CONTEXT_TOKENS=${OMNI_COMPREHENSION_CONTEXT_TOKENS:-8192}
+  TTS_CONTEXT_TOKENS=${OMNI_TTS_CONTEXT_TOKENS:-2048}
+  COMP_SERVER_ARGS=(
+    --cache-type-k "${OMNI_COMPREHENSION_CACHE_TYPE_K:-q8_0}"
+    --cache-type-v "${OMNI_COMPREHENSION_CACHE_TYPE_V:-q8_0}"
+    --flash-attn on --batch-size 128 --ubatch-size 128 --cache-ram 0 --no-cache-idle-slots
+  )
+fi
 
 SUPERVISOR_PID_FILE="$STATE_DIR/supervisor.pid"
 ACCESS_URL_FILE="$STATE_DIR/access-url.txt"
@@ -40,6 +55,8 @@ SUPERVISOR_LOG="$LOG_DIR/supervisor.log"
 CACHE_MARKER="$CACHE_DIR/.robit-omni-portal-cache"
 
 SIDECAR_PROFILE=legacy-cascade
+SPLIT_PROJECTOR=0
+CACHE_IDENTITY=""
 COMP_MODEL_GGUF="$CACHE_DIR/comprehension-model.gguf"
 COMP_PROJECTOR_GGUF="$CACHE_DIR/comprehension-projector.gguf"
 ADAPTER_COMPREHENSION_MODEL=local-qwen3-omni
@@ -91,20 +108,27 @@ resolve_runtime_profile() {
   local default_language_context_probe=0
   resolved=$("$PYTHON_BIN" -m qwen_omni_adapters resolve "$MODEL")
   SIDECAR_PROFILE=$(jq -r '.profile // "legacy-cascade"' <<<"$resolved")
+  CACHE_IDENTITY=$(jq -er '.layer.digest' <<<"$resolved")
   if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
     COMP_MODEL_GGUF=$(jq -er '.standard_layers.language_model.path' <<<"$resolved")
-    COMP_PROJECTOR_GGUF=$(jq -er '.standard_layers.projector.path' <<<"$resolved")
+    local vision_projector
+    vision_projector=$(jq -er '.standard_layers.projector.path' <<<"$resolved")
     [[ -f "$COMP_MODEL_GGUF" ]] || die "audio-bridge language model blob is missing"
-    [[ -f "$COMP_PROJECTOR_GGUF" ]] || die "audio-bridge projector blob is missing"
+    [[ -f "$vision_projector" ]] || die "audio-bridge projector blob is missing"
     ADAPTER_COMPREHENSION_MODEL=local-audio-bridge
     ADAPTER_LANGUAGE_API=openai
     ADAPTER_LANGUAGE_URL="http://127.0.0.1:$COMP_PORT/v1/chat/completions"
     ADAPTER_LANGUAGE_MODEL=local-audio-bridge
     default_language_context_probe=1
     default_comp_disable_thinking=1
-    default_comp_repeat_penalty=1.1
-    if [[ -z "$SPECULATIVE_TYPE" ]]; then
-      SPECULATIVE_TYPE=ngram-simple
+    if jq -e '.split_projector == true' >/dev/null <<<"$resolved"; then
+      SPLIT_PROJECTOR=1
+    else
+      COMP_PROJECTOR_GGUF=$vision_projector
+      default_comp_repeat_penalty=1.1
+      if [[ -z "$SPECULATIVE_TYPE" ]]; then
+        SPECULATIVE_TYPE=ngram-simple
+      fi
     fi
     log "resolved trained audio bridge; one local trunk will serve media and language"
   fi
@@ -373,12 +397,17 @@ prepare_cache() {
       "$CACHE_DIR/comprehension-model.gguf"
       "$CACHE_DIR/comprehension-projector.gguf"
     )
+  elif ((SPLIT_PROJECTOR)); then
+    required+=("$COMP_PROJECTOR_GGUF")
   fi
   local missing=0
   local file
   for file in "${required[@]}"; do
     [[ -f "$file" ]] || missing=1
   done
+  if [[ ! -f "$CACHE_MARKER" || $(<"$CACHE_MARKER") != "$CACHE_IDENTITY" ]]; then
+    missing=1
+  fi
   if (( ! missing )); then
     log "reusing complete component cache: $CACHE_DIR"
     return
@@ -386,7 +415,9 @@ prepare_cache() {
   local free_kib
   free_kib=$(df -Pk "$RUNTIME_ROOT" | awk 'NR==2 {print $4}')
   local required_free_gib=30
-  if [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
+  if ((SPLIT_PROJECTOR)); then
+    log "materializing combined audio and vision projector and two verified TTS views"
+  elif [[ "$SIDECAR_PROFILE" == trained-audio-bridge ]]; then
     required_free_gib=4
   fi
   (( free_kib >= required_free_gib * 1024 * 1024 )) \
@@ -398,7 +429,7 @@ prepare_cache() {
     log "materializing four verified runtime views from the installed Ollama sidecar"
   fi
   "$PYTHON_BIN" -m qwen_omni_adapters prepare "$MODEL" --out "$CACHE_DIR" --overwrite
-  : >"$CACHE_MARKER"
+  printf '%s\n' "$CACHE_IDENTITY" >"$CACHE_MARKER"
 }
 
 choose_gpu() {
@@ -488,8 +519,8 @@ run_foreground() {
   require_command setsid
   require_command ss
   [[ -x "$PYTHON_BIN" ]] || die "repository Python is missing: $PYTHON_BIN (run ./scripts/bootstrap.sh)"
-  [[ -x "$REPO_ROOT/vendor/llama.cpp/build/bin/llama-server" ]] || die "llama-server is not built (run ./scripts/build_llama_cpp.sh)"
-  [[ -x "$REPO_ROOT/vendor/llama.cpp/build/bin/llama-tts" ]] || die "llama-tts is not built (run ./scripts/build_llama_cpp.sh)"
+  [[ -x "$LLAMA_BIN_DIR/llama-server" ]] || die "llama-server is missing for $MODEL (run OMNI_MODEL=$MODEL ./scripts/build_llama_cpp.sh)"
+  [[ -x "$LLAMA_BIN_DIR/llama-tts" ]] || die "llama-tts is missing for $MODEL (run OMNI_MODEL=$MODEL ./scripts/build_llama_cpp.sh)"
   if [[ "$POINTING_ENABLED" == 1 ]]; then
     [[ -x "$POINTING_PYTHON" ]] \
       || die "pointing runtime is missing: run ./scripts/bootstrap_pointing.sh"
@@ -578,12 +609,13 @@ run_foreground() {
   CUDA_VISIBLE_DEVICES="$gpu_uuid" \
   HIP_VISIBLE_DEVICES=-1 \
   ROCR_VISIBLE_DEVICES=-1 \
-  "$REPO_ROOT/vendor/llama.cpp/build/bin/llama-server" \
+  "$LLAMA_BIN_DIR/llama-server" \
     -m "$COMP_MODEL_GGUF" \
     --mmproj "$COMP_PROJECTOR_GGUF" \
     --host 127.0.0.1 --port "$COMP_PORT" \
     --jinja -ngl 99 -c "$COMP_CONTEXT_TOKENS" \
     --parallel "$COMP_PARALLEL_SLOTS" \
+    "${COMP_SERVER_ARGS[@]}" \
     "${COMP_SPEC_ARGS[@]}" \
     >"$LOG_DIR/comprehension.log" 2>&1 &
   COMP_PID=$!
@@ -634,8 +666,9 @@ run_foreground() {
   OMNI_COMPONENT_CACHE="$CACHE_DIR" \
   OMNI_TTS_MODEL_GGUF="$CACHE_DIR/tts-model.gguf" \
   OMNI_TTS_PROJECTOR_GGUF="$CACHE_DIR/tts-projector.gguf" \
-  LLAMA_TTS_BIN="$REPO_ROOT/vendor/llama.cpp/build/bin/llama-tts" \
+  LLAMA_TTS_BIN="$LLAMA_BIN_DIR/llama-tts" \
   OMNI_TTS_GPU_LAYERS=-1 \
+  OMNI_TTS_CONTEXT_TOKENS="$TTS_CONTEXT_TOKENS" \
   OMNI_TTS_STREAM_FRAMES="${OMNI_TTS_STREAM_FRAMES:-2}" \
   OMNI_TTS_PERSISTENT="${OMNI_TTS_PERSISTENT:-1}" \
   OMNI_TTS_WARM_SPEAKER_FILE="${OMNI_TTS_WARM_SPEAKER_FILE:-$SCRIPT_DIR/voices/female_voice.wav}" \
@@ -654,6 +687,7 @@ run_foreground() {
   OMNI_COMPREHENSION_CONTEXT_TOKENS="$COMP_CONTEXT_TOKENS" \
   OMNI_COMPREHENSION_DISABLE_THINKING="$ADAPTER_COMPREHENSION_DISABLE_THINKING" \
   OMNI_COMPREHENSION_REPEAT_PENALTY="$ADAPTER_COMPREHENSION_REPEAT_PENALTY" \
+  OMNI_INKLING_NATIVE_REASONING="$INKLING_NATIVE" \
   OMNI_LANGUAGE_API="$ADAPTER_LANGUAGE_API" \
   OMNI_LANGUAGE_URL="$ADAPTER_LANGUAGE_URL" \
   OMNI_LANGUAGE_MODEL="$ADAPTER_LANGUAGE_MODEL" \

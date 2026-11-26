@@ -329,6 +329,11 @@ class IndicatorModelManager:
         installed, _loaded = self._inventory()
         if tag not in installed:
             return False, "Download the model before activating it"
+        if model.key == "inkling2-mini":
+            binary_dir = self.repo_root / "vendor/llama.cpp-inkling/build/bin"
+            binaries = [binary_dir / name for name in ("llama-server", "llama-tts")]
+            if not all(path.is_file() and os.access(path, os.X_OK) for path in binaries):
+                return False, "Install the Inkling runtime with ./deploy.sh inkling2-mini before activating it"
         values = {
             "OMNI_PROFILE": model.key,
             "OMNI_MODEL": model.tag,

@@ -1,4 +1,4 @@
-# Qwen Omni Adapters
+# Omni Adapters
 
 ```bash
 curl -fsSL https://github.com/robit-man/qwen-omni-adapters/archive/refs/heads/main.tar.gz | tar -xz && cd qwen-omni-adapters-main && ./deploy.sh
@@ -155,8 +155,8 @@ platform service manager after a service install. Do not delete
 
 ### One-line install and launch
 
-For non-interactive automation, the short profile names select the same two
-bridge releases and deploy the managed service:
+For non-interactive automation, the short profile names select a bridge release
+and deploy the managed service:
 
 
 ```bash
@@ -168,7 +168,18 @@ Available profiles are:
 ```bash
 ./deploy.sh ornith15                # standard Ornith 1.5 9B bridge; about 8.15 GiB
 ./deploy.sh qwen38                  # Qwen3.8 27B E03 bridge; about 18.33 GiB
+./deploy.sh inkling2-mini            # Inkling 2 Mini IQ4_XS Omni preview; about 16.69 GiB
 ```
+
+To download the Inkling preview from the installer without starting its runtime:
+
+```bash
+./deploy.sh --profile inkling2-mini --action download --no-auto-update --yes
+```
+
+Inkling also appears under the desktop indicator's **Models** menu. The
+preview completed the media and streaming speech flow at 8,192 tokens on a
+32 GB AGX Orin, with swap use during speech. [Inkling release results](https://huggingface.co/cudabenchmarktest/Inkling-2-Mini-Omni-GGUF/blob/main/qualification.json)
 
 On a broker-managed GPU host the installed service uses the scoped broker. On
 Tegra it uses the direct supervisor and proves residency from `nvgpu`/`nvmap`

@@ -3,8 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
-SOURCE_DIR=${1:-$REPO_ROOT/vendor/llama.cpp}
 PINNED_COMMIT=458681e1d5d4a29a1463c4732e03226cf384b997
+DEFAULT_SOURCE_DIR=$REPO_ROOT/vendor/llama.cpp
+INKLING_PATCH_FILE=
+case "${OMNI_MODEL:-}" in
+  robit/inkling-2-mini-omni:*)
+    PINNED_COMMIT=f5e6915c28f10330885fcb9243a93ae98d3115ab
+    DEFAULT_SOURCE_DIR=$REPO_ROOT/vendor/llama.cpp-inkling
+    INKLING_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-inkling-omni-b12651.patch
+    ;;
+esac
+SOURCE_DIR=${1:-$DEFAULT_SOURCE_DIR}
 PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-pcm-stream.patch
 PERSISTENT_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-persistent.patch
 STREAM_STATE_PATCH_FILE=$REPO_ROOT/patches/llama.cpp-qwen3tts-stream-state.patch
@@ -120,7 +129,9 @@ patch_set_applied() {
       'state_out describes this exact output boundary'
 }
 
-if patch_set_applied; then
+if [[ -n "$INKLING_PATCH_FILE" ]]; then
+  apply_patch_file "$INKLING_PATCH_FILE" "Inkling Omni and Qwen3-TTS"
+elif patch_set_applied; then
   printf 'Qwen3-TTS patch set is already applied\n'
 else
   apply_patch_file "$PATCH_FILE" "Qwen3-TTS PCM stream"
@@ -133,8 +144,10 @@ else
 fi
 
 # Independent common-code fix; do not fold it into the overlapping TTS markers.
-apply_patch_file "$JSON_PATTERN_PATCH_FILE" "JSON pattern string safety"
-apply_patch_file "$JSON_STRING_BOUNDS_PATCH_FILE" "JSON string length bounds"
+if [[ -z "$INKLING_PATCH_FILE" ]]; then
+  apply_patch_file "$JSON_PATTERN_PATCH_FILE" "JSON pattern string safety"
+  apply_patch_file "$JSON_STRING_BOUNDS_PATCH_FILE" "JSON string length bounds"
+fi
 
 cmake_options=(-DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release)
 case $(uname -s) in

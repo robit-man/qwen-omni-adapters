@@ -192,10 +192,16 @@ acknowledged and the replacement adapter and portal passed local health checks.
 ## One Ollama slot
 
 Each trained bridge carries its sole language model in the standard Ollama
-layer and its combined native-vision/Omni-audio projector in the standard
-projector layer. The installer names that same logical tag for both runtime
-stages, so one llama.cpp server performs comprehension, language, and tools;
-there is no second Ollama language runner.
+model layer. The installer names the same logical tag for both runtime stages,
+so one llama.cpp server performs comprehension, language, and tools.
+
+The Inkling split-layer format keeps the original vision projector in the
+standard Ollama projector layer. The sidecar binds that image layer and the
+language layer by SHA-256, and carries the trained audio projector and Qwen3-TTS
+graphs. The adapter combines the two projectors in its disposable cache.
+Stock Ollama serves text, vision, thinking, and tools from the standard layers.
+The Inkling adapter build uses llama.cpp b12651 with the repository's audio
+boundary and speech patches. Its initial Orin context ceiling is 8,192 tokens.
 
 ## Legacy full-Omni memory
 

@@ -66,6 +66,7 @@ class Config:
     broker_transition_timeout_s: float = 330
     persistent: bool = True
     warm_speaker_file: str = ""
+    context_tokens: int = 0
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -116,6 +117,7 @@ class Config:
             timeout_s=float(os.environ.get("OMNI_TTS_TIMEOUT_S", "900")),
             max_text_chars=int(os.environ.get("OMNI_TTS_MAX_TEXT_CHARS", "4096")),
             max_frames=int(os.environ.get("OMNI_TTS_MAX_FRAMES", "512")),
+            context_tokens=int(os.environ.get("OMNI_TTS_CONTEXT_TOKENS", "0")),
             stream_frames=int(os.environ.get("OMNI_TTS_STREAM_FRAMES", "8")),
             gpu_layers=int(os.environ.get("OMNI_TTS_GPU_LAYERS", "-1")),
             require_gpu=os.environ.get("OMNI_TTS_REQUIRE_GPU", "0") == "1",
@@ -328,6 +330,8 @@ def _command(
         "--seed",
         str(spec.seed),
     ]
+    if config.context_tokens:
+        command.extend(["--ctx-size", str(config.context_tokens)])
     selected_speaker = speaker_file if speaker_file is not None else spec.speaker
     if selected_speaker:
         command.extend(["--tts-speaker-file", selected_speaker])

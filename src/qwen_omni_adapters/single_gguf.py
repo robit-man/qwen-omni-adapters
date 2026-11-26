@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import time
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -13,6 +14,7 @@ from qwen_omni_adapters.contract import adapter_contract
 
 BUNDLE_SCHEMA = "robit.ollama-monolithic-omni.v3"
 LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA = "robit.ollama-audio-bridge.v1"
+SPLIT_AUDIO_BRIDGE_SCHEMA = "robit.ollama-split-audio-bridge.v1"
 BUNDLE_NAMESPACE = "robit.audio_bundle"
 CONTAINER_FORMAT = "robit-namespaced-multigraph-gguf-v1"
 MAX_GGML_TENSOR_NAME_BYTES = 127
@@ -450,6 +452,14 @@ def pack_monolithic_gguf(
     }
 
 
+def _valid_split_layer_digests(digests: Any) -> bool:
+    return (
+        isinstance(digests, Mapping)
+        and set(digests) == {"language_model", "projector"}
+        and all(isinstance(value, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", value) for value in digests.values())
+    )
+
+
 def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
     gguf, _ = _require_gguf()
     resolved = path.expanduser().resolve()
@@ -465,7 +475,7 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
         manifest = None
         errors.append(f"invalid bundle manifest JSON: {exc}")
     schema = metadata.get(f"{BUNDLE_NAMESPACE}.schema")
-    if schema not in {BUNDLE_SCHEMA, LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA}:
+    if schema not in {BUNDLE_SCHEMA, LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA, SPLIT_AUDIO_BRIDGE_SCHEMA}:
         errors.append("missing or unsupported bundle schema")
     view_counts = {"base": 0, **{component.name: 0 for component in EMBEDDED_COMPONENTS}}
     for tensor in reader.tensors:
@@ -484,7 +494,7 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
     }
     required_groups = (
         ("tts",)
-        if schema == LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA
+        if schema in {LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA, SPLIT_AUDIO_BRIDGE_SCHEMA}
         else ("base", "comprehension", "tts")
     )
     for component in required_groups:
@@ -500,6 +510,17 @@ def inspect_monolithic_gguf(path: Path) -> dict[str, Any]:
             errors.append(f"bundle manifest declares unknown component {component_name}")
         elif view_counts[component_name] == 0:
             errors.append(f"bundle has no {component_name} tensors")
+    if schema == SPLIT_AUDIO_BRIDGE_SCHEMA:
+        required = {"comprehension_projector", "tts_model", "tts_projector"}
+        if declared != required or {name for name, count in view_counts.items() if count} != required:
+            errors.append("split audio bundle requires only an audio projector and the two speech graphs")
+        standard = (manifest or {}).get("standard_layers")
+        if (
+            (manifest or {}).get("schema") != schema
+            or not isinstance(standard, Mapping)
+            or not _valid_split_layer_digests(standard.get("digests"))
+        ):
+            errors.append("split audio bundle has no valid standard layer bindings")
     return {
         "valid": not errors,
         "path": str(resolved),
@@ -574,6 +595,7 @@ def materialize_component_view(
     if metadata.get(f"{BUNDLE_NAMESPACE}.schema") not in {
         BUNDLE_SCHEMA,
         LIGHTWEIGHT_AUDIO_BRIDGE_SCHEMA,
+        SPLIT_AUDIO_BRIDGE_SCHEMA,
     }:
         raise SingleGGUFError(f"unsupported or missing bundle schema in {source}")
     if component:

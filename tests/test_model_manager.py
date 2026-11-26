@@ -29,6 +29,7 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
     assert tags == [
         "robit/ornith-1.5-omni-audio-bridge:q4km",
         "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
+        "robit/inkling-2-mini-omni:iq4-xs",
         "robit/ornith-1.5-omni:q4km",
         "robit/qwen3.8-27b-e03-obliterated-omni:q4km",
     ]
@@ -37,8 +38,10 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
         65_536,
         16_384,
     ]
+    assert MANAGED_MODELS[2].max_context_tokens == 8_192
     assert [model.language_disable_thinking for model in MANAGED_MODELS] == [
         True,
+        False,
         False,
         True,
         False,
@@ -114,6 +117,27 @@ def test_destructive_and_load_actions_fail_closed(tmp_path: Path) -> None:
         False,
         "model is not in the managed allowlist",
     )
+
+
+def test_inkling_activation_requires_its_binaries_and_uses_8k(tmp_path: Path) -> None:
+    tag = "robit/inkling-2-mini-omni:iq4-xs"
+    manager = _manager(tmp_path, MANAGED_MODELS[0].tag, {tag})
+
+    ok, detail = manager.activate(tag)
+    assert not ok and "./deploy.sh inkling2-mini" in detail
+    assert not (tmp_path / ".env").exists()
+
+    binary_dir = tmp_path / "vendor/llama.cpp-inkling/build/bin"
+    binary_dir.mkdir(parents=True)
+    for name in ("llama-server", "llama-tts"):
+        (binary_dir / name).touch(mode=0o700)
+
+    ok, detail = manager.activate(tag)
+    assert ok, detail
+    environment = (tmp_path / ".env").read_text()
+    assert f"OMNI_MODEL={tag}\n" in environment
+    assert f"OMNI_LANGUAGE_MODEL={tag}\n" in environment
+    assert "OMNI_COMPREHENSION_CONTEXT_TOKENS=8192\n" in environment
 
 
 def test_indicator_model_rows_show_download_active_loaded_and_progress() -> None:

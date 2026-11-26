@@ -53,7 +53,7 @@ def test_missing_cloudflared_does_not_mutate_the_frozen_config(
         "which",
         lambda name: None if name == "cloudflared" else f"/usr/bin/{name}",
     )
-    monkeypatch.setattr(daemon, "_binary", lambda _root, _name: Path("/bin/sh"))
+    monkeypatch.setattr(daemon, "_binary", lambda _root, _name, _model: Path("/bin/sh"))
     monkeypatch.setattr(daemon, "_port_available", lambda _host, _port: True)
 
     supervisor._preflight()

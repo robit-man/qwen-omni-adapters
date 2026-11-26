@@ -550,7 +550,7 @@ def test_an_externally_managed_comprehension_port_does_not_block_start(monkeypat
     )
     monkeypatch.setattr(daemon_module.shutil, "which", lambda name: "/usr/bin/" + name)
     monkeypatch.setattr(supervisor, "_broker_present", lambda: False)
-    monkeypatch.setattr(daemon_module, "_binary", lambda root, name: Path("/bin/sh"))
+    monkeypatch.setattr(daemon_module, "_binary", lambda root, name, model: Path("/bin/sh"))
     supervisor._preflight()
 
     assert config.comprehension_port not in checked
@@ -574,7 +574,7 @@ def test_an_owned_comprehension_port_is_still_required(monkeypatch):
     )
     monkeypatch.setattr(daemon_module.shutil, "which", lambda name: "/usr/bin/" + name)
     monkeypatch.setattr(supervisor, "_broker_present", lambda: False)
-    monkeypatch.setattr(daemon_module, "_binary", lambda root, name: Path("/bin/sh"))
+    monkeypatch.setattr(daemon_module, "_binary", lambda root, name, model: Path("/bin/sh"))
     supervisor._preflight()
 
     assert config.comprehension_port in checked

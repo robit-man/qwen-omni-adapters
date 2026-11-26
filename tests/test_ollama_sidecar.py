@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 from qwen_omni_adapters.ollama_sidecar import (
     OMNI_LAYER_MEDIA_TYPE,
+    OllamaSidecarError,
     attach_ollama_sidecar,
     manifest_path,
     prepare_ollama_sidecar,
@@ -16,21 +19,24 @@ from qwen_omni_adapters.ollama_sidecar import (
 from qwen_omni_adapters.single_gguf import pack_monolithic_gguf
 
 
-def _make_lightweight_sidecar(path: Path) -> None:
+def _make_lightweight_sidecar(path: Path, digests: dict[str, str] | None = None) -> None:
     gguf = pytest.importorskip("gguf")
     np = pytest.importorskip("numpy")
     manifest = {
-        "schema": "robit.ollama-audio-bridge.v1",
+        "schema": "robit.ollama-split-audio-bridge.v1" if digests else "robit.ollama-audio-bridge.v1",
         "profile": "trained-audio-bridge",
         "components": [
             {"name": "tts_model"},
             {"name": "tts_projector"},
         ],
     }
+    if digests:
+        manifest["standard_layers"] = {"digests": digests}
+        manifest["components"].append({"name": "comprehension_projector"})
     writer = gguf.GGUFWriter(str(path), arch="clip")
     writer.add_key_value(
         "robit.audio_bundle.schema",
-        "robit.ollama-audio-bridge.v1",
+        manifest["schema"],
         gguf.GGUFValueType.STRING,
     )
     writer.add_key_value(
@@ -50,6 +56,13 @@ def _make_lightweight_sidecar(path: Path) -> None:
     )
     writer.add_tensor("s.t.m.tts.weight", np.asarray([[1.0]], dtype=np.float32))
     writer.add_tensor("s.t.p.projector.weight", np.asarray([[2.0]], dtype=np.float32))
+    if digests:
+        prefix = "robit.audio_bundle.component.comprehension_projector.kv."
+        writer.add_key_value(prefix + "clip.has_audio_encoder", True, gguf.GGUFValueType.BOOL)
+        writer.add_key_value(prefix + "clip.audio.projector_type", "qwen3a", gguf.GGUFValueType.STRING)
+        writer.add_key_value(prefix + "clip.audio.projection_dim", 2, gguf.GGUFValueType.UINT32)
+        writer.add_tensor("a.c.p.mm.a.mlp.2.weight", np.ones((2, 1280), dtype=np.float32))
+        writer.add_tensor("a.c.p.mm.a.mlp.2.bias", np.zeros(2, dtype=np.float32))
     writer.write_header_to_file()
     writer.write_kv_data_to_file()
     writer.write_tensors_to_file()
@@ -69,7 +82,8 @@ def _make_gguf(path: Path, name: str, value: float) -> None:
     writer.close()
 
 
-def test_attach_and_resolve_omni_sidecar_layer(tmp_path: Path) -> None:
+@pytest.mark.parametrize("content_addressed", [False, True])
+def test_attach_and_resolve_omni_sidecar_layer(tmp_path: Path, content_addressed: bool) -> None:
     base = tmp_path / "base.gguf"
     comprehension = tmp_path / "comprehension.gguf"
     tts = tmp_path / "tts.gguf"
@@ -103,6 +117,17 @@ def test_attach_and_resolve_omni_sidecar_layer(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    original = path.read_bytes()
+    if content_addressed:
+        original_blob = models_dir / "blobs" / f"sha256-{hashlib.sha256(original).hexdigest()}"
+        original_blob.parent.mkdir()
+        path.replace(original_blob)
+        path = models_dir / "manifests-v2" / "ollama.com" / "robit" / "test" / "q4km"
+        path.parent.mkdir(parents=True)
+        target = os.path.relpath(original_blob, start=path.parent)
+        path.symlink_to(target)
+        sibling = path.with_name("other")
+        sibling.symlink_to(target)
 
     attached = attach_ollama_sidecar(
         model="robit/test:q4km",
@@ -117,6 +142,10 @@ def test_attach_and_resolve_omni_sidecar_layer(tmp_path: Path) -> None:
     )
     assert resolved["inspection"]["view_tensor_counts"]["base"] == 1
     updated = json.loads(path.read_text(encoding="utf-8"))
+    if content_addressed:
+        assert path.is_symlink()
+        assert path.resolve().name == f"sha256-{hashlib.sha256(path.read_bytes()).hexdigest()}"
+        assert sibling.read_bytes() == original
     assert [layer["mediaType"] for layer in updated["layers"]] == [
         "application/vnd.ollama.image.model",
         OMNI_LAYER_MEDIA_TYPE,
@@ -188,6 +217,68 @@ def test_lightweight_bridge_resolves_standard_layers_and_materializes_only_tts(
     assert resolved["standard_layers"]["projector"]["path"] == str(projector)
     assert set(prepared["views"]) == {"tts_model", "tts_projector"}
     assert not (tmp_path / "runtime-cache" / "comprehension-model.gguf").exists()
+
+
+def test_split_bridge_preserves_native_vision_and_requires_bound_layers(tmp_path: Path) -> None:
+    gguf = pytest.importorskip("gguf")
+    np = pytest.importorskip("numpy")
+    layer_inputs = {
+        "language_model": (tmp_path / "language.gguf", "model"),
+        "projector": (tmp_path / "vision.gguf", "projector"),
+    }
+    language, _ = layer_inputs["language_model"]
+    vision, _ = layer_inputs["projector"]
+    _make_gguf(language, "language", 1)
+    writer = gguf.GGUFWriter(str(vision), arch="clip")
+    writer.add_key_value("clip.has_vision_encoder", True, gguf.GGUFValueType.BOOL)
+    writer.add_key_value("clip.vision.projector_type", "inkling2v", gguf.GGUFValueType.STRING)
+    writer.add_key_value("clip.vision.projection_dim", 2, gguf.GGUFValueType.UINT32)
+    writer.add_tensor("v.weight", np.asarray([[3.0, 4.0]], dtype=np.float32))
+    writer.write_header_to_file()
+    writer.write_kv_data_to_file()
+    writer.write_tensors_to_file()
+    writer.close()
+
+    models_dir = tmp_path / "models"
+    blobs = models_dir / "blobs"
+    blobs.mkdir(parents=True)
+    digests = {}
+    layers = []
+    for key, (file, media_type) in layer_inputs.items():
+        data = file.read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
+        digests[key] = f"sha256:{digest}"
+        (blobs / f"sha256-{digest}").write_bytes(data)
+        layers.append({
+            "mediaType": f"application/vnd.ollama.image.{media_type}",
+            "digest": digests[key],
+            "size": len(data),
+        })
+    bundle = tmp_path / "split.gguf"
+    _make_lightweight_sidecar(bundle, digests)
+    model = "robit/inkling-test:iq4-xs"
+    manifest = manifest_path(model, models_dir)
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"layers": layers}), encoding="utf-8")
+    attached = attach_ollama_sidecar(model=model, bundle_gguf=bundle, models_dir=models_dir)
+    assert resolve_ollama_sidecar(model=model, models_dir=models_dir)["split_projector"]
+    output = tmp_path / "runtime"
+    prepared = prepare_ollama_sidecar(model=model, output_dir=output, models_dir=models_dir)
+    assert set(prepared["views"]) == {"comprehension_projector", "tts_model", "tts_projector"}
+    assert (output / "split-audio.sha256").read_text().strip() == attached["layer"]["digest"]
+    merged = gguf.GGUFReader(str(output / "comprehension-projector.gguf"))
+    assert merged.fields["clip.vision.projector_type"].contents() == "inkling2v"
+    assert merged.fields["clip.audio.projector_type"].contents() == "qwen3a"
+    assert {tensor.name for tensor in merged.tensors} == {
+        "v.weight", "mm.a.mlp.2.weight", "mm.a.mlp.2.bias",
+    }
+    assert merged.tensors[0].data.tobytes() == gguf.GGUFReader(str(vision)).tensors[0].data.tobytes()
+
+    altered = json.loads(manifest.read_text())
+    altered["layers"][1]["digest"] = "sha256:" + "0" * 64
+    manifest.write_text(json.dumps(altered), encoding="utf-8")
+    with pytest.raises(OllamaSidecarError, match="bound projector layer"):
+        resolve_ollama_sidecar(model=model, models_dir=models_dir)
 
 
 def test_a_populated_store_is_preferred_over_one_that_merely_exists(monkeypatch, tmp_path):

@@ -1147,6 +1147,43 @@ def test_trained_audio_bridge_retains_its_released_prompt_by_default() -> None:
     assert calls[0]["messages"][0]["content"] == adapter_server.TRAINED_AUDIO_SYSTEM_PROMPT
 
 
+def test_inkling_mixed_turn_recovers_typed_evidence_on_the_same_worker() -> None:
+    from PIL import Image
+
+    from runtime import adapter_server
+
+    png = io.BytesIO()
+    Image.new("RGB", (32, 32), "blue").save(png, format="PNG")
+    parsed = parse_adapter_request(_base_request(messages=[{
+        "role": "user",
+        "content": "What did I say and what color is this?",
+        "images": [{"mime_type": "image/png", "data": _encoded(png.getvalue())}],
+        "audios": [{"data": _encoded(_wav(16000))}],
+    }]))
+    calls = []
+
+    def backend(request):
+        payload = json.loads(request.content)
+        kinds = {part["type"] for part in payload["messages"][1]["content"]}
+        calls.append((payload["reasoning_effort"], kinds - {"text"}))
+        if len(calls) == 1:
+            return httpx.Response(200, json={"choices": [{"message": {"content": ""}}]})
+        if "input_audio" in kinds:
+            return httpx.Response(200, json={"text": "<speech_transcript>Hello.</speech_transcript>"})
+        return httpx.Response(200, json={"text": "<visual_observation>blue</visual_observation>"})
+
+    config = _adapter_config(inkling_native_reasoning=True, comprehension_disable_thinking=True)
+    with httpx.Client(transport=httpx.MockTransport(backend)) as client:
+        result = adapter_server._comprehend(parsed, config, client)
+    assert calls == [
+        ("minimal", {"image_url", "input_audio"}),
+        ("none", {"input_audio"}),
+        ("none", {"image_url"}),
+    ]
+    assert adapter_server._observation_transcript(result) == "Hello."
+    assert adapter_server._observation_visual(result) == "blue"
+
+
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_media_detail_reinspects_visual_video_and_handles_unavailable_followup(monkeypatch, unavailable) -> None:
     from runtime import adapter_server
@@ -3306,6 +3343,32 @@ def test_trained_bridge_comprehension_uses_its_no_thinking_prefill(think: bool) 
     assert payload["temperature"] == 0
     assert "reasoning_format" not in payload
     assert payload["cache_prompt"] is False
+
+
+def test_inkling_bridge_routes_audio_and_language_with_native_effort() -> None:
+    from runtime import adapter_server
+
+    parsed = parse_adapter_request(
+        _base_request(
+            think="low",
+            omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
+            messages=[{
+                "role": "user",
+                "content": "",
+                "audios": [{"data": _encoded(_wav(16000))}],
+            }],
+        )
+    )
+    config = _adapter_config(
+        language_api="openai",
+        comprehension_disable_thinking=True,
+        inkling_native_reasoning=True,
+    )
+    media = adapter_server.build_comprehension_payload(parsed, config)
+    language = adapter_server.build_language_payload(parsed, None, "inkling", "openai", config)
+    assert media["reasoning_effort"] == "none"
+    assert language["reasoning_effort"] == "low"
+    assert adapter_server._required_tool_retry_payload(language)["reasoning_effort"] == "none"
 
 
 def _live_spoken_request() -> object:

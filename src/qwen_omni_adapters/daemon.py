@@ -80,11 +80,13 @@ def _language_disable_thinking_default(logical_model: str) -> bool:
     return bool(managed and managed.language_disable_thinking)
 
 
-def _binary(root: Path, name: str) -> Path:
+def _binary(root: Path, name: str, model: str = "") -> Path:
+    source = "llama.cpp-inkling" if model.startswith("robit/inkling-2-mini-omni:") else "llama.cpp"
+    build = root / "vendor" / source / "build" / "bin"
     candidates = [
-        root / "vendor" / "llama.cpp" / "build" / "bin" / name,
-        root / "vendor" / "llama.cpp" / "build" / "bin" / f"{name}.exe",
-        root / "vendor" / "llama.cpp" / "build" / "bin" / "Release" / f"{name}.exe",
+        build / name,
+        build / f"{name}.exe",
+        build / "Release" / f"{name}.exe",
     ]
     for candidate in candidates:
         if candidate.is_file():
@@ -187,7 +189,9 @@ class DaemonConfig:
         # Compact bridges use a bounded resident working set. Long history is
         # paged through virtual memory instead of eagerly consuming Tegra's
         # unified pool with a nominal native-length KV allocation.
-        if tegra and model == "robit/ornith-1.5-omni-audio-bridge:q4km":
+        if tegra and model.split(":", 1)[0] == "robit/inkling-2-mini-omni":
+            default_context = "8192"
+        elif tegra and model == "robit/ornith-1.5-omni-audio-bridge:q4km":
             default_context = "65536"
         elif tegra and "-audio-bridge:" in model:
             default_context = "16384"
@@ -401,7 +405,7 @@ class OmniDaemon:
             )
             self.cloudflare_enabled = False
         for binary_name in ("llama-server", "llama-tts"):
-            binary = _binary(self.config.repo_root, binary_name)
+            binary = _binary(self.config.repo_root, binary_name, self.config.model)
             if not binary.is_file():
                 raise DaemonError(
                     f"missing {binary_name}; run the platform bootstrap first: {binary}"
@@ -512,6 +516,7 @@ class OmniDaemon:
         resolved = resolve_ollama_sidecar(model=self.config.model)
         self.sidecar_resolution = resolved
         bridge_profile = resolved.get("profile") == "trained-audio-bridge"
+        split_projector = resolved.get("split_projector", False)
         if bridge_profile:
             self._write_status(
                 state="preflight",
@@ -537,7 +542,14 @@ class OmniDaemon:
                 self.cache_dir / "comprehension-model.gguf",
                 self.cache_dir / "comprehension-projector.gguf",
             ]
-        if not all(path.is_file() for path in required):
+        split_cache_valid = True
+        if split_projector:
+            required.append(self.cache_dir / "comprehension-projector.gguf")
+            marker = self.cache_dir / "split-audio.sha256"
+            split_cache_valid = marker.is_file() and (
+                marker.read_text(encoding="utf-8").strip() == resolved["layer"]["digest"]
+            )
+        if not split_cache_valid or not all(path.is_file() for path in required):
             prepare_ollama_sidecar(
                 model=self.config.model,
                 output_dir=self.cache_dir,
@@ -594,7 +606,11 @@ class OmniDaemon:
             layers = resolved.get("standard_layers") or {}
             try:
                 model = Path(layers["language_model"]["path"])
-                projector = Path(layers["projector"]["path"])
+                projector = (
+                    self.cache_dir / "comprehension-projector.gguf"
+                    if resolved.get("split_projector")
+                    else Path(layers["projector"]["path"])
+                )
             except (KeyError, TypeError) as exc:
                 raise DaemonError(
                     "trained audio bridge is missing its standard model/projector layers"
@@ -622,9 +638,11 @@ class OmniDaemon:
     def _speculative_args(self) -> list[str]:
         configured = os.environ.get("OMNI_SPECULATIVE_TYPE")
         if configured is None:
+            sidecar = self._resolved_sidecar()
             configured = (
                 "ngram-simple"
-                if self._resolved_sidecar().get("profile") == "trained-audio-bridge"
+                if sidecar.get("profile") == "trained-audio-bridge"
+                and not sidecar.get("split_projector")
                 else ""
             )
         selected = configured.strip()
@@ -881,9 +899,10 @@ class OmniDaemon:
         )
 
     def _start_tts(self, common: dict[str, str]) -> Child:
+        inkling_tegra = is_tegra() and self.config.model.startswith("robit/inkling-2-mini-omni:")
         tts_env = {
             **common,
-            "LLAMA_TTS_BIN": str(_binary(self.config.repo_root, "llama-tts")),
+            "LLAMA_TTS_BIN": str(_binary(self.config.repo_root, "llama-tts", self.config.model)),
             "OMNI_TTS_MODEL_GGUF": str(self.cache_dir / "tts-model.gguf"),
             "OMNI_TTS_PROJECTOR_GGUF": str(self.cache_dir / "tts-projector.gguf"),
             "OMNI_COMPONENT_CACHE": str(self.cache_dir),
@@ -893,6 +912,7 @@ class OmniDaemon:
             "OMNI_TTS_WARM_SPEAKER_FILE": str(self._voice_reference()),
             "OMNI_TTS_ACTIVE_PID_FILE": str(self.state_dir / "tts-worker.pid"),
             "OMNI_TTS_STREAM_FRAMES": str(self.config.tts_stream_frames),
+            "OMNI_TTS_CONTEXT_TOKENS": common.get("OMNI_TTS_CONTEXT_TOKENS", "2048" if inkling_tegra else "0"),
             "OMNI_TTS_HOST": "127.0.0.1",
             "OMNI_TTS_PORT": str(self.config.tts_port),
         }
@@ -949,7 +969,9 @@ class OmniDaemon:
     def start_children(self) -> str:
         python = sys.executable
         common = os.environ.copy()
-        bridge_profile = self._resolved_sidecar().get("profile") == "trained-audio-bridge"
+        sidecar = self._resolved_sidecar()
+        bridge_profile = sidecar.get("profile") == "trained-audio-bridge"
+        split_projector = sidecar.get("split_projector", False)
         common["PYTHONUNBUFFERED"] = "1"
         decision_ready = self._start_decision_plane(common)
         common["OMNI_DECISION_PLANE_ENABLED"] = "1" if decision_ready else "0"
@@ -1006,7 +1028,7 @@ class OmniDaemon:
         parallel_candidate = concurrent_background_requested and configured_slots > 1 and not is_tegra()
         if self.config.enable_comprehension:
             server_command = [
-                str(_binary(self.config.repo_root, "llama-server")),
+                str(_binary(self.config.repo_root, "llama-server", self.config.model)),
                 "-m",
                 str(comprehension_model),
                 "--mmproj",
@@ -1020,8 +1042,7 @@ class OmniDaemon:
                 # is not reliable below 1024 dynamic image tokens. Browser
                 # coordinates are a first-class action input, so do not accept
                 # the smaller model-default image budget here.
-                "--image-min-tokens",
-                "1024",
+                *([] if split_projector else ["--image-min-tokens", "1024"]),
                 "-ngl",
                 "99",
                 "-c",
@@ -1038,6 +1059,10 @@ class OmniDaemon:
                 self.config.comprehension_cache_type_k,
                 "--cache-type-v",
                 self.config.comprehension_cache_type_v,
+                *(
+                    ["--batch-size", "128", "--ubatch-size", "128", "--cache-ram", "0", "--no-cache-idle-slots"]
+                    if split_projector else []
+                ),
                 *self._speculative_args(),
             ]
             command = server_command
@@ -1108,7 +1133,8 @@ class OmniDaemon:
             "OMNI_COMPREHENSION_CONTEXT_TOKENS": str(self.config.context_tokens),
             "OMNI_COMPREHENSION_CONTEXT_FILE": (str(self.context_file) if is_tegra() else ""),
             "OMNI_COMPREHENSION_DISABLE_THINKING": "1" if bridge_profile else "0",
-            "OMNI_COMPREHENSION_REPEAT_PENALTY": "1.1" if bridge_profile else "1.0",
+            "OMNI_INKLING_NATIVE_REASONING": "1" if split_projector and self.config.enable_comprehension else "0",
+            "OMNI_COMPREHENSION_REPEAT_PENALTY": "1.1" if bridge_profile and not split_projector else "1.0",
             "OMNI_LANGUAGE_API": language_api,
             "OMNI_LANGUAGE_URL": language_url,
             "OMNI_LANGUAGE_MODEL": language_model,

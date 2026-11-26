@@ -1,0 +1,1012 @@
+diff --git a/common/arg.cpp b/common/arg.cpp
+index e99b48c..0d48d61 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -4542,6 +4542,28 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+             params.tts_speaker_text = value;
+         }
+     ).set_examples({LLAMA_EXAMPLE_TTS}));
++    add_opt(common_arg(
++        {"--tts-stream"},
++        "write generated PCM16 LE audio to stdout as decoder windows complete",
++        [](common_params & params) {
++            params.tts_stream = true;
++        }
++    ).set_examples({LLAMA_EXAMPLE_TTS}));
++    add_opt(common_arg(
++        {"--tts-stream-frames"}, "N",
++        string_format("codec frames per streamed decoder window (default: %d)", params.tts_stream_frames),
++        [](common_params & params, int value) {
++            params.tts_stream_frames = value;
++        }
++    ).set_examples({LLAMA_EXAMPLE_TTS}));
++    add_opt(common_arg(
++        {"--tts-persistent"},
++        "keep TTS weights loaded and accept base64 prompts on stdin using framed stdout",
++        [](common_params & params) {
++            params.tts_persistent = true;
++            params.tts_stream = true;
++        }
++    ).set_examples({LLAMA_EXAMPLE_TTS}));
+ 
+     //
+     // diffusion params
+diff --git a/common/common.h b/common/common.h
+index a8e89ed..0e844c8 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -798,6 +798,9 @@ struct common_params {
+     std::string tts_voice = "";
+     std::string tts_speaker_file = "";
+     std::string tts_speaker_text = "";
++    bool tts_stream = false;
++    int32_t tts_stream_frames = 72;
++    bool tts_persistent = false;
+ 
+     bool is_gen_docs = false; // whether we are running inside llama-gen-docs
+ };
+diff --git a/common/json-schema-to-grammar.cpp b/common/json-schema-to-grammar.cpp
+index 4690a57..833a283 100644
+--- a/common/json-schema-to-grammar.cpp
++++ b/common/json-schema-to-grammar.cpp
+@@ -352,6 +352,83 @@ static size_t gbnf_escape_length(const std::string & pattern, size_t pos) {
+     return 2 + n_hex;
+ }
+ 
++
++// Pattern atoms describe decoded characters, whereas GBNF consumes JSON text/codepoints.
++// Until escaping can be composed with arbitrary regexes, only emit atoms that
++// cannot consume a JSON delimiter, escape introducer or unescaped control.
++static bool pattern_codepoint(const std::string & text, size_t & pos, uint32_t & c) {
++    if (pos >= text.size()) {
++        return false;
++    }
++    c = static_cast<unsigned char>(text[pos++]);
++    if (c == '\\') {
++        if (gbnf_escape_length(text, pos - 1) == 0) {
++            return false;
++        }
++        char escape = text[pos++];
++        switch (escape) {
++            case 't': c = '\t'; break;
++            case 'r': c = '\r'; break;
++            case 'n': c = '\n'; break;
++            case 'x': case 'u': case 'U': {
++                size_t digits = escape == 'x' ? 2 : escape == 'u' ? 4 : 8;
++                c = std::stoul(text.substr(pos, digits), nullptr, 16);
++                pos += digits;
++                break;
++            }
++            default: c = static_cast<unsigned char>(escape); break;
++        }
++    } else if (c >= 0x80) {
++        int continuation = c < 0xE0 ? 1 : c < 0xF0 ? 2 : 3;
++        if (c < 0xC2 || c > 0xF4 || text.size() - pos < static_cast<size_t>(continuation)) {
++            return false;
++        }
++        uint32_t minimum = continuation == 1 ? 0x80 : continuation == 2 ? 0x800 : 0x10000;
++        c &= (1u << (6 - continuation)) - 1;
++        while (continuation--) {
++            auto next = static_cast<unsigned char>(text[pos++]);
++            if ((next & 0xC0) != 0x80) {
++                return false;
++            }
++            c = (c << 6) | (next & 0x3F);
++        }
++        if (c < minimum) {
++            return false;
++        }
++    }
++    return c <= 0x10FFFF && !(c >= 0xD800 && c <= 0xDFFF);
++}
++
++static bool json_safe_pattern_class(const std::string & text) {
++    bool negated = text[1] == '^';
++    bool matched[0x5D] = {};
++    size_t pos = negated ? 2 : 1;
++    while (pos < text.size() - 1) {
++        uint32_t first;
++        if (!pattern_codepoint(text, pos, first)) {
++            return false;
++        }
++        uint32_t last = first;
++        if (pos < text.size() - 2 && text[pos] == '-') {
++            ++pos;
++            if (!pattern_codepoint(text, pos, last)) {
++                return false;
++            }
++        }
++        for (uint32_t c = 0; c < 0x5D; ++c) {
++            if (first <= c && c <= last) {
++                matched[c] = true;
++            }
++        }
++    }
++    for (uint32_t c = 0; c < 0x5D; ++c) {
++        if ((c < 0x20 || c == '"' || c == '\\') && matched[c] != negated) {
++            return false;
++        }
++    }
++    return true;
++}
++
+ class common_chat_schema_converter {
+ private:
+     friend std::string build_grammar(const std::function<void(const common_grammar_builder &)> & cb, const common_grammar_options & options);
+@@ -401,6 +478,61 @@ private:
+         return string_join(rules, " | ");
+     }
+ 
++    std::string _build_string_rule(const common_chat_schema_string & schema, const std::string & name) {
++        const int min_len = schema.min_length;
++        const bool has_max = schema.max_length >= 0;
++        if (min_len == 0 && !has_max) {
++            return _visit_primitive(name, "string");
++        }
++        const int max_len = has_max ? schema.max_length : std::numeric_limits<int>::max();
++        if (min_len < 0 || max_len < min_len) {
++            throw std::invalid_argument("Invalid string length bounds");
++        }
++        auto character = _add_primitive("char", PRIMITIVE_RULES.at("char"));
++        std::string repeated;
++        if (min_len < 2000 && (!has_max || max_len < 2000)) {
++            repeated = build_repetition(character, min_len, max_len);
++        } else {
++            // The pinned parser rejects an exact 2,000 repeat and silently
++            // treats larger maxima as unbounded. Compose the same finite
++            // language from named binary blocks, without large repetitions.
++            std::map<int, std::string> blocks{{1, character}};
++            std::function<std::string(int)> block = [&](int count) {
++                auto found = blocks.find(count);
++                if (found != blocks.end()) {
++                    return found->second;
++                }
++                auto half = block(count / 2);
++                return blocks[count] = _add_rule(name + "-count-" + std::to_string(count), half + " " + half);
++            };
++            std::function<std::string(int)> upto = [&](int count) -> std::string {
++                if (count == 0) {
++                    return "";
++                }
++                int power = 1;
++                while (power <= count / 2) {
++                    power *= 2;
++                }
++                auto lower = upto(power - 1);
++                if (count - power == power - 1) {
++                    return block(power) + "? " + lower;
++                }
++                return _add_rule(name + "-upto-" + std::to_string(count),
++                    lower + " | " + block(power) + " " + upto(count - power));
++            };
++            for (int remaining = min_len; remaining > 0;) {
++                int power = 1;
++                while (power <= remaining / 2) {
++                    power *= 2;
++                }
++                repeated += block(power) + " ";
++                remaining -= power;
++            }
++            repeated += has_max ? upto(max_len - min_len) : character + "*";
++        }
++        return _add_rule(name, "\"\\\"\" " + repeated + " \"\\\"\"");
++    }
++
+     // thrown when the pattern is a valid regex with no grammar equivalent
+     struct unsupported_pattern : public std::runtime_error {
+         using std::runtime_error::runtime_error;
+@@ -411,15 +543,19 @@ private:
+         using std::runtime_error::runtime_error;
+     };
+ 
+-    std::string _visit_pattern(const std::string & pattern, const std::string & name) {
++    std::string _visit_pattern(const common_chat_schema_string & schema, const std::string & name) {
++        const auto & pattern = schema.pattern;
+         auto rules_snapshot = _rules;
+         try {
+             return _pattern_to_rule(pattern, name);
+         } catch (const unsupported_pattern & err) {
+             // revert rules
+             _rules = std::move(rules_snapshot);
+-            _warnings.push_back("pattern " + pattern + " is not supported (" + err.what() + "), accepting any string");
+-            return _add_rule(name, _add_primitive("string", PRIMITIVE_RULES.at("string")));
++            _warnings.push_back("pattern " + pattern + " is not supported (" + err.what() + "), accepting JSON strings with explicit length bounds preserved");
++            if (schema.min_length == 0 && schema.max_length < 0) {
++                return _add_rule(name, _add_primitive("string", PRIMITIVE_RULES.at("string")));
++            }
++            return _build_string_rule(schema, name);
+         } catch (const invalid_pattern & err) {
+             _rules = std::move(rules_snapshot);
+             _errors.push_back("Invalid pattern " + pattern + ": " + err.what());
+@@ -447,14 +583,8 @@ private:
+         std::function<literal_or_rule()> transform = [&]() -> literal_or_rule {
+             std::vector<literal_or_rule> seq;
+ 
+-            auto get_dot = [&]() {
+-                std::string rule;
+-                if (_dotall) {
+-                    rule = "[\\U00000000-\\U0010FFFF]";
+-                } else {
+-                    rule = "[^\\x0A\\x0D]";
+-                }
+-                return _add_rule("dot", rule);
++            auto get_dot = [&]() -> std::string {
++                throw unsupported_pattern("wildcard needs JSON string escaping");
+             };
+ 
+             // Joins the sequence, merging consecutive literals together.
+@@ -539,6 +669,9 @@ private:
+                         throw invalid_pattern("unterminated character class");
+                     }
+                     square_brackets += ']';
++                    if (!json_safe_pattern_class(square_brackets)) {
++                        throw unsupported_pattern("character class needs JSON string escaping");
++                    }
+                     i++;
+                     seq.emplace_back(square_brackets, false);
+                 } else if (c == '|') {
+@@ -640,6 +773,12 @@ private:
+                     if (literal.empty()) { // nothing was consumed, ex. a stray ']' or '}'
+                         throw unsupported_pattern(std::string("unsupported character: ") + c);
+                     }
++                    for (size_t pos = 0; pos < literal.size();) {
++                        uint32_t value;
++                        if (!pattern_codepoint(literal, pos, value) || value < 0x20 || value == '"' || value == '\\') {
++                            throw unsupported_pattern("literal needs JSON string escaping");
++                        }
++                    }
+                     seq.emplace_back(literal, true);
+                 }
+             }
+@@ -1002,7 +1141,7 @@ public:
+             case common_chat_schema::KIND_STRING: {
+                 const auto & str = as<common_chat_schema_string>(schema);
+                 if (!str.pattern.empty()) {
+-                    return _visit_pattern(str.pattern, rule_name);
++                    return _visit_pattern(str, rule_name);
+                 }
+                 if (str.format == common_chat_schema::FORMAT_UUID) {
+                     return _visit_primitive(rule_name, "uuid");
+@@ -1011,12 +1150,7 @@ public:
+                     std::string prim_name = std::string(str.format == common_chat_schema::FORMAT_DATE ? "date" : str.format == common_chat_schema::FORMAT_TIME ? "time" : "date-time") + "-string";
+                     return _add_rule(rule_name, _add_primitive(prim_name, STRING_FORMAT_RULES.at(prim_name)));
+                 }
+-                if (str.min_length > 0 || str.max_length >= 0) {
+-                    std::string char_rule = _add_primitive("char", PRIMITIVE_RULES.at("char"));
+-                    int max_len = str.max_length < 0 ? std::numeric_limits<int>::max() : str.max_length;
+-                    return _add_rule(rule_name, "\"\\\"\" " + build_repetition(char_rule, str.min_length, max_len) + " \"\\\"\"");
+-                }
+-                return _visit_primitive(rule_name, "string");
++                return _build_string_rule(str, rule_name);
+             }
+             case common_chat_schema::KIND_INTEGER: {
+                 const auto & i = as<common_chat_schema_integer>(schema);
+diff --git a/tests/test-json-schema-to-grammar.cpp b/tests/test-json-schema-to-grammar.cpp
+index ea10ad7..3d4ee5d 100755
+--- a/tests/test-json-schema-to-grammar.cpp
++++ b/tests/test-json-schema-to-grammar.cpp
+@@ -10,6 +10,8 @@
+ 
+ #include <cassert>
+ #include <regex>
++#include <codecvt>
++#include <locale>
+ 
+ static std::string trim(const std::string & source) {
+     std::string s(source);
+@@ -28,14 +30,16 @@ struct TestCase {
+     std::string name;
+     std::string schema;
+     std::string expected_grammar;
++    std::string cpp_expected_grammar = {};
+ 
+     void _print_failure_header() const {
+         fprintf(stderr, "#\n# Test '%s' failed.\n#\n%s\n", name.c_str(), schema.c_str());
+     }
+-    void verify(const std::string & actual_grammar) const {
+-        if (trim(actual_grammar) != trim(expected_grammar)) {
++    void verify(const std::string & actual_grammar, bool cpp = false) const {
++        const auto & expected = cpp && !cpp_expected_grammar.empty() ? cpp_expected_grammar : expected_grammar;
++        if (trim(actual_grammar) != trim(expected)) {
+         _print_failure_header();
+-        fprintf(stderr, "# EXPECTED:\n%s\n# ACTUAL:\n%s\n", expected_grammar.c_str(), actual_grammar.c_str());
++        fprintf(stderr, "# EXPECTED:\n%s\n# ACTUAL:\n%s\n", expected.c_str(), actual_grammar.c_str());
+         assert(false);
+         }
+     }
+@@ -775,7 +779,14 @@ static void test_all(const std::string & title, std::function<void(const TestCas
+         R"""(
+             root ::= "\"" ("\"") "\""
+             space ::= | " " | "\n"{1,2} [ \t]{0,20}
+-        )"""
++        )""",
++        R"""(
++char ::= [^"\\\x7F\x00-\x1F] | [\\] (["\\bfnrt] | "u" [0-9a-fA-F]{4})
++root ::= string
++space ::= | " " | "\n"{1,2} [ \t]{0,20}
++string ::= "\"" char* "\""
++
++)"""
+     });
+ 
+     test({
+@@ -803,7 +814,14 @@ static void test_all(const std::string & title, std::function<void(const TestCas
+             root ::= "\"" (("(" root-1{1,3} ")")? root-1{3,3} "-" root-1{4,4} " " "a"{3,5} "nd" dot dot dot) "\""
+             root-1 ::= [0-9]
+             space ::= | " " | "\n"{1,2} [ \t]{0,20}
+-        )"""
++        )""",
++        R"""(
++char ::= [^"\\\x7F\x00-\x1F] | [\\] (["\\bfnrt] | "u" [0-9a-fA-F]{4})
++root ::= string
++space ::= | " " | "\n"{1,2} [ \t]{0,20}
++string ::= "\"" char* "\""
++
++)"""
+     });
+ 
+     test({
+@@ -1613,10 +1631,125 @@ static void test_all(const std::string & title, std::function<void(const TestCas
+     });
+ }
+ 
++
++static std::pair<bool, bool> accepts_json(const std::string & grammar, const std::string & text) {
++    auto * state = llama_grammar_init_impl(nullptr, grammar.c_str(), "root", false, nullptr, 0, nullptr, 0);
++    assert(state != nullptr);
++    std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> utf8;
++    for (auto c : utf8.from_bytes(text)) {
++        llama_grammar_accept(state, c);
++        if (state->stacks.empty()) {
++            llama_grammar_free_impl(state);
++            return {false, false};
++        }
++    }
++    bool complete = false;
++    for (const auto & stack : state->stacks) {
++        complete |= stack.empty();
++    }
++    llama_grammar_free_impl(state);
++    return {true, complete};
++}
++
++static void test_json_pattern_safety() {
++    const auto plain = json_schema_to_grammar(common_json::parse(R"({"type":"string","pattern":"unanchored"})"), true);
++    // These decoded-character patterns cannot be emitted directly between JSON
++    // quotes. Existing warned string fallback preserves JSON syntax; the caller
++    // still validates the decoded pattern (including nonempty/non-NUL).
++    const std::vector<std::string> unsafe = {
++        R"(^[^\u0000]+$)", R"(^[\u0000-\uFFFF]+$)", R"(^[\U00000022]+$)",
++        R"(^[ -~]+$)", R"(^["a]+$)", R"(^[\\]+$)", R"(^[\t]+$)", R"(^[^a]+$)",
++        R"(^.*$)", R"(^"$)", R"(^\\$)", R"(^\n$)", R"(^\u0022$)"
++    };
++    for (const auto & pattern : unsafe) {
++        const auto grammar = json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true);
++        assert(grammar == plain);
++        for (const auto & body : {R"("plain")", R"("quoted\"text")", R"("slash\\text")",
++                                 R"("line\n\tend")", R"("\u0000")", R"("")", R"("caf\u00e9")"}) {
++            assert(accepts_json(grammar, body) == std::make_pair(true, true));
++        }
++        for (const auto & body : {R"("x"}})", R"("a"b")", R"("a\q")", "\"raw\nline\"", "\"raw\tcontrol\""}) {
++            assert(!accepts_json(grammar, body).first);
++        }
++    }
++    for (const auto & pattern : {R"(^[A-Za-z][A-Za-z0-9_]*$)", R"(^[^"\\\x00-\x1F]+$)", R"(^[\u0100-\u0200]+$)"}) {
++        const auto grammar = json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true);
++        assert(grammar != plain);
++        assert(!accepts_json(grammar, R"("bad\q")").first);
++    }
++    // Public C++ callers can construct strings that a JSON parser would reject.
++    // Truncated and malformed UTF-8 atoms must never read beyond their bounds.
++    for (const auto & atom : {std::string("\xC2", 1), std::string("\xE0\x80", 2),
++                             std::string("\xF0\x80\x80", 3), std::string("\xC0\x80", 2),
++                             std::string("\xED\xA0\x80", 3), std::string("\xF5\x80\x80\x80", 4)}) {
++        for (const auto & pattern : {"^" + atom + "$", "^[" + atom + "]$", "^[a-" + atom + "]$"}) {
++            assert(json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true) == plain);
++        }
++    }
++    for (const auto & pattern : {R"(^[\u002]$)", R"(^[a-\U0000002]$)", R"(^\u002$)"}) {
++        assert(json_schema_to_grammar(common_json{{"type", "string"}, {"pattern", pattern}}, true) == plain);
++    }
++    fprintf(stderr, "JSON pattern structural-safety controls passed\n");
++}
++
++static std::pair<bool, bool> accepts_json(const std::string & grammar, const std::string & text);
++
++static void test_json_string_bounds() {
++    for (int maximum : {1999, 2000, 2048, 4096}) {
++        for (int minimum : {0, 1, maximum}) {
++            auto schema = common_json{{"type", "string"}, {"minLength", minimum}, {"maxLength", maximum}};
++            for (bool pattern : {false, true}) {
++                if (pattern) {
++                    schema["pattern"] = R"(^[^\u0000]+$)";
++                }
++                auto grammar = json_schema_to_grammar(schema, true);
++                for (int length : {0, 1, maximum - 1, maximum, maximum + 1}) {
++                    bool expected = length >= minimum && length <= maximum;
++                    auto text = common_json(std::string(length, 'a')).dump();
++                    assert(accepts_json(grammar, text).second == expected);
++                }
++            }
++        }
++    }
++    for (const auto & unit : {std::string("\\\""), std::string("\\\\"), std::string("\\u00e9"), std::string("😀")}) {
++        auto grammar = json_schema_to_grammar(common_json{{"type", "string"}, {"minLength", 1},
++            {"maxLength", 2048}, {"pattern", R"(^[^\u0000]+$)"}}, true);
++        for (int length : {1, 2047, 2048, 2049}) {
++            std::string text = "\"";
++            for (int i = 0; i < length; ++i) {
++                text += unit;
++            }
++            text += "\"";
++            assert(accepts_json(grammar, text).second == (length <= 2048));
++        }
++    }
++    // Existing JSON char units count surrogate escapes separately. This may
++    // reject valid paired-escape encodings conservatively; never over-admit an
++    // upper bound or claim all equivalent Unicode encodings are accepted.
++    auto conservative = json_schema_to_grammar(common_json{{"type", "string"}, {"minLength", 1},
++        {"maxLength", 2048}, {"pattern", R"(^[^\u0000]+$)"}}, true);
++    std::string paired = "\"";
++    for (int i = 0; i < 2048; ++i) {
++        paired += R"(\ud83d\ude00)";
++    }
++    paired += "\"";
++    assert(!accepts_json(conservative, paired).second);
++    // For decoded minima > 1 the same existing unit behavior can over-admit
++    // too-short paired-escape strings. Full host validation remains required.
++    auto lower = json_schema_to_grammar(common_json{{"type", "string"},
++        {"minLength", 2}, {"maxLength", 2}}, true);
++    assert(accepts_json(lower, R"("\ud83d\ude00")").second);
++
++    fprintf(stderr, "JSON string bound native controls passed\n");
++}
++
++
+ int main() {
++    test_json_pattern_safety();
++
+     test_all("JSON schema conversion", [](const TestCase & tc) {
+         try {
+-            tc.verify(json_schema_to_grammar(common_json::parse(tc.schema), true));
++            tc.verify(json_schema_to_grammar(common_json::parse(tc.schema), true), true);
+             tc.verify_status(SUCCESS);
+         } catch (const std::invalid_argument & ex) {
+             fprintf(stderr, "Error: %s\n", ex.what());
+@@ -1675,6 +1808,8 @@ int main() {
+         }));
+     }
+ 
++    test_json_string_bounds();
++
+     test_all("Check the expectations parse", [](const TestCase & tc) {
+         if (tc.expected_status == SUCCESS) {
+             tc.verify_expectation_parseable();
+diff --git a/tools/mtmd/models/models.h b/tools/mtmd/models/models.h
+index c1feef4..927a58e 100644
+--- a/tools/mtmd/models/models.h
++++ b/tools/mtmd/models/models.h
+@@ -431,8 +431,9 @@ struct mtmd_graph_qwen3tts_spkenc : mtmd_graph {
+ };
+ 
+ struct mtmd_graph_qwen3tts_gen : mtmd_graph {
+-    mtmd_graph_qwen3tts_gen(mtmd_subcontext * ctx, const mtmd_image_f32 & img, mtmd_subctx_gen_process gen_process, int top_k, float top_p)
+-        : mtmd_graph(ctx, img), gen_process(gen_process), top_k(top_k), top_p(top_p) {}
++    mtmd_graph_qwen3tts_gen(mtmd_subcontext * ctx, const mtmd_image_f32 & img, mtmd_subctx_gen_process gen_process,
++                          int n_frames, int top_k, float top_p)
++        : mtmd_graph(ctx, img), gen_process(gen_process), n_frames(n_frames), top_k(top_k), top_p(top_p) {}
+     ggml_cgraph * build() override;
+ 
+     // MTMD_SUBCTX_GEN_PROCESS_TOKENIZE: reference clip -> codes and their talker input rows
+@@ -450,6 +451,7 @@ struct mtmd_graph_qwen3tts_gen : mtmd_graph {
+ 
+     // which sub-graph build() constructs, fixed at graph-build time
+     mtmd_subctx_gen_process gen_process;
++    int n_frames;
+ 
+     // sampling params, fixed at graph-build time (GEN_CODE only)
+     int   top_k;
+diff --git a/tools/mtmd/models/qwen3tts-gen.cpp b/tools/mtmd/models/qwen3tts-gen.cpp
+index 8cee944..9786497 100644
+--- a/tools/mtmd/models/qwen3tts-gen.cpp
++++ b/tools/mtmd/models/qwen3tts-gen.cpp
+@@ -819,8 +819,6 @@ ggml_cgraph * mtmd_graph_qwen3tts_gen::build() {
+     cb(out_embd, "gen_audio_out", -1);
+ 
+     // ---- MTMD_SUBCTX_GEN_PROCESS_GEN_WAV: 16 RVQ codes -> raw PCM ----
+-    const int n_frames = hparams.wav_tfm_swa; // frames per batch, == the attention window
+-
+     ggml_tensor * inp_codes = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, n_frames, n_codes);
+     ggml_set_name(inp_codes, "inp_codes");
+     ggml_set_input(inp_codes);
+diff --git a/tools/mtmd/mtmd-graph.cpp b/tools/mtmd/mtmd-graph.cpp
+index a22f41d..43d08ad 100644
+--- a/tools/mtmd/mtmd-graph.cpp
++++ b/tools/mtmd/mtmd-graph.cpp
+@@ -1130,7 +1130,14 @@ std::unique_ptr<mtmd_graph> mtmd_get_graph_builder(mtmd_subcontext * ctx, const
+                 const auto  gen_process = params ? params->gen_process : MTMD_SUBCTX_GEN_PROCESS_GEN_CODE;
+                 const int   top_k = params ? params->top_k : 50;
+                 const float top_p = params ? params->top_p : 1.0f;
+-                builder = std::make_unique<mtmd_graph_qwen3tts_gen>(ctx, img, gen_process, top_k, top_p);
++                int n_frames = 1;
++                if (gen_process == MTMD_SUBCTX_GEN_PROCESS_GEN_WAV) {
++                    const size_t n_codes = ctx->model.gen_code_head_w->ne[2] + 1;
++                    GGML_ASSERT(params->codes != nullptr && params->codes->size() % n_codes == 0);
++                    n_frames = params->codes->size() / n_codes;
++                    GGML_ASSERT(n_frames > 0 && n_frames <= ctx->model.hparams.wav_tfm_swa);
++                }
++                builder = std::make_unique<mtmd_graph_qwen3tts_gen>(ctx, img, gen_process, n_frames, top_k, top_p);
+             } break;
+         case PROJECTOR_TYPE_SOPRANO:
+             {
+diff --git a/tools/mtmd/mtmd-helper.cpp b/tools/mtmd/mtmd-helper.cpp
+index 165936d..6410795 100644
+--- a/tools/mtmd/mtmd-helper.cpp
++++ b/tools/mtmd/mtmd-helper.cpp
+@@ -154,6 +154,8 @@ int32_t mtmd_helper_decode_image_chunk(
+         }
+     } else {
+         batch_embd.set_position_normal(n_past, seq_id);
++        LOG_DBG("%s rows=%d width=%d first_pos=%d end_pos=%d seq=%d\n", name, n_tokens, n_mmproj_embd,
++                n_past, n_past + n_tokens, seq_id);
+     }
+ 
+     const bool use_non_causal = mtmd_decode_use_non_causal(ctx, chunk);
+diff --git a/tools/mtmd/mtmd-subcontext.cpp b/tools/mtmd/mtmd-subcontext.cpp
+index 078f154..ff2ddbf 100644
+--- a/tools/mtmd/mtmd-subcontext.cpp
++++ b/tools/mtmd/mtmd-subcontext.cpp
+@@ -2062,7 +2062,7 @@ bool mtmd_subcontext::encode(mtmd_subctx_encode_params * params) {
+                 if (params->gen_process == MTMD_SUBCTX_GEN_PROCESS_GEN_WAV) {
+                     GGML_ASSERT(params->codes != nullptr);
+ 
+-                    // frame-major input to group-major, rear-padded with code 0 up to one window
++                    // Frame-major input to group-major. Advance state only over real codec frames.
+                     const int64_t n_codes  = model.gen_code_head_w->ne[2] + 1;
+                     const int64_t n_frames_w = hparams.wav_tfm_swa;
+                     const int64_t n_frames   = (int64_t) params->codes->size() / n_codes;
+@@ -2083,10 +2083,10 @@ bool mtmd_subcontext::encode(mtmd_subctx_encode_params * params) {
+                         }
+                     }
+ 
+-                    std::vector<int32_t> codes(n_frames_w * n_codes, 0);
++                    std::vector<int32_t> codes(n_frames * n_codes);
+                     for (int64_t f = 0; f < n_frames; f++) {
+                         for (int64_t g = 0; g < n_codes; g++) {
+-                            codes[g * n_frames_w + f] = (*params->codes)[f * n_codes + g];
++                            codes[g * n_frames + f] = (*params->codes)[f * n_codes + g];
+                         }
+                     }
+                     set_input_i32("inp_codes", codes);
+@@ -2948,8 +2948,9 @@ bool mtmd_subcontext::encode(mtmd_subctx_encode_params * params) {
+             mtmd_graph_soprano::decode_spectrum(model, spectrum, out_audio);
+         }
+ 
+-        // drop the tail audio that comes from the code-0 rear padding, drama3, fish_s2, yue2 and minimax_music3 have no padding
+-        if (model.proj_type != PROJECTOR_TYPE_DRAMA3_GEN && model.proj_type != PROJECTOR_TYPE_FISH_S2_GEN && model.proj_type != PROJECTOR_TYPE_YUE2_GEN &&
++        // Drop trailing audio for decoders that pad codec frames to a full window.
++        if (model.proj_type != PROJECTOR_TYPE_QWEN3TTS_GEN && model.proj_type != PROJECTOR_TYPE_DRAMA3_GEN &&
++                model.proj_type != PROJECTOR_TYPE_FISH_S2_GEN && model.proj_type != PROJECTOR_TYPE_YUE2_GEN &&
+                 model.proj_type != PROJECTOR_TYPE_MINIMAX_MUSIC3_GEN) {
+             const int64_t n_codes    = params->codes ? model.gen_code_head_w->ne[2] + 1 : 0;
+             const int64_t n_frames_w = hparams.wav_tfm_swa;
+diff --git a/tools/mtmd/mtmd.cpp b/tools/mtmd/mtmd.cpp
+index fdac762..738a157 100644
+--- a/tools/mtmd/mtmd.cpp
++++ b/tools/mtmd/mtmd.cpp
+@@ -1453,8 +1453,23 @@ struct mtmd_context {
+                 } break;
+             case PROJECTOR_TYPE_QWEN3A:
+                 {
+-                    aud_beg = "<|audio_start|>";
+-                    aud_end = "<|audio_end|>";
++                    char arch[32] = {};
++                    if (text_model) {
++                        llama_model_meta_val_str(text_model, "general.architecture", arch, sizeof(arch));
++                    }
++                    const std::string_view model_arch(arch);
++                    if (model_arch == "inkling2_loop") {
++                        // The Inkling renderer supplies the user block and its closing token.
++                        aud_beg = "<|unused_200053|>";
++                        llama_token token;
++                        if (llama_tokenize(vocab, aud_beg.data(), aud_beg.size(), &token, 1, false, true) != 1 ||
++                            token != 200053) {
++                            throw std::runtime_error("Inkling bridge tokenizer is missing its audio marker");
++                        }
++                    } else {
++                        aud_beg = "<|audio_start|>";
++                        aud_end = "<|audio_end|>";
++                    }
+                     audio_preproc = std::make_unique<mtmd_audio_preprocessor_qwen3a>(models.a.get());
+                 } break;
+             case PROJECTOR_TYPE_VOXTRAL:
+diff --git a/tools/tts/tts.cpp b/tools/tts/tts.cpp
+index 238cc82..f3f54f5 100644
+--- a/tools/tts/tts.cpp
++++ b/tools/tts/tts.cpp
+@@ -1,4 +1,5 @@
+ #include "arg.h"
++#include "base64.hpp"
+ #include "chat.h"
+ #include "common.h"
+ #include "sampling.h"
+@@ -9,8 +10,14 @@
+ 
+ #include <cstdio>
+ #include <cstring>
++#include <iostream>
+ #include <string>
+ 
++#ifdef _WIN32
++#include <fcntl.h>
++#include <io.h>
++#endif
++
+ /**
+  * Please note that this is NOT a production-ready binary.
+  * It is a playground for trying TTS support in llama.cpp.
+@@ -33,6 +40,21 @@ struct tts_timings {
+     }
+ };
+ 
++static void tts_stream_log_callback(enum ggml_log_level, const char * text, void *) {
++    fputs(text, stderr);
++    fflush(stderr);
++}
++
++static bool tts_write_frame(char type, const char * data = nullptr, uint64_t size = 0) {
++    uint8_t header[9] = { (uint8_t) type };
++    for (int i = 0; i < 8; ++i) {
++        header[i + 1] = (uint8_t) ((size >> (i * 8)) & 0xff);
++    }
++    return fwrite(header, 1, sizeof(header), stdout) == sizeof(header) &&
++           (size == 0 || fwrite(data, 1, size, stdout) == size) &&
++           fflush(stdout) == 0;
++}
++
+ static void print_usage(int, char ** argv) {
+     LOG("\nexample usage:\n");
+     LOG("\n    %s -m backbone.gguf -mm mmproj.gguf -p \"text to speak\" -o output.wav", argv[0]);
+@@ -52,9 +74,28 @@ int main(int argc, char ** argv) {
+         return 1;
+     }
+ 
+-    mtmd_helper_log_set(common_log_default_callback, nullptr);
++    if (params.tts_stream_frames < 1 || params.tts_stream_frames > 72) {
++        LOG_ERR("--tts-stream-frames must be between 1 and 72\n");
++        return 1;
++    }
++    if (params.tts_persistent && !params.tts_stream) {
++        LOG_ERR("--tts-persistent requires --tts-stream\n");
++        return 1;
++    }
++
++#ifdef _WIN32
++    if (params.tts_stream) {
++        _setmode(_fileno(stdout), _O_BINARY);
++    }
++#endif
++    if (params.tts_stream) {
++        llama_log_set(tts_stream_log_callback, nullptr);
++        mtmd_helper_log_set(tts_stream_log_callback, nullptr);
++    } else {
++        mtmd_helper_log_set(common_log_default_callback, nullptr);
++    }
+ 
+-    if (params.prompt.empty()) {
++    if (params.prompt.empty() && !params.tts_persistent) {
+         LOG_ERR("no prompt provided, use -p \"text\"\n");
+         return 1;
+     }
+@@ -79,7 +120,6 @@ int main(int argc, char ** argv) {
+     auto llama_init = common_init_from_params(params);
+     llama_model    * model = llama_init->model();
+     llama_context  * lctx  = llama_init->context();
+-    common_sampler * smpl  = llama_init->sampler(0);
+     if (!model || !lctx) {
+         LOG_ERR("failed to init model/context\n");
+         return 1;
+@@ -134,128 +174,203 @@ int main(int argc, char ** argv) {
+         }
+     }
+ 
+-    // a model with a "tts" chat template (e.g. LFM3-Audio) speaks the prompt rendered from it
+     auto tmpls = common_chat_templates_init(model, "");
+-    std::string prompt;
+-    try {
+-        prompt = common_chat_get_tts_prompt(tmpls.get(), params.prompt, params.tts_lang, params.tts_voice, [&](const std::string & word) {
+-            char buf[512];
+-            return mtmd_gen_audio_g2p(mctx.get(), word.c_str(), buf, sizeof(buf)) > 0 ? std::string(buf) : std::string();
+-        });
+-    } catch (const std::exception & e) {
+-        LOG_ERR("failed to prepare the text to speak: %s\n", e.what());
+-        return 1;
+-    }
+-    if (prompt.empty()) {
+-        prompt = params.prompt;
+-    }
+-
+     mtmd_helper::gen_audio gen;
+     gen.init(lctx, mctx.get());
+     if (!gen.valid()) {
+         LOG_ERR("the context cannot run the audio generation of this model\n");
+         return 1;
+     }
+-    mtmd_helper_gen_audio_inp inp = mtmd_helper_gen_audio_inp_default();
+-    inp.seq_id      = 0;
+-    inp.prompt      = prompt.c_str();
+-    inp.prompt_len  = prompt.size();
+-    inp.speaker_ref = speaker_bitmap.get();
+-    inp.speaker_ref_text = params.tts_speaker_text.empty() ? nullptr : params.tts_speaker_text.c_str();
+-    inp.lang        = params.tts_lang.c_str();
+-    inp.top_k       = params.sampling.top_k;
+-    inp.top_p       = params.sampling.top_p;
+-    inp.seed        = params.sampling.seed;
+-    // without --temp the audio frames keep the model default, not the CLI default
+-    if (params.sampling.user_sampling_config & common_params_sampling_config::COMMON_PARAMS_SAMPLING_CONFIG_TEMP) {
+-        inp.temp    = params.sampling.temp;
+-    }
++    auto generate = [&](const std::string & text, bool framed) -> bool {
++        if (framed) {
++            llama_memory_clear(llama_get_memory(lctx), true);
++        }
++        common_sampler_ptr sampler(framed ? common_sampler_init(model, params.sampling) : nullptr);
++        common_sampler * smpl = framed ? sampler.get() : llama_init->sampler(0);
++        if (!smpl) {
++            LOG_ERR("failed to initialize request sampler\n");
++            return false;
++        }
+ 
+-    //
+-    // stage 1: process prompt via backbone model, generate semantic representation
+-    //
++        // a model with a "tts" chat template (e.g. LFM3-Audio) speaks the prompt rendered from it
++        std::string prompt;
++        try {
++            prompt = common_chat_get_tts_prompt(tmpls.get(), text, params.tts_lang, params.tts_voice, [&](const std::string & word) {
++                char buf[512];
++                return mtmd_gen_audio_g2p(mctx.get(), word.c_str(), buf, sizeof(buf)) > 0 ? std::string(buf) : std::string();
++            });
++        } catch (const std::exception & e) {
++            LOG_ERR("failed to prepare the text to speak: %s\n", e.what());
++            return false;
++        }
++        if (prompt.empty()) {
++            prompt = text;
++        }
+ 
+-    if (gen.set_input(&inp) != 0) {
+-        LOG_ERR("set_input failed\n");
+-        return 1;
+-    }
++        mtmd_helper_gen_audio_inp inp = mtmd_helper_gen_audio_inp_default();
++        inp.seq_id      = 0;
++        inp.prompt      = prompt.c_str();
++        inp.prompt_len  = prompt.size();
++        inp.speaker_ref = speaker_bitmap.get();
++        inp.speaker_ref_text = params.tts_speaker_text.empty() ? nullptr : params.tts_speaker_text.c_str();
++        inp.lang        = params.tts_lang.c_str();
++        inp.top_k       = params.sampling.top_k;
++        inp.top_p       = params.sampling.top_p;
++        inp.seed        = params.sampling.seed;
++        // without --temp the audio frames keep the model default, not the CLI default
++        if (params.sampling.user_sampling_config & common_params_sampling_config::COMMON_PARAMS_SAMPLING_CONFIG_TEMP) {
++            inp.temp    = params.sampling.temp;
++        }
+ 
+-    const int64_t t_prompt_start_us = ggml_time_us();
++        //
++        // stage 1: process prompt via backbone model, generate semantic representation
++        //
+ 
+-    for (;;) {
+-        int32_t ret = gen.step_prompt(llama_n_batch(lctx));
+-        if (ret < 0) {
+-            LOG_ERR("prompt processing failed\n");
+-            return 1;
++        if (gen.set_input(&inp) != 0) {
++            LOG_ERR("set_input failed\n");
++            return false;
+         }
+-        if (ret == 0) {
+-            break;
+-        }
+-    }
+ 
+-    // note: some pipelines ignore this token and use the hidden state instead
+-    auto sample_semantic_code = [&]() -> llama_token {
+-        llama_token t = common_sampler_sample(smpl, lctx, -1);
+-        common_sampler_accept(smpl, t, true);
+-        return t;
+-    };
++        const int64_t t_prompt_start_us = ggml_time_us();
+ 
+-    const int max_new = gen.max_frames(params.n_predict);
+-    int n_frames = 0;
+-    llama_token sampled = sample_semantic_code();
+-    const float * h_state = llama_get_embeddings_ith(lctx, -1);
++        for (;;) {
++            int32_t ret = gen.step_prompt(llama_n_batch(lctx));
++            if (ret < 0) {
++                LOG_ERR("prompt processing failed\n");
++                return false;
++            }
++            if (ret == 0) {
++                break;
++            }
++        }
+ 
+-    tts_timings timings;
+-    const int64_t t_gen_start_us = ggml_time_us();
++        // note: some pipelines ignore this token and use the hidden state instead
++        auto sample_semantic_code = [&]() -> llama_token {
++            llama_token t = common_sampler_sample(smpl, lctx, -1);
++            common_sampler_accept(smpl, t, true);
++            return t;
++        };
++
++        const int max_new = gen.max_frames(params.n_predict);
++        int n_frames = 0;
++        llama_token sampled = sample_semantic_code();
++        const float * h_state = llama_get_embeddings_ith(lctx, -1);
++
++        tts_timings timings;
++        const int64_t t_gen_start_us = ggml_time_us();
++
++        bool stop = false;
++        size_t streamed_samples = 0;
++        auto write_pcm = [&]() -> bool {
++            int32_t sample_rate = 0;
++            const char * data = nullptr;
++            size_t data_len = 0;
++            int64_t samples = 0;
++            if (gen.get_output(&sample_rate, &data, &data_len, &samples) != 0 ||
++                samples < 0 || (size_t) samples < streamed_samples ||
++                data_len != 44 + (size_t) samples * sizeof(int16_t)) {
++                LOG_ERR("invalid incremental WAV output\n");
++                return false;
++            }
++            const char * pcm = data + 44 + streamed_samples * sizeof(int16_t);
++            const size_t bytes = ((size_t) samples - streamed_samples) * sizeof(int16_t);
++            streamed_samples = (size_t) samples;
++            if (bytes == 0) {
++                return true;
++            }
++            if (framed) {
++                return tts_write_frame('A', pcm, bytes);
++            }
++            return fwrite(pcm, 1, bytes, stdout) == bytes && fflush(stdout) == 0;
++        };
++        while (!stop && n_frames < max_new) {
++            const float * h_next = nullptr;
++
++            // stage 2+3: semantic --> acoustic details --> audio waveform
++            //            step_gen() runs both stages and returns new h_state for next step
++            if (gen.step_gen(sampled, h_state, &h_next, &stop) != 0) {
++                LOG_ERR("step_gen failed at frame %d\n", n_frames);
++                return false;
++            }
++            if (!h_next) {
++                break; // stopped without generating a frame
++            }
+ 
+-    bool stop = false;
+-    while (!stop && n_frames < max_new) {
+-        const float * h_next = nullptr;
++            n_frames++;
++            h_state = h_next;
++            sampled = sample_semantic_code();
++            if (params.tts_stream && n_frames % params.tts_stream_frames == 0 && !write_pcm()) {
++                return false;
++            }
++            timings.report(n_frames);
++        }
++        const double t_gen_s = (ggml_time_us() - t_gen_start_us) / 1e6;
++
++        int32_t      sample_rate = 0;
++        const char * data        = nullptr;
++        size_t       data_len    = 0;
++        int64_t      n_samples   = 0;
++        const int64_t t_wav_start_us = ggml_time_us();
++        if (params.tts_stream && !write_pcm()) {
++            return false;
++        }
++        if (gen.get_output(&sample_rate, &data, &data_len, &n_samples) != 0) {
++            LOG_ERR("get_output failed\n");
++            return false;
++        }
++        const double t_wav_s = (ggml_time_us() - t_wav_start_us) / 1e6;
++
++        LOG_INF("generated %d frames, %zu bytes of WAV audio (%d Hz)\n", n_frames, data_len, sample_rate);
++
++        const double t_prompt_s = (t_gen_start_us - t_prompt_start_us) / 1e6;
++        const double t_total_s  = t_prompt_s + t_gen_s + t_wav_s;
++        const double audio_s    = sample_rate > 0 ? (double) n_samples / sample_rate : 0.0;
++        LOG_INF("timings: prompt eval %.2fs + generation %.2fs + vocoder %.2fs = total %.2fs\n",
++                t_prompt_s, t_gen_s, t_wav_s, t_total_s);
++        LOG_INF("         output audio = %.2fs (audio time = %.2fx process time)\n", audio_s, t_total_s > 0 ? audio_s / t_total_s : 0.0);
++        if (framed) {
++            return tts_write_frame('D');
++        }
++        FILE * f = fopen(params.out_file.c_str(), "wb");
++        if (!f) {
++            LOG_ERR("failed to open %s\n", params.out_file.c_str());
++            return false;
++        }
++        const bool write_ok = fwrite(data, 1, data_len, f) == data_len;
++        if (fclose(f) != 0 || !write_ok) {
++            LOG_ERR("failed to write %s\n", params.out_file.c_str());
++            return false;
++        }
++        LOG_INF("wrote %s\n", params.out_file.c_str());
++        return true;
++    };
+ 
+-        // stage 2+3: semantic --> acoustic details --> audio waveform
+-        //            step_gen() runs both stages and returns new h_state for next step
+-        if (gen.step_gen(sampled, h_state, &h_next, &stop) != 0) {
+-            LOG_ERR("step_gen failed at frame %d\n", n_frames);
++    if (params.tts_persistent) {
++        if (!tts_write_frame('R')) {
+             return 1;
+         }
+-        if (!h_next) {
+-            break; // stopped without generating a frame
++        for (std::string encoded_prompt; std::getline(std::cin, encoded_prompt);) {
++            try {
++                if (encoded_prompt.size() > 32768) {
++                    throw base64_error("prompt frame is too large");
++                }
++                const std::string prompt = base64::decode(encoded_prompt);
++                if (prompt.empty()) {
++                    throw base64_error("prompt is empty");
++                }
++                if (!generate(prompt, true)) {
++                    throw std::runtime_error("persistent TTS generation failed");
++                }
++            } catch (const std::exception & error) {
++                const std::string message = error.what();
++                if (!tts_write_frame('E', message.data(), message.size())) {
++                    return 1;
++                }
++            }
+         }
+-
+-        n_frames++;
+-        h_state = h_next;
+-        sampled = sample_semantic_code();
+-        timings.report(n_frames);
+-    }
+-    const double t_gen_s = (ggml_time_us() - t_gen_start_us) / 1e6;
+-
+-    int32_t      sample_rate = 0;
+-    const char * data        = nullptr;
+-    size_t       data_len    = 0;
+-    int64_t      n_samples   = 0;
+-    const int64_t t_wav_start_us = ggml_time_us();
+-    if (gen.get_output(&sample_rate, &data, &data_len, &n_samples) != 0) {
+-        LOG_ERR("get_output failed\n");
+-        return 1;
+-    }
+-    const double t_wav_s = (ggml_time_us() - t_wav_start_us) / 1e6;
+-
+-    LOG_INF("generated %d frames, %zu bytes of WAV audio (%d Hz)\n", n_frames, data_len, sample_rate);
+-
+-    const double t_prompt_s = (t_gen_start_us - t_prompt_start_us) / 1e6;
+-    const double t_total_s  = t_prompt_s + t_gen_s + t_wav_s;
+-    const double audio_s    = sample_rate > 0 ? (double) n_samples / sample_rate : 0.0;
+-    LOG_INF("timings: prompt eval %.2fs + generation %.2fs + vocoder %.2fs = total %.2fs\n",
+-            t_prompt_s, t_gen_s, t_wav_s, t_total_s);
+-    LOG_INF("         output audio = %.2fs (audio time = %.2fx process time)\n", audio_s, t_total_s > 0 ? audio_s / t_total_s : 0.0);
+-    FILE * f = fopen(params.out_file.c_str(), "wb");
+-    if (!f) {
+-        LOG_ERR("failed to open %s\n", params.out_file.c_str());
++    } else if (!generate(params.prompt, false)) {
+         return 1;
+     }
+-    fwrite(data, 1, data_len, f);
+-    fclose(f);
+-    LOG_INF("wrote %s\n", params.out_file.c_str());
+ 
+     llama_backend_free();
+     return 0;
