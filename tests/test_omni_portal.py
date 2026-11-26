@@ -2094,8 +2094,12 @@ def test_observatory_embedded_chat_keeps_same_origin_framing_and_auth_fragment()
 def test_voice_preface_is_model_selected_and_precedes_dispatch(tmp_path, monkeypatch, with_preface, played):
     import hashlib
 
+    from harness.history import ConversationHistory
     from portal.tools import PortalToolHarness
 
+    history_path = tmp_path / "conversation.sqlite3"
+    ConversationHistory(history_path).close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(history_path))
     actions = []
 
     def execute(_self, _session, name, _arguments, **_kwargs):
@@ -2129,18 +2133,21 @@ def test_voice_preface_is_model_selected_and_precedes_dispatch(tmp_path, monkeyp
         stream=True, think=False, portal_auto_tools=True, portal_tool_allowlist=["memory_write"],
         portal_voice_preface=True, omni={"schema": "robit.ollama.omni-adapter.v1", "require_speech": True},
     ))
-    first = json.loads(next(reply.response))
-    assert not actions
-    if with_preface:
-        assert first["type"] == "voice_preface"
-        assert first["text"] == "I'll save that as a note."
-        receipt = {"id": first["id"], "played": played}
-        assert app.test_client().post("/api/voice/preface", headers=headers, json=receipt).status_code == 404
-        assert voice.get("/api/activity", headers=headers).json["active"] == 0
-        assert voice.post("/api/voice/preface", headers=headers, json=receipt).status_code == 204
-    else:
-        assert first["type"] == "tool" and first["phase"] == "start"
-    remaining = [json.loads(line) for line in reply.response]
+    try:
+        first = json.loads(next(reply.response))
+        assert not actions
+        if with_preface:
+            assert first["type"] == "voice_preface"
+            assert first["text"] == "I'll save that as a note."
+            receipt = {"id": first["id"], "played": played}
+            assert app.test_client().post("/api/voice/preface", headers=headers, json=receipt).status_code == 404
+            assert voice.get("/api/activity", headers=headers).json["active"] == 0
+            assert voice.post("/api/voice/preface", headers=headers, json=receipt).status_code == 204
+        else:
+            assert first["type"] == "tool" and first["phase"] == "start"
+        remaining = [json.loads(line) for line in reply.response]
+    finally:
+        reply.close()
     assert (actions == ["memory_write"]) is played
     assert remaining[-1]["type"] == ("final" if played else "error")
 

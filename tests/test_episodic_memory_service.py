@@ -326,6 +326,7 @@ def test_portal_captures_actual_text_and_stream_observations_and_trash(tmp_path,
 def test_local_voice_grant_exposes_only_owner_speech_and_typed_checkpoint_markers(tmp_path, monkeypatch):
     import hashlib
 
+    from harness.history import ConversationHistory
     from portal.app import PortalConfig, create_app
     from qwen_omni_adapters.voice_view import local_voice_view_key
 
@@ -337,6 +338,9 @@ def test_local_voice_grant_exposes_only_owner_speech_and_typed_checkpoint_marker
     state = tmp_path / "state"
     state.mkdir()
     proof = local_voice_view_key(state, create=True)
+    history_path = state / "conversation.sqlite3"
+    ConversationHistory(history_path).close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(history_path))
 
     def respond(request):
         if request.url.path.endswith("/stream"):

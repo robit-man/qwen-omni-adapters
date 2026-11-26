@@ -11,6 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
 
+import comprehension_launcher as launcher  # noqa: E402
 from adapter_server import _active_context_tokens  # noqa: E402
 from comprehension_launcher import (  # noqa: E402
     _cache_bytes,
@@ -37,6 +38,33 @@ from comprehension_launcher import (  # noqa: E402
     context_headroom_gib,
     estimated_resident_gib,
 )
+
+
+def test_launch_honors_model_context_ceiling_after_profile_switch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state_file = tmp_path / "context"
+    monkeypatch.setenv("OMNI_COMPREHENSION_MIN_CONTEXT_TOKENS", "65536")
+    monkeypatch.setattr(launcher, "sampled_available_memory_gib", lambda: 32.0)
+    monkeypatch.setattr(launcher, "_component_fingerprint", lambda _: ("model", 16.0))
+    monkeypatch.setattr(
+        launcher, "_load_calibration", lambda *_: {"kv_gib_per_token": 0.00001}
+    )
+    monkeypatch.setattr(launcher.signal, "signal", lambda *_: None)
+
+    def start_worker(command: list[str], *, env: dict[str, str]) -> SimpleNamespace:
+        assert command == ["llama-server", "--ctx-size", "8192"]
+        return SimpleNamespace(poll=lambda: 0, returncode=0)
+
+    monkeypatch.setattr(launcher.subprocess, "Popen", start_worker)
+
+    assert launcher.main(
+        [
+            "--max-context", "8192", "--state-file", str(state_file), "--",
+            "llama-server", "--ctx-size", "{context}",
+        ]
+    ) == 0
+    assert state_file.read_text().strip() == "8192"
 
 
 def test_kv_cache_block_formats_have_exact_admission_slopes() -> None:

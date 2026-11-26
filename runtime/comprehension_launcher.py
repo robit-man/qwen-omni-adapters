@@ -819,6 +819,8 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     args = _parser().parse_args(raw_argv)
+    # An installation can retain a higher context floor from its previous model.
+    args.min_context = min(args.min_context, args.max_context)
     command = list(args.command)
     if command and command[0] == "--":
         command.pop(0)
