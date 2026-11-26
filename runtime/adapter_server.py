@@ -2713,6 +2713,8 @@ _COMPACT_VOICE_POLICY = (
 )
 
 _COMPACT_VOICE_MAX_PROMPT = 500
+_COMPACT_VOICE_MAX_COMPLETION = 80
+_COMPACT_VOICE_TIMEOUT_S = 8.5
 
 
 def _inkling_thinking_token(config: Config, client: httpx.Client) -> int | None:
@@ -2774,7 +2776,8 @@ def _plan_fast_voice_reply(
                 *recent, {"role": "user", "content": transcript},
             ],
             "reasoning_effort": "none", "reasoning_budget_tokens": 0,
-            "max_tokens": 64, "temperature": 0, "stream": False, "cache_prompt": False,
+            "max_tokens": _COMPACT_VOICE_MAX_COMPLETION if native else 64,
+            "temperature": 0, "stream": False, "cache_prompt": False,
             "response_format": {"type": "json_schema", "json_schema": {
                 "name": "spoken_turn", "strict": True,
                 "schema": _COMPACT_VOICE_SCHEMA if native else _FAST_VOICE_SCHEMA,
@@ -2792,7 +2795,8 @@ def _plan_fast_voice_reply(
                 prompt_tokens = _rendered_llama_prompt_tokens(client, origin, payload)
             if prompt_tokens > _COMPACT_VOICE_MAX_PROMPT:
                 return transcript_only
-        response = client.post(language_request_url(config), json=payload, timeout=min(config.timeout_s, 7))
+        timeout = min(config.timeout_s, _COMPACT_VOICE_TIMEOUT_S if native else 7)
+        response = client.post(language_request_url(config), json=payload, timeout=timeout)
         result = _language_result(_json_response(response, "fast spoken reply"), "openai")
         message = result.get("message")
         if not isinstance(message, Mapping) or message.get("thinking") or message.get("tool_calls"):
