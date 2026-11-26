@@ -2125,7 +2125,7 @@
     let buffered = "";
     let finalResponse = null;
 
-    const consume = line => {
+    const consume = async line => {
       if (!line.trim()) return;
       let event;
       try {
@@ -2149,7 +2149,7 @@
       }
       if (event.type === "error") throw new Error(event.error || "Streaming inference failed");
       if (event.type === "final") finalResponse = event.response || null;
-      if (onEvent) onEvent(event);
+      if (onEvent) await onEvent(event);
     };
 
     for (;;) {
@@ -2157,12 +2157,12 @@
       buffered += decoder.decode(value || new Uint8Array(), { stream: !done });
       let newline;
       while ((newline = buffered.indexOf("\n")) >= 0) {
-        consume(buffered.slice(0, newline));
+        await consume(buffered.slice(0, newline));
         buffered = buffered.slice(newline + 1);
       }
       if (done) break;
     }
-    if (buffered.trim()) consume(buffered);
+    if (buffered.trim()) await consume(buffered);
     if (!finalResponse) throw new Error("Model stream ended without a final response");
     timings.complete_ms = performance.now() - startedAt;
     reportDiagnostic("client_stream_timing", {
@@ -2195,7 +2195,7 @@
           observedRequests.set(activityId, event.stage);
           publishObservatoryActivity();
         }
-        if (onEvent) onEvent(event);
+        return onEvent?.(event);
       } });
     } finally {
       observedRequests.delete(activityId);
@@ -2205,11 +2205,11 @@
 
   async function streamChatWithRetry(payload, { signal, onEvent } = {}) {
     let replayUnsafe = payload.portal_detached_turn === true;
-    const observe = event => {
+    const observe = async event => {
       if (Number.isFinite(Number(event.server_seq))) {
         state.serverSequence = Math.max(state.serverSequence, Number(event.server_seq));
       }
-      if (event.type === "audio_start") replayUnsafe = true;
+      if (["audio_start", "voice_preface"].includes(event.type)) replayUnsafe = true;
       if (event.type === "tool" && event.phase === "complete") {
         for (const item of event.tools || []) {
           const name = typeof item === "string"
@@ -2218,7 +2218,7 @@
           if (!CLIENT_STREAM_RETRY_SAFE_TOOLS.has(name)) replayUnsafe = true;
         }
       }
-      if (onEvent) onEvent(event);
+      if (onEvent) await onEvent(event);
       scheduleBrowserSessionSave(event.type === "final" ? 0 : 200);
     };
     for (let attempt = 0; attempt <= 1; attempt += 1) {
@@ -2233,7 +2233,7 @@
         ) {
           throw error;
         }
-        observe({
+        await observe({
           type: "reset",
           reason: "browser_network_retry",
           attempt: attempt + 1,
@@ -3531,6 +3531,66 @@
     }
   }
 
+  function warmCallPlayback(call) {
+    if (call.warmingPlayback) return;
+    call.warmingPlayback = fetch("/api/voice/warm", {
+      method: "POST",
+      headers: authHeaders(),
+    }).catch(() => {}).finally(() => {
+      call.warmingPlayback = null;
+    });
+  }
+
+  async function playCallPreface(call, turn, event) {
+    const text = String(event.text || "").trim();
+    let playback = null;
+    let played = false;
+    try {
+      if (text && state.call === call && callPlayback.canStart(call, turn)) {
+        call.playbackTurn = turn;
+        const response = await streamChat({
+          model: MODEL,
+          messages: [{ role: "user", content: text }],
+          omni: { schema: SCHEMA, task: "synthesize" },
+          response_modalities: ["audio"],
+          speech_mode: "always",
+          portal_voice: voicePayload(),
+        }, {
+          signal: turn.controller.signal,
+          onEvent: audioEvent => {
+            if (turn.discardReply) return;
+            if (audioEvent.type === "audio_start") {
+              playback = beginPcmPlayback(text);
+              setComposerStatus("Call · speaking… say something to interrupt");
+            } else if (audioEvent.type === "audio_delta") {
+              queuePcmPlayback(playback, String((audioEvent.audio || {}).data || ""));
+            } else if (audioEvent.type === "audio_end") {
+              endPcmPlayback(playback);
+            }
+          },
+        });
+        if (playback) {
+          endPcmPlayback(playback);
+          played = Boolean(await playback.promise && playback.pacer.packets);
+        } else if (response.message?.audio && callPlayback.canStart(call, turn)) {
+          played = await playWithUnlockedContext(response.message.audio, state.playbackEpoch);
+        }
+      }
+    } finally {
+      if (playback && state.streamController === playback) stopCurrentPlayback();
+      if (call.playbackTurn === turn) call.playbackTurn = null;
+      const receipt = await fetch("/api/voice/preface", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: event.id, played: played && !turn.discardReply }),
+      });
+      if (!receipt.ok && !turn.controller.signal.aborted) {
+        throw new Error("The voice acknowledgment could not be confirmed");
+      }
+    }
+    if (played && !turn.discardReply) setComposerStatus("Call · processing…");
+  }
+
   async function submitCallUtterance(call, chunks, activeDurationMs, segmentCount = 1, truncated = false) {
     const sampleCount = chunks.reduce((total, chunk) => total + chunk.length, 0);
     const capturedDurationMs = sampleCount / call.context.sampleRate * 1000;
@@ -3660,7 +3720,10 @@
           response_modalities: ["text", "audio"],
           speech_mode: "always",
           portal_voice: voicePayload(),
-          think: showThinking,
+          ...(showThinking ? { think: true } : {
+            portal_voice_auto_reasoning: true,
+            portal_voice_preface: true,
+          }),
           ...(toolUseEnabled() ? { tools: state.safeTools } : {}),
           portal_auto_tools: toolUseEnabled(),
           ...(clientLocation ? { portal_client_location: clientLocation } : {}),
@@ -3683,6 +3746,8 @@
                 setComposerStatus("Call · audio context saved · listening");
                 turn.controller.abort();
               }
+            } else if (event.type === "voice_preface") {
+              return playCallPreface(call, turn, event);
             } else if (event.type === "reset") {
               if (turn.discardReply) return;
               streamedContent = "";
@@ -3941,6 +4006,7 @@
       if (detection.event === "start") {
         clearPendingCallFlush(call);
         setVadActive(call, true);
+        if (!call.inflight && !call.playbackTurn) warmCallPlayback(call);
         const superseded = supersedeCallAudio(call, call.nextSequence);
         reportCallState(call, "call_vad_start", [...call.turns][0], state.streamController, level);
         if (superseded) {

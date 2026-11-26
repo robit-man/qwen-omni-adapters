@@ -3127,6 +3127,20 @@ def create_app(
             pending.received.set()
         return "", 204
 
+    @app.post("/api/voice/warm")
+    def warm_voice_playback():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if os.environ.get("OMNI_TTS_KEEP_WARM") == "1":
+            try:
+                session.post(
+                    runtime.tts_health_url.removesuffix("/healthz") + "/residency",
+                    json={"action": "warm"}, timeout=8,
+                ).raise_for_status()
+            except httpx.HTTPError:
+                app.logger.debug("speculative browser speech warmup deferred")
+        return "", 204
+
     def apply_voice_profile(payload: dict[str, Any]) -> None:
         client_voice = _voice_override(payload.pop("portal_voice", None))
         voice_profile = voice_profiles.current()
@@ -4427,14 +4441,15 @@ def create_app(
         if payload.get("stream") is not True:
             return jsonify({"error": "stream endpoint requires stream=true"}), 400
         session_id = request_session_id()
+        voice_owner = tool_harness.can_read_conversation_history(session_id)
         voice_auto_reasoning = (
             requested_auto_reasoning and live_turn and not internal_background
             and "think" not in payload
-            and tool_harness.can_read_conversation_history(session_id)
+            and (requested_preface or voice_owner)
         )
         if voice_auto_reasoning:
             payload["think"] = False
-        voice_preface_enabled = requested_preface and live_turn and tool_harness.can_read_conversation_history(session_id)
+        voice_preface_enabled = requested_preface and live_turn and (voice_owner or voice_auto_reasoning)
         if voice_preface_enabled and isinstance(payload.get("messages"), list):
             payload["messages"].insert(0, {
                 "role": "system", "content": context_text("directives", "live_action_preface"),

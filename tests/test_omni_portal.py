@@ -2162,8 +2162,9 @@ def test_voice_preface_precedes_dispatch_and_auto_thinks_afterward(tmp_path, mon
     assert remaining[-1]["type"] == ("final" if played else "error")
 
 
+@pytest.mark.parametrize("owner", [False, True])
 @pytest.mark.parametrize("defer", [False, True])
-def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypatch, defer):
+def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypatch, defer, owner):
     import hashlib
 
     from harness.history import ConversationHistory
@@ -2175,6 +2176,7 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
 
     def respond(request):
         requests.append(json.loads(request.content))
+        assert request.headers.get("X-Omni-Voice-Reasoning") == ("fast" if len(requests) == 1 else None)
         response = {"message": {"role": "assistant", "content": "I hear you."}}
         if defer and len(requests) == 1:
             response["message"]["content"] = "I'll check."
@@ -2186,9 +2188,10 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(respond)))
     cookie = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
     voice = app.test_client()
-    voice.set_cookie("omni_portal_session", cookie)
+    voice.set_cookie("omni_portal_session", cookie if owner else "browser-call-fixture-session")
     payload = _request(
         stream=True, portal_voice_auto_reasoning=True, portal_voice_preface=True,
+        portal_auto_tools=True, portal_tool_allowlist=["conversation_search", "get_current_time"],
         messages=[{"role": "user", "content": "Attached recording", "audios": ["fixture"]}],
         omni={"schema": "robit.ollama.omni-adapter.v1", "require_speech": True},
     )
@@ -2206,11 +2209,28 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     finally:
         reply.close()
     assert [item["think"] for item in requests] == ([False, True] if defer else [False])
+    tools = {item["function"]["name"] for item in requests[0]["tools"]}
+    assert ("conversation_search" in tools) is owner
     if defer:
         spoken = [message for message in requests[1]["messages"] if message["role"] == "user"]
         assert spoken[-1]["content"] == "What did we decide?" and "audios" not in spoken[-1]
     assert [event["type"] for event in events] == ["final"]
     assert events[0]["response"]["message"]["content"] == "I hear you."
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_browser_voice_warmup_requires_authentication_and_uses_memory_guard(monkeypatch, enabled):
+    monkeypatch.setenv("OMNI_TTS_KEEP_WARM", "1" if enabled else "0")
+    calls = []
+
+    def respond(request):
+        calls.append((request.url.path, json.loads(request.content)))
+        return httpx.Response(422, json={"error": "insufficient memory"})
+
+    client = create_app(_config(), httpx.Client(transport=httpx.MockTransport(respond))).test_client()
+    assert client.post("/api/voice/warm").status_code == 401
+    assert client.post("/api/voice/warm", headers={"Authorization": "Bearer " + TOKEN}).status_code == 204
+    assert calls == ([("/residency", {"action": "warm"})] if enabled else [])
 
 
 def test_streamed_stages_reach_observatory_without_transcript_or_output_content():

@@ -284,6 +284,17 @@ allowed: matching arguments are executed again and produce a fresh tool result.
 The toggle defaults off. This flag and trace are portal extensions, not fields in
 portable adapter v1.
 
+An authenticated live-call client can request automatic reply depth on
+`/api/chat/stream` by setting `portal_voice_auto_reasoning` and
+`portal_voice_preface` to `true` and omitting `think`. The first pass uses
+no thinking. When the planner defers a request, the stream emits a
+`voice_preface` event carrying its `id` and text. The client plays the text,
+then posts `{"id": "…", "played": true}` to `/api/voice/preface` in the same
+session. A failed or interrupted playback sends `played: false` and prevents
+the pending action from running. This handshake preserves existing tool and
+conversation-archive permissions. An authenticated `POST /api/voice/warm`
+can request optional TTS warming under the worker's existing memory policy.
+
 An authenticated portal caller may set `portal_tool_allowlist` to a JSON array
 of unique, exact names from the portal's pinned tool registry, for example
 `["native_ui", "memory_write", "memory_search"]`. The portal always retains
