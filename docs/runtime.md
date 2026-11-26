@@ -512,6 +512,9 @@ modalities. Ordinary comprehension remains available if refinement fails. GUI
 grounding uses its dedicated single-frame perception prompt. Set
 `OMNI_DETAILED_MEDIA_ANALYSIS=0` for single-pass operation.
 The trained audio bridge defaults to its released audio perception prompt.
+Inkling audio-only perception also uses a zero reasoning budget. When language
+and perception share a worker, it suppresses the tokenizer-verified thinking
+opener so native ASR returns the tagged observation promptly.
 Enable experimental acoustic refinement there with
 `OMNI_DETAILED_AUDIO_ANALYSIS=1`. A failed detail pass leaves the initial
 observation available.

@@ -3397,6 +3397,7 @@ def test_inkling_bridge_routes_audio_and_language_with_native_effort(think) -> N
     )
     config = _adapter_config(
         language_api="openai",
+        language_url="http://comprehension/v1/chat/completions",
         comprehension_disable_thinking=True,
         inkling_native_reasoning=True,
         inkling_thinking_token=123,
@@ -3404,6 +3405,8 @@ def test_inkling_bridge_routes_audio_and_language_with_native_effort(think) -> N
     media = adapter_server.build_comprehension_payload(parsed, config)
     language = adapter_server.build_language_payload(parsed, None, "inkling", "openai", config)
     assert media["reasoning_effort"] == "none"
+    assert media["reasoning_budget_tokens"] == 0
+    assert media["logit_bias"] == [[123, False]]
     assert language["reasoning_effort"] == (think or "none")
     assert language["logit_bias"] == ({"456": -2} if think else {"456": -2, "123": False})
     retry = adapter_server._required_tool_retry_payload(language)

@@ -1292,6 +1292,13 @@ def build_comprehension_payload(
         payload["reasoning_effort"] = "minimal" if mixed_audio_image else "none"
         if mixed_audio_image:
             payload["max_tokens"] = min(payload["max_tokens"], 768)
+        elif audio_only:
+            payload["reasoning_budget_tokens"] = 0
+            if (config.inkling_thinking_token is not None
+                    and config.comprehension_url.rstrip("/") == config.language_url.rstrip("/")):
+                # The tokenizer-probed token belongs to the shared Inkling worker.
+                # Effort=none alone can still enter a hidden generation channel.
+                payload["logit_bias"] = [[config.inkling_thinking_token, False]]
     elif config.comprehension_disable_thinking:
         payload["chat_template_kwargs"] = {"enable_thinking": False}
     if config.comprehension_repeat_penalty != 1.0:
