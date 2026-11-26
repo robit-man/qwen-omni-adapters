@@ -559,6 +559,10 @@ answer can finish in that pass. When the turn needs further work, the harness
 plays the model's request-specific acknowledgment before the portal opens a
 reasoning-enabled follow-up. A confirmed interruption closes the old live HTTP
 stream so the next local utterance can proceed.
+Set `OMNI_CALL_FAST_BARGE_IN=1` to trial a 40 ms tentative playback fade when
+the local ReSpeaker corroborates the software voice detector. Transcript
+verification still decides whether to yield or resume. With uncertain array
+input the harness uses its usual duck-and-pause timing.
 Inkling's live pipeline uses the installed Omni package's audio bridge for
 speech recognition and its native language weights for replies.
 Set `OMNI_INKLING_COMPACT_VOICE=1` to trial the compact first reply for the

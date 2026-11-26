@@ -188,6 +188,9 @@ class CallConfig:
     # First duck under a possible interruption. Only sustained speech earns a
     # full fade and pause; a rejected false start rises back into the sentence.
     barge_in_pause_s: float = 0.45
+    # Trial a tentative fast pause only after the array corroborates the
+    # software VAD. The normal transcript check still commits or resumes it.
+    fast_barge_in: bool = False
     # How long a finished utterance waits for the speaker to carry on.
     #
     # People stop to think mid-sentence, and every one of those pauses looks
@@ -252,6 +255,7 @@ class BargeInState:
         reply_started_at: float,
         grace_s: float,
         pause_s: float,
+        array_confirmed: bool = False,
     ) -> tuple[str, ...]:
         """Return the duck/pause/resume transitions for one VAD event."""
 
@@ -261,6 +265,11 @@ class BargeInState:
             self.paused = False
 
         if event in {"start", "active"} and self.started_at is not None:
+            if array_confirmed and not self.paused:
+                if self.ducked_at is None:
+                    self.ducked_at = now
+                self.paused = True
+                return ("pause",)
             actions: list[str] = []
             if self.ducked_at is None and now - reply_started_at >= grace_s:
                 self.ducked_at = now
@@ -482,22 +491,25 @@ class CallSession:
         except Exception:  # noqa: BLE001 - diagnostics must never break a call
             logger.debug("conversation content trace failed", exc_info=True)
 
-    def _speaker_action(self, action: str) -> None:
+    def _speaker_action(self, action: str, **options: float) -> None:
         with self._speaker_lock:
             speaker = self._active_speaker
         if speaker is None:
             return
-        getattr(speaker, action)()
+        getattr(speaker, action)(**options)
 
     def request_duck(self) -> None:
         """Lower a possible interruption while deciding whether it is speech."""
 
         self._speaker_action("duck")
 
-    def request_pause(self) -> None:
+    def request_pause(self, *, fast: bool = False) -> None:
         """Pause at silence after the possible interruption persists."""
 
-        self._speaker_action("pause")
+        if fast:
+            self._speaker_action("pause", duration=0.04)
+        else:
+            self._speaker_action("pause")
 
     def resume_reply(self) -> None:
         """A noise candidate was rejected; continue the unfinished sentence."""
@@ -1781,6 +1793,11 @@ def run_call_loop(
                             if session.background_agent is not None:
                                 session.background_agent.wake()
                             notify("listening", "")
+                native_speech = (
+                    _respeaker_near_end_speech(array)
+                    if array.present and speaking_since is not None
+                    else None
+                )
                 verdict = vad.process(
                     frame,
                     now_ms,
@@ -1789,11 +1806,7 @@ def run_call_loop(
                     # speech signals. A perception-only transcript check after
                     # the person stops rejects residual playback echo before
                     # the paused reply is either abandoned or resumed.
-                    native_speech=(
-                        _respeaker_near_end_speech(array)
-                        if array.present and speaking_since is not None
-                        else None
-                    ),
+                    native_speech=native_speech,
                 )
                 if config.evidence_trace is not None:
                     config.evidence_trace("vad", {"event": verdict.event, "active": verdict.active,
@@ -1836,19 +1849,21 @@ def run_call_loop(
                         and can_barge
                         and speaking_since is not None
                     ):
+                        fast_pause = config.fast_barge_in and native_speech is True
                         for action in barge.observe(
                             verdict.event,
                             now=now,
                             reply_started_at=speaking_since,
                             grace_s=config.barge_in_grace_s,
                             pause_s=config.barge_in_pause_s,
+                            array_confirmed=fast_pause,
                         ):
                             if action == "duck":
                                 logger.info("possible interruption; ducking reply")
                                 session.request_duck()
                             elif action == "pause":
                                 logger.info("sustained interruption; pausing reply")
-                                session.request_pause()
+                                session.request_pause(fast=fast_pause)
                 elif verdict.event == "rejected":
                     near_end_active.clear()
                     display.set_interruption(False)

@@ -1546,6 +1546,16 @@ def test_a_barge_ducks_pauses_resumes_or_commits_without_a_hard_cut() -> None:
     assert actions == ["duck", "pause", "resume", ("stop", 0.12)]
 
 
+def test_array_confirmed_barge_pauses_inside_grace_and_can_resume() -> None:
+    barge = BargeInState()
+    timings = {"reply_started_at": 0.0, "grace_s": 0.6, "pause_s": 0.45}
+    assert barge.observe("candidate", now=0.1, array_confirmed=True, **timings) == ()
+    assert barge.observe("start", now=0.22, array_confirmed=True, **timings) == ("pause",)
+    assert barge.observe("active", now=0.24, array_confirmed=True, **timings) == ()
+    assert barge.observe("rejected", now=0.26, **timings) == ("resume",)
+    assert not barge.active
+
+
 def test_barge_started_inside_grace_is_reconsidered_then_ducked_and_paused() -> None:
     barge = BargeInState()
 

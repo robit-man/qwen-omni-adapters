@@ -404,6 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         model=model,
         input_device=device,
         output_device=args.output_device,
+        fast_barge_in=_env_enabled("OMNI_CALL_FAST_BARGE_IN"),
         input_channels=max(1, channels),
         input_channel=max(0, channel),
         tools_enabled=not args.no_tools,
