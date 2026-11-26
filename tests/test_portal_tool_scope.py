@@ -117,7 +117,7 @@ def test_owner_archive_is_directly_available_without_forcing_ordinary_turns(
     assert _result(response, stream)["portal"]["safe_tools_executed"] == []
 
 
-@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("stream,auto_voice", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("virtual_mode", ["off", "active"])
 @pytest.mark.parametrize("mode,owner,incomplete,closes", [
     ("answer", True, False, True), ("continue", True, False, False),
@@ -125,7 +125,7 @@ def test_owner_archive_is_directly_available_without_forcing_ordinary_turns(
     ("answer", False, False, False), ("answer", True, True, False),
 ])
 def test_archive_reply_handoff_honors_typed_plan_and_preserves_chains(
-    tmp_path, monkeypatch, stream, virtual_mode, mode, owner, incomplete, closes,
+    tmp_path, monkeypatch, stream, auto_voice, virtual_mode, mode, owner, incomplete, closes,
 ):
     from harness.history import ConversationHistory
 
@@ -150,12 +150,14 @@ def test_archive_reply_handoff_honors_typed_plan_and_preserves_chains(
         body = json.loads(request.content)
         requests.append(body)
         if len(requests) == 1:
+            assert body["think"] is False
             return _answer(stream, [("conversation_search", arguments)])
+        final_closes = closes or (mode == "continue" and len(requests) == 3)
+        assert body["think"] is (auto_voice and owner and not final_closes)
         if mode == "continue" and len(requests) == 2:
             assert body.get("tools") and "<conversation_reply_ready>" not in str(body["messages"])
             return _answer(stream, [("conversation_search", {**arguments, "period": "last_week",
                                                               "after_retrieval": "answer"})])
-        final_closes = closes or mode == "continue"
         assert len(requests) == (3 if mode == "continue" else 2)
         assert bool(body.get("tools")) is (not final_closes)
         assert (body.get("tool_choice") == "none") is final_closes
@@ -169,8 +171,12 @@ def test_archive_reply_handoff_honors_typed_plan_and_preserves_chains(
     client = app.test_client()
     identity = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
     client.set_cookie("omni_portal_session", identity if owner else "another-browser-session-12345")
-    response = client.post("/api/chat/stream" if stream else "/api/chat", headers=HEADERS,
-                           json=_request(stream))
+    payload = _request(stream)
+    if auto_voice:
+        payload.pop("think")
+        payload["portal_voice_auto_reasoning"] = True
+        payload["omni"]["require_speech"] = True
+    response = client.post("/api/chat/stream" if stream else "/api/chat", headers=HEADERS, json=payload)
     assert response.status_code == 200
     result = _result(response, stream)
     assert result["message"]["content"] == "Complete."

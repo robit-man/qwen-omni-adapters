@@ -5026,7 +5026,9 @@ def create_app(
                         )
                     current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
                     if voice_auto_reasoning and round_index:
-                        current_payload["think"] = True
+                        # Once a typed receipt closes the tool phase, spend the
+                        # remaining turn on a spoken answer from that evidence.
+                        current_payload["think"] = current_payload.get("tool_choice") != "none"
                     _repacked, repack_summary = safe_repack_virtual_followup(
                         current_payload,
                         session_id,
