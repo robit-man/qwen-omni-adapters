@@ -55,6 +55,15 @@ MANAGED_MODELS: tuple[ManagedModel, ...] = (
         language_disable_thinking=False,
     ),
     ManagedModel(
+        key="inkling2-mini-iq3-xs",
+        label="Inkling 2 Mini IQ3_XS Omni preview",
+        tag="robit/inkling-2-mini-omni:iq3-xs",
+        size_gib=15.46,
+        generation="preview",
+        max_context_tokens=8_192,
+        language_disable_thinking=False,
+    ),
+    ManagedModel(
         key="ornith15_full",
         label="Ornith 1.5 full Omni",
         tag="robit/ornith-1.5-omni:q4km",

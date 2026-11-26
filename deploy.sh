@@ -64,6 +64,7 @@ Profiles:
   ornith15             Standard Ornith 1.5 9B audio bridge (about 8.15 GiB)
   qwen38               Qwen3.8 27B E03 Obliterated audio bridge (about 18.33 GiB)
   inkling2-mini        Inkling 2 Mini IQ4_XS Omni preview (about 16.69 GiB)
+  inkling2-mini-iq3-xs Inkling 2 Mini IQ3_XS Omni preview (about 15.46 GiB)
 
 Options:
   --profile NAME       Select a profile without opening the model menu
@@ -87,6 +88,7 @@ list_models() {
 ornith15|robit/ornith-1.5-omni-audio-bridge:q4km|8.15 GiB|Standard Ornith 1.5 9B; recommended on 32 GB Jetson
 qwen38|robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km|18.33 GiB|Qwen3.8 27B E03 Obliterated; higher memory requirement
 inkling2-mini|robit/inkling-2-mini-omni:iq4-xs|16.69 GiB|Inkling 2 Mini IQ4_XS Omni preview
+inkling2-mini-iq3-xs|robit/inkling-2-mini-omni:iq3-xs|15.46 GiB|Inkling 2 Mini IQ3_XS Omni preview
 EOF
 }
 
@@ -233,8 +235,13 @@ resolve_profile() {
       PROFILE_TITLE='Inkling 2 Mini IQ4_XS Omni'
       PROFILE_SIZE='16.69 GiB'
       ;;
+    inkling2-mini-iq3-xs)
+      OMNI_MODEL=robit/inkling-2-mini-omni:iq3-xs
+      PROFILE_TITLE='Inkling 2 Mini IQ3_XS Omni'
+      PROFILE_SIZE='15.46 GiB'
+      ;;
     *)
-      die "unknown profile '$PROFILE' (expected ornith15, qwen38, or inkling2-mini)"
+      die "unknown profile '$PROFILE' (expected ornith15, qwen38, inkling2-mini, or inkling2-mini-iq3-xs)"
       ;;
   esac
 
@@ -582,7 +589,7 @@ install_environment() {
   # the GGUF-derived KV slope, and the shared operational reserve, so this is
   # not an unconditional 64K allocation. Keep f16 everywhere else until the
   # exact model/platform pair has equivalent live evidence.
-  if [[ $PROFILE == inkling2-mini ]]; then
+  if [[ $OMNI_MODEL == robit/inkling-2-mini-omni:* ]]; then
     cache_type=q8_0
     context_tokens=8192
     pointing=0
@@ -1333,7 +1340,7 @@ deploy_service() {
 
 while (($#)); do
   case $1 in
-    ornith15|ornith15-audio-bridge|ornith15-bridge|qwen38|qwen38-audio-bridge|qwen38-bridge|inkling2-mini)
+    ornith15|ornith15-audio-bridge|ornith15-bridge|qwen38|qwen38-audio-bridge|qwen38-bridge|inkling2-mini|inkling2-mini-iq3-xs)
       [[ -z $PROFILE ]] || die 'select only one profile'
       PROFILE=$1
       ;;

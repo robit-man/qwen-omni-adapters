@@ -6,6 +6,8 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 from harness.indicator import model_views
 from harness.models import IndicatorModelManager, _replace_env, _table_tags
 from qwen_omni_adapters.model_catalog import MANAGED_MODELS
@@ -30,6 +32,7 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
         "robit/ornith-1.5-omni-audio-bridge:q4km",
         "robit/qwen3.8-27b-e03-obliterated-omni-audio-bridge:q4km",
         "robit/inkling-2-mini-omni:iq4-xs",
+        "robit/inkling-2-mini-omni:iq3-xs",
         "robit/ornith-1.5-omni:q4km",
         "robit/qwen3.8-27b-e03-obliterated-omni:q4km",
     ]
@@ -38,9 +41,10 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
         65_536,
         16_384,
     ]
-    assert MANAGED_MODELS[2].max_context_tokens == 8_192
+    assert [model.max_context_tokens for model in MANAGED_MODELS[2:4]] == [8_192, 8_192]
     assert [model.language_disable_thinking for model in MANAGED_MODELS] == [
         True,
+        False,
         False,
         False,
         True,
@@ -119,12 +123,15 @@ def test_destructive_and_load_actions_fail_closed(tmp_path: Path) -> None:
     )
 
 
-def test_inkling_activation_requires_its_binaries_and_uses_8k(tmp_path: Path) -> None:
-    tag = "robit/inkling-2-mini-omni:iq4-xs"
+@pytest.mark.parametrize(("profile", "quant"), [("inkling2-mini", "iq4-xs"), ("inkling2-mini-iq3-xs", "iq3-xs")])
+def test_inkling_activation_requires_its_binaries_and_uses_8k(
+    tmp_path: Path, profile: str, quant: str,
+) -> None:
+    tag = f"robit/inkling-2-mini-omni:{quant}"
     manager = _manager(tmp_path, MANAGED_MODELS[0].tag, {tag})
 
     ok, detail = manager.activate(tag)
-    assert not ok and "./deploy.sh inkling2-mini" in detail
+    assert not ok and f"./deploy.sh {profile} before" in detail
     assert not (tmp_path / ".env").exists()
 
     binary_dir = tmp_path / "vendor/llama.cpp-inkling/build/bin"
@@ -135,6 +142,7 @@ def test_inkling_activation_requires_its_binaries_and_uses_8k(tmp_path: Path) ->
     ok, detail = manager.activate(tag)
     assert ok, detail
     environment = (tmp_path / ".env").read_text()
+    assert f"OMNI_PROFILE={profile}\n" in environment
     assert f"OMNI_MODEL={tag}\n" in environment
     assert f"OMNI_LANGUAGE_MODEL={tag}\n" in environment
     assert "OMNI_COMPREHENSION_CONTEXT_TOKENS=8192\n" in environment
