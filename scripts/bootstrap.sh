@@ -73,7 +73,10 @@ PY
 }
 
 if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
-  if ! desktop_harness_dependencies_ready "$PYTHON"; then
+  if ! desktop_harness_dependencies_ready "$PYTHON" \
+    || ! command -v cc >/dev/null 2>&1 \
+    || ! command -v pkg-config >/dev/null 2>&1 \
+    || ! pkg-config --exists libpulse; then
     command -v apt-get >/dev/null 2>&1 || {
       printf 'Desktop harness dependencies are missing and apt-get is unavailable.\n' >&2
       exit 1
@@ -86,6 +89,7 @@ if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
     fi
     sudo env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y \
       python3-gi gir1.2-gtk-3.0 gir1.2-atspi-2.0 "$indicator_package" pulseaudio-utils \
+      build-essential pkg-config libpulse-dev \
       xdotool x11-utils imagemagick gir1.2-gstreamer-1.0 gstreamer1.0-tools \
       gstreamer1.0-pipewire gstreamer1.0-plugins-base gstreamer1.0-plugins-good
   fi
@@ -97,6 +101,13 @@ fi
 
 "$PYTHON" -m venv "$VENV"
 if ((INSTALL_HARNESS)) && [[ $(uname -s) == Linux ]]; then
+  pulse_capture=$(mktemp "$VENV/bin/.omni-pulse-capture.XXXXXX")
+  trap 'unlink "$pulse_capture" 2>/dev/null || true' EXIT
+  read -r -a pulse_flags <<<"$(pkg-config --cflags --libs libpulse)"
+  cc -Wall -Wextra -O2 "$REPO_ROOT/harness/pulse_capture.c" -o "$pulse_capture" "${pulse_flags[@]}"
+  chmod 755 "$pulse_capture"
+  mv -fT -- "$pulse_capture" "$VENV/bin/omni-pulse-capture"
+  trap - EXIT
   # Use the PyGObject binding from the matching host Python without exposing
   # the host's Python distribution metadata to pip.
   gi_package=$("$PYTHON" -c 'import gi; from pathlib import Path; print(Path(gi.__file__).resolve().parent)')

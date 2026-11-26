@@ -1407,6 +1407,38 @@ def test_a_dead_microphone_pipe_is_an_error_the_supervisor_can_restart() -> None
         next(microphone.frames())
 
 
+@pytest.mark.parametrize(
+    ("device", "has_companion", "expected"),
+    [
+        ("alsa_input.named", True, ["omni-pulse-capture", "alsa_input.named", "16000", "6"]),
+        ("alsa_input.named", False, ["parecord", "--latency-msec=20", "--device=alsa_input.named"]),
+        (None, True, ["parecord", "--channels=6", "--latency-msec=20"]),
+        ("@DEFAULT_SOURCE@", True, ["parecord", "--latency-msec=20", "--device=@DEFAULT_SOURCE@"]),
+    ],
+)
+def test_named_pulseaudio_capture_is_pinned_when_installed(
+    tmp_path, monkeypatch, device, has_companion, expected
+) -> None:
+    import harness.audio as audio
+
+    monkeypatch.setattr(audio.sys, "executable", str(tmp_path / "python"))
+    if has_companion:
+        (tmp_path / "omni-pulse-capture").touch()
+    recorded = []
+
+    def popen(command, **_options):
+        recorded.append([Path(command[0]).name, *command[1:]])
+        return object()
+
+    monkeypatch.setattr(audio.subprocess, "Popen", popen)
+    microphone = MicrophoneStream(device=device, channels=6)
+    microphone.__enter__()
+    command = recorded[0]
+    assert command[0] == expected[0]
+    expected_arguments = expected[1:]
+    assert command[-len(expected_arguments):] == expected_arguments
+
+
 def test_capture_cleanup_does_not_poison_the_supervisors_stop_event() -> None:
     import inspect
 

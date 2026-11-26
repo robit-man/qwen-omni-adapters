@@ -28,6 +28,10 @@ done
   printf 'Run ./scripts/bootstrap.sh before installing the service.\n' >&2
   exit 1
 }
+if ((HARNESS)) && [[ ! -x "$REPO_ROOT/.venv/bin/omni-pulse-capture" ]]; then
+  printf 'Missing pinned PulseAudio recorder. Rerun scripts/bootstrap.sh --with-harness.\n' >&2
+  exit 1
+fi
 # The shared probe runs docker gpu discover. An absent plugin permits direct
 # CUDA; a failed installed broker must never select an unscoped lifecycle.
 DETECTED_MODE=$("$REPO_ROOT/.venv/bin/python" -m qwen_omni_adapters.gpu_broker --mode) || exit 1

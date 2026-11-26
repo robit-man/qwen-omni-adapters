@@ -46,6 +46,11 @@ bytes only when unified memory retains a 6 GiB runtime reserve. A failed
 startup restores the prior `.env`, systemd unit, and managed services. The
 lower-level commands below remain available for staged and custom deployments.
 
+The Linux bootstrap builds `omni-pulse-capture` alongside the harness Python.
+The harness uses it for a named microphone, including a detected ReSpeaker.
+The recorder keeps its selected source when a remote desktop session changes
+the PulseAudio routing. Default-device capture follows the desktop selection.
+
 These post-install gates execute on the target host. In particular, a Jetson
 must prove its own `nvgpu`/`nvmap` residency and run the real speech route using
 the arm64/CUDA binaries; passing the portable suite on an x86 development host

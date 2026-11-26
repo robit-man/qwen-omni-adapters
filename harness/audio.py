@@ -1,8 +1,8 @@
 """Microphone capture and speaker playback for the local call harness.
 
-PulseAudio's own tools do the work. ``parecord`` and ``paplay`` are already on
-any Ubuntu desktop, they respect whatever the user has selected as their default
-devices, and they cost nothing to add as dependencies.
+Playback and default-device recording use PulseAudio's desktop tools. The
+managed named-device recorder asks PulseAudio to keep the opened stream on
+that source if a desktop or remote-session tool tries to move it.
 
 Playback streams: PCM blocks are written to ``paplay`` as they arrive from the
 adapter rather than after the whole reply is generated, which is the difference
@@ -20,11 +20,13 @@ import queue
 import shutil
 import signal
 import subprocess
+import sys
 import threading
 import time
 import wave
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -101,16 +103,20 @@ class MicrophoneStream:
         return int(self.rate_hz * self.frame_ms / 1000.0)
 
     def __enter__(self) -> MicrophoneStream:
-        command = [
-            "parecord",
-            "--raw",
-            "--format=s16le",
-            f"--rate={self.rate_hz}",
-            f"--channels={self.channels}",
-            "--latency-msec=20",
-        ]
-        if self.device:
-            command.append(f"--device={self.device}")
+        pinned_capture = Path(sys.executable).with_name("omni-pulse-capture")
+        if self.device and not self.device.startswith("@") and pinned_capture.is_file():
+            command = [str(pinned_capture), self.device, str(self.rate_hz), str(self.channels)]
+        else:
+            command = [
+                "parecord",
+                "--raw",
+                "--format=s16le",
+                f"--rate={self.rate_hz}",
+                f"--channels={self.channels}",
+                "--latency-msec=20",
+            ]
+            if self.device:
+                command.append(f"--device={self.device}")
         self._process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
         )
