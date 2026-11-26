@@ -229,13 +229,17 @@ def test_indicator_exposes_dashboard_and_repository_updates() -> None:
     assert "on_update()" in source
 
 
-def test_portal_actions_follow_readiness_without_launching_the_dashboard(monkeypatch) -> None:
+def _fake_gtk():
     def menu():
         children = []
         return Mock(append=children.append, get_children=lambda: children)
 
-    gtk = SimpleNamespace(Menu=menu, MenuItem=Mock(side_effect=Mock),
-                          CheckMenuItem=Mock(side_effect=Mock), SeparatorMenuItem=object)
+    return SimpleNamespace(Menu=menu, MenuItem=Mock(side_effect=Mock),
+                           CheckMenuItem=Mock(side_effect=Mock), SeparatorMenuItem=object)
+
+
+def test_portal_actions_follow_readiness_without_launching_the_dashboard(monkeypatch) -> None:
+    gtk = _fake_gtk()
     callbacks = []
     glib = SimpleNamespace(timeout_add_seconds=lambda _seconds, callback: callbacks.append(callback))
     monkeypatch.setattr(indicator_module, "_indicator_modules",
@@ -264,23 +268,42 @@ def test_portal_actions_follow_readiness_without_launching_the_dashboard(monkeyp
     open_dashboard.assert_not_called()
 
 
-def test_dashboard_action_opens_browser_and_only_copies_as_a_fallback() -> None:
-    source = inspect.getsource(build_indicator)
-    module_source = inspect.getsource(indicator_module._indicator_modules)
-    dashboard = source.split("def _open_dashboard(self) -> None:", 1)[1].split(
-        "def _copy_endpoint(self) -> None:", 1
-    )[0]
+@pytest.mark.parametrize("browser", ["portal", "default", "unavailable"])
+def test_dashboard_copies_authenticated_link_before_trying_the_browser(monkeypatch, browser) -> None:
+    url = "http://127.0.0.1:8920/observatory#access=fixture-key&voice_view=fixture-proof"
+    actions = []
+    clipboard = Mock()
+    clipboard.set_text.side_effect = lambda value, _: actions.append(("copy", value))
 
-    copy_call = "clipboard.set_text(url, -1)"
-    portal_call = 'portal.call_sync(\n                    "OpenURI"'
-    browser_call = "Gio.AppInfo.launch_default_for_uri(url, None)"
-    assert 'gi.require_version("Gdk", "3.0")' in module_source
-    # The browser is tried first; the clipboard is only touched when it fails,
-    # so opening the dashboard never replaces a copied public link.
-    assert dashboard.index(portal_call) < dashboard.index(browser_call)
-    assert dashboard.index("if opened:") < dashboard.index(copy_call)
-    assert 'self._status_item.set_label("Dashboard opened")\n                return' in dashboard
-    assert '"Dashboard link copied; browser did not open"' in dashboard
+    def open_uri(method, parameters, *_):
+        assert method == "OpenURI"
+        actions.append(("portal", parameters[1]))
+        return object() if browser == "portal" else None
+
+    def launch_default(value, _):
+        actions.append(("default", value))
+        return browser == "default"
+
+    gio = Mock()
+    gio.DBusProxy.new_for_bus_sync.return_value.call_sync.side_effect = open_uri
+    gio.AppInfo.launch_default_for_uri.side_effect = launch_default
+    monkeypatch.setitem(sys.modules, "gi.repository", SimpleNamespace(Gio=gio, Gdk=Mock()))
+    monkeypatch.setattr(indicator_module, "_tray_clipboard", lambda *_: clipboard)
+    glib = SimpleNamespace(Variant=lambda _, values: values)
+    gtk = _fake_gtk()
+    monkeypatch.setattr(indicator_module, "_indicator_modules",
+                        lambda: (Mock(), glib, gtk, Mock(), "test"))
+    indicator = build_indicator(**_indicator_arguments(), on_open_dashboard=lambda: (True, url))
+
+    indicator._open_dashboard()
+
+    expected = [("copy", url), ("portal", url)]
+    if browser != "portal":
+        expected.append(("default", url))
+    assert actions == expected
+    clipboard.store.assert_called_once_with()
+    status = "Dashboard link copied; browser did not open" if browser == "unavailable" else "Dashboard opened and link copied"
+    indicator._status_item.set_label.assert_called_with(status)
 
 
 def test_dashboard_url_targets_local_observatory_with_fragment_auth() -> None:
@@ -329,6 +352,7 @@ def test_tray_clipboard_reports_unavailable_selection_instead_of_false_success()
 def test_copy_public_link_failure_never_logs_the_access_url():
     source = inspect.getsource(build_indicator)
     copy_action = source.split("def _copy_endpoint(self) -> None:", 1)[1].split("def _quit", 1)[0]
-    assert 'self._status_item.set_label("Could not copy public link")' in copy_action
+    clipboard = source.split("def _copy_link(self, url: str) -> bool:", 1)[1].split("def _open_dashboard", 1)[0]
+    assert '"Could not copy public link"' in copy_action
     assert 'logger.info("public link: %s' not in copy_action
-    assert "type(error).__name__" in copy_action
+    assert 'logger.warning("tray link could not be copied (%s)", type(error).__name__)' in clipboard

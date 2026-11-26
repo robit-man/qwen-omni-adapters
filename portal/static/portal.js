@@ -412,8 +412,12 @@
   function accessToken() {
     const fragment = new URLSearchParams(location.hash.replace(/^#/, ""));
     const supplied = fragment.get("access");
-    if (supplied) sessionStorage.setItem("omni_access", supplied);
-    return supplied || sessionStorage.getItem("omni_access") || "";
+    try {
+      if (supplied) sessionStorage.setItem("omni_access", supplied);
+      return supplied || sessionStorage.getItem("omni_access") || "";
+    } catch (_) {
+      return supplied || "";
+    }
   }
 
   function authHeaders(extra = {}) {
@@ -4381,9 +4385,17 @@
 
   function observatoryUrl() {
     const url = new URL("/observatory", window.location.origin);
-    if (state.token) url.hash = new URLSearchParams({ access: state.token }).toString();
+    const token = accessToken() || state.token;
+    if (token) url.hash = new URLSearchParams({ access: token }).toString();
     return `${url.pathname}${url.hash}`;
   }
+
+  function updateObservatoryLink() {
+    if (elements.observatoryButton) elements.observatoryButton.href = observatoryUrl();
+  }
+
+  elements.observatoryButton?.addEventListener("click", updateObservatoryLink);
+  window.addEventListener("hashchange", updateObservatoryLink);
 
   let qrEncoderPromise = null;
   function ensureQrEncoder() {
@@ -4711,7 +4723,7 @@
 
   async function initializePortal() {
     state.token = accessToken();
-    elements.observatoryButton.href = observatoryUrl();
+    updateObservatoryLink();
     applyVoiceDefaults();
     await restoreBrowserSession();
     if (!state.token) showError(new Error("This link is missing its access fragment"));

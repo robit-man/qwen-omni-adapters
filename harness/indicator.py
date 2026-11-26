@@ -547,6 +547,19 @@ def build_indicator(
                 self._endpoint_item.set_sensitive(public)
             return True
 
+        def _copy_link(self, url: str) -> bool:
+            try:
+                from gi.repository import Gdk
+
+                if self._clipboard is None:
+                    self._clipboard = _tray_clipboard(Gtk, Gdk)
+                self._clipboard.set_text(url, -1)
+                self._clipboard.store()
+                return True
+            except Exception as error:  # noqa: BLE001 - keep browser launch available
+                logger.warning("tray link could not be copied (%s)", type(error).__name__)
+                return False
+
         def _open_dashboard(self) -> None:
             if on_open_dashboard is None:
                 return
@@ -557,6 +570,7 @@ def build_indicator(
                 return
 
             url = detail
+            copied = self._copy_link(url)
             opened = False
             try:
                 from gi.repository import Gio
@@ -579,30 +593,22 @@ def build_indicator(
                 )
                 opened = reply is not None
             except Exception as portal_error:  # noqa: BLE001 - use the direct fallback
-                logger.info("desktop OpenURI portal unavailable: %s", portal_error)
+                logger.info("desktop OpenURI portal unavailable (%s)", type(portal_error).__name__)
+            if not opened:
                 try:
                     opened = bool(Gio.AppInfo.launch_default_for_uri(url, None))
-                except Exception as error:  # noqa: BLE001 - clipboard is the fallback
+                except Exception as error:  # noqa: BLE001 - clipboard may still be available
                     logger.warning(
-                        "dashboard could not open in the default browser: %s", error
+                        "dashboard could not open in the default browser (%s)", type(error).__name__
                     )
 
             if opened:
-                # Leave the clipboard alone: it may hold the public link the
-                # operator copied with "Copy public link".
-                self._status_item.set_label("Dashboard opened")
-                return
-            try:
-                from gi.repository import Gdk
-
-                if self._clipboard is None:
-                    self._clipboard = _tray_clipboard(Gtk, Gdk)
-                clipboard = self._clipboard
-                clipboard.set_text(url, -1)
-                clipboard.store()
+                self._status_item.set_label(
+                    "Dashboard opened and link copied" if copied else "Dashboard opened; link could not be copied"
+                )
+            elif copied:
                 self._status_item.set_label("Dashboard link copied; browser did not open")
-            except Exception as error:  # noqa: BLE001 - nothing else to try
-                logger.warning("dashboard link could not be copied: %s", error)
+            else:
                 self._status_item.set_label("Could not open or copy dashboard link")
 
         def _copy_endpoint(self) -> None:
@@ -614,18 +620,7 @@ def build_indicator(
             if not url:
                 self._status_item.set_label("No public link yet")
                 return
-            try:
-                from gi.repository import Gdk
-
-                if self._clipboard is None:
-                    self._clipboard = _tray_clipboard(Gtk, Gdk)
-                clipboard = self._clipboard
-                clipboard.set_text(url, -1)
-                clipboard.store()
-                self._status_item.set_label("Public link copied")
-            except Exception as error:  # noqa: BLE001 - clipboard is a nicety
-                logger.warning("public link could not be copied (%s)", type(error).__name__)
-                self._status_item.set_label("Could not copy public link")
+            self._status_item.set_label("Public link copied" if self._copy_link(url) else "Could not copy public link")
 
         def _quit(self) -> None:
             on_quit()

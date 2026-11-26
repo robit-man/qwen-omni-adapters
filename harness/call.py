@@ -427,7 +427,11 @@ class CallSession:
             self.memory.close()
 
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.config.token}"}
+        if not self.config.token:
+            self._refresh_token()
+        if self.config.token:
+            return {"Authorization": f"Bearer {self.config.token}"}
+        return {}
 
     def _refresh_token(self) -> bool:
         """Re-read the portal token, which changes on every daemon start.

@@ -2150,6 +2150,17 @@ def test_token_refresh_preserves_explicit_client_scope():
     call.close()
 
 
+def test_voice_requests_pick_up_a_key_published_after_harness_start() -> None:
+    keys = iter(("", "new-key"))
+    call = CallSession(CallConfig(token="", model="m", token_reader=lambda: next(keys)))
+    try:
+        assert call._headers() == {}
+        assert call._headers() == {"Authorization": "Bearer new-key"}
+        assert call._client.cookies.get("omni_portal_session") == call.portal_session_id
+    finally:
+        call.close()
+
+
 @pytest.mark.parametrize('interrupted,error', [(True, ''), (False, 'speech delivery failed')])
 def test_decoded_user_words_survive_early_exit_without_unplayed_assistant_claims(interrupted,error):
     import time
