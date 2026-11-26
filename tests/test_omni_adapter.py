@@ -3487,6 +3487,9 @@ def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addresse
         assert payload["logit_bias"] == [[123, False]]
         assert payload["max_tokens"] == 80
         assert request.extensions["timeout"]["read"] == 8.5
+        policy = payload["messages"][0]["content"]
+        assert "complete answer in one sentence of at most 24 words" in policy
+        assert "For a longer explanation, use check" in policy
         assert "tools" not in payload and payload["cache_prompt"] is False
         return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
             "route": route, "addressee": addressee, "speech": text,

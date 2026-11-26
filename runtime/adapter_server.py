@@ -2709,7 +2709,9 @@ _COMPACT_VOICE_POLICY = (
     "recall, unseen surroundings, current information, or deeper reasoning. For check, "
     "give a brief acknowledgment naming the requested work without saying it already "
     "happened. For reply, clarify or check, write one short natural sentence in the "
-    "speaker's language. For quiet or invalid, leave speech empty."
+    "speaker's language. For quiet or invalid, leave speech empty. "
+    "Use reply only when you can give a complete answer in one sentence of at most 24 words. "
+    "For a longer explanation, use check and briefly state what you will work out."
 )
 
 _COMPACT_VOICE_MAX_PROMPT = 500
