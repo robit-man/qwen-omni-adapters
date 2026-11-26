@@ -94,6 +94,8 @@ def _build_fixture(tmp_path: Path, *, pin: str = PIN, patch_name: str = PATCH) -
     target.chmod(0o755)
     env = {**os.environ, "PATH": str(commands) + os.pathsep + os.environ["PATH"],
            "BUILD_CALLS": str(tmp_path / "cmake-calls"), "LLAMA_CPP_BUILD_DIR": str(target.parent.parent),
+           # This fixture models the default vendor checkout and its patches.
+           "OMNI_MODEL": "",
            "CUDACXX": str(nvcc),
            "LLAMA_CPP_BUILD_JOBS": "1"}
     return repo, source, env
