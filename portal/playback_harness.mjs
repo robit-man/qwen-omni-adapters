@@ -7,7 +7,7 @@ const assert = assertModule.strict;
 const require = createRequire(import.meta.url);
 const { supersedeBefore, canStart, retentionState } = require("./static/call_playback.js");
 
-const oldTurn = { sequence: 0, discardReply: false };
+const oldTurn = { sequence: 0, discardReply: false, controller: new AbortController() };
 const call = {
   turns: new Set([oldTurn]),
   playbackTurn: null,
@@ -17,13 +17,20 @@ const call = {
 
 assert.equal(canStart(call, oldTurn), true);
 
-// A new utterance has begun before the old turn reaches audio_start.
+// A tentative onset ducks playback. A rejected onset keeps the active turn.
+call.vadActive = true;
+assert.equal(canStart(call, oldTurn), true);
+assert.equal(oldTurn.controller.signal.aborted, false);
+call.vadActive = false;
+
+// Accepted speech aborts the obsolete backend request before the next submit.
 const bargeIn = supersedeBefore(call, call.nextSequence);
 assert.equal(bargeIn.turns.length, 1);
 assert.equal(oldTurn.discardReply, true);
+assert.equal(oldTurn.controller.signal.aborted, true);
 assert.equal(canStart(call, oldTurn), false);
 
-const playingTurn = { sequence: 1, discardReply: false };
+const playingTurn = { sequence: 1, discardReply: false, controller: new AbortController() };
 call.turns.add(playingTurn);
 call.nextSequence = 2;
 call.playbackTurn = playingTurn;
@@ -37,12 +44,9 @@ call.nextSequence = 3;
 assert.equal(replaced.playbackInterrupted, true);
 assert.equal(call.playbackTurn, null);
 assert.equal(playingTurn.discardReply, true);
+assert.equal(playingTurn.controller.signal.aborted, true);
 assert.equal(canStart(call, playingTurn), false);
 assert.equal(canStart(call, newerTurn), true);
-
-// Active speech always wins over a reply, including the newest pending reply.
-call.vadActive = true;
-assert.equal(canStart(call, newerTurn), false);
 
 assert.deepEqual(retentionState({ content: "already streamed", languageSettled: true }), {
   preserve: true,
@@ -61,6 +65,8 @@ console.log(JSON.stringify({
   status: "passed",
   stale_pending_audio_suppressed: true,
   active_playback_interrupted: true,
+  accepted_interruption_aborts_inference: true,
+  tentative_onset_preserves_inference: true,
   newest_turn_owns_playback: true,
   settled_transcript_retained: true,
   partial_transcript_retained_and_marked: true,

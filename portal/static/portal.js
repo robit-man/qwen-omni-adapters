@@ -28,6 +28,7 @@
   const PCM_RESCHEDULE_FLOOR_SECONDS = 0.003;
   const PCM_CROSSFADE_SECONDS = 0.003;
   const PCM_CROSSFADE_MIN_BUFFER_SECONDS = 0.08;
+  const CALL_SPEECH_DUCK_GAIN = 0.12;
   const CONVERSATION_BOTTOM_THRESHOLD_PX = 64;
   const MAX_TOOL_RESULT_CHARS = 12_000;
   const MAX_PRIOR_VISUAL_EVIDENCE_CHARS = 8_000;
@@ -1045,6 +1046,14 @@
     publishObservatoryActivity();
     if (state.call === call) {
       elements.waveform.classList.toggle("vad-active", call.vadActive);
+      const playback = state.streamController;
+      if (playback) {
+        playback.output.gain.setTargetAtTime(
+          call.vadActive ? CALL_SPEECH_DUCK_GAIN : 1,
+          playback.context.currentTime,
+          0.035,
+        );
+      }
     }
   }
 
@@ -1880,6 +1889,7 @@
       }
       controller.sources.clear();
       controller.pending = [];
+      controller.output.disconnect();
       controller.resolve(false);
     }
     if (state.playbackSource) {
@@ -1962,9 +1972,13 @@
     if (state.streamController) stopCurrentPlayback();
     let resolve;
     const promise = new Promise(done => { resolve = done; });
+    const output = context.createGain();
+    output.gain.value = state.call?.vadActive ? CALL_SPEECH_DUCK_GAIN : 1;
+    output.connect(context.destination);
     const controller = {
       epoch: state.playbackEpoch,
       context,
+      output,
       pacer: callPlayback.createPacer({
         prior: loadPlaybackPrior(),
         textChars: String(spokenText || "").trim().length,
@@ -1987,6 +2001,7 @@
   function maybeFinishPcmPlayback(controller) {
     if (!controller.ended || controller.sources.size || controller.pending.length) return;
     if (state.streamController === controller) state.streamController = null;
+    controller.output.disconnect();
     if (!controller.cancelled && controller.pacer.packets) {
       savePlaybackPrior(callPlayback.learned(controller.pacer));
     }
@@ -2048,7 +2063,7 @@
     const gain = controller.context.createGain();
     source.buffer = buffer;
     source.connect(gain);
-    gain.connect(controller.context.destination);
+    gain.connect(controller.output);
     controller.sources.add(source);
     source.addEventListener("ended", () => {
       controller.sources.delete(source);
@@ -3424,7 +3439,6 @@
   function supersedeCallAudio(call, sequence) {
     const result = callPlayback.supersedeBefore(call, sequence);
     for (const turn of result.turns) {
-      turn.superseded = true;
       if (turn.assistant && !turn.assistant.node.hidden) {
         const retention = callPlayback.retentionState({
           content: turn.assistant.content,
@@ -3475,10 +3489,9 @@
       ? activeDurationMs
       : capturedDurationMs;
     if (confirmedDurationMs < call.vad.config.minActiveMs) return;
-    // A submitted turn is immutable. Aborting a browser fetch does not guarantee
-    // cancellation of its server-side inference, so requeueing submitted samples
-    // duplicates earlier speech. Only newly captured samples enter this buffer.
+    // A submitted turn is immutable. Only the newly accepted speech can replace it.
     callQueue.enqueue(call.pendingAudio, chunks, confirmedDurationMs);
+    supersedeCallAudio(call, call.nextSequence);
     setComposerStatus(callListeningStatus(call));
     schedulePendingCallFlush(call);
   }
@@ -4007,19 +4020,13 @@
         clearPendingCallFlush(call);
         setVadActive(call, true);
         if (!call.inflight && !call.playbackTurn) warmCallPlayback(call);
-        const superseded = supersedeCallAudio(call, call.nextSequence);
         reportCallState(call, "call_vad_start", [...call.turns][0], state.streamController, level);
-        if (superseded) {
-          setComposerStatus("Call · interruption heard · consolidating speech…");
-        } else {
-          setComposerStatus(call.inflight
-            ? `Call · listening · ${call.inflight} processing`
-            : "Call · listening to you…");
-        }
+        setComposerStatus("Call · listening to you…");
       }
       if (detection.event === "rejected") {
         call.captureVad = null;
         setVadActive(call, false);
+        setComposerStatus(callListeningStatus(call));
         return;
       }
       if (detection.event !== "utterance") return;

@@ -2583,6 +2583,8 @@ def test_mock_call_playback_harness_rejects_stale_audio() -> None:
         "status": "passed",
         "stale_pending_audio_suppressed": True,
         "active_playback_interrupted": True,
+        "accepted_interruption_aborts_inference": True,
+        "tentative_onset_preserves_inference": True,
         "newest_turn_owns_playback": True,
         "settled_transcript_retained": True,
         "partial_transcript_retained_and_marked": True,

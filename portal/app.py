@@ -4713,7 +4713,14 @@ def create_app(
                 active_ticket = None
                 try:
                     yield event_bytes({"type": "voice_preface", "id": receipt_id, "text": text})
-                    if not preface.received.wait(75) or not preface.played:
+                    deadline = time.monotonic() + 75
+                    while not preface.received.wait(0.1):
+                        if disconnected is not None and disconnected():
+                            final_status = 499
+                            return False
+                        if time.monotonic() >= deadline:
+                            break
+                    if not preface.received.is_set() or not preface.played:
                         final_status = 499
                         yield event_bytes({"type": "error", "error": "Action interrupted before dispatch."})
                         return False

@@ -9,8 +9,10 @@
   function supersedeBefore(call, sequence) {
     const turns = [];
     for (const turn of call.turns) {
-      if (turn.sequence >= sequence) continue;
+      if (turn.sequence >= sequence || turn.superseded) continue;
+      turn.superseded = true;
       turn.discardReply = true;
+      turn.controller?.abort();
       turns.push(turn);
     }
     const playbackInterrupted = Boolean(
@@ -23,7 +25,6 @@
   function canStart(call, turn) {
     return Boolean(
       !turn.discardReply
-      && !call.vadActive
       && turn.sequence === call.nextSequence - 1,
     );
   }
