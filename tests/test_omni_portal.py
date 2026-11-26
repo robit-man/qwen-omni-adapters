@@ -2178,6 +2178,8 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
         requests.append(json.loads(request.content))
         assert request.headers.get("X-Omni-Voice-Reasoning") == ("fast" if len(requests) == 1 else None)
         assert request.headers["X-Omni-Voice-Profile"] == "live"
+        assert request.headers["X-Omni-Live-PCM-Only"] == "1"
+        assert "portal_live_pcm_only" not in requests[-1]
         response = {"message": {"role": "assistant", "content": "I hear you."}}
         if defer and len(requests) == 1:
             response["message"]["content"] = "I'll check."
@@ -2191,7 +2193,7 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     voice = app.test_client()
     voice.set_cookie("omni_portal_session", cookie if owner else "browser-call-fixture-session")
     payload = _request(
-        stream=True, portal_voice_auto_reasoning=True, portal_voice_preface=True,
+        stream=True, portal_voice_auto_reasoning=True, portal_voice_preface=True, portal_live_pcm_only=True,
         portal_auto_tools=True, portal_tool_allowlist=["conversation_search", "get_current_time"],
         messages=[{"role": "user", "content": "Attached recording", "audios": ["fixture"]}],
         omni={"schema": "robit.ollama.omni-adapter.v1", "require_speech": True},

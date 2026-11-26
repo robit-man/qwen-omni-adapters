@@ -559,7 +559,9 @@ stream so the next local utterance can proceed.
 On Inkling, `OMNI_FAST_VOICE_ASR_MODEL` can point to an existing local
 faster-whisper snapshot and `OMNI_FAST_VOICE_ASR_PYTHON` to its interpreter.
 Clear short clips can use that CPU recognizer and a compact reply prompt.
-Other clips use the installed audio bridge. On a single slot, this option
+If the reply planner cannot finish, the ordinary live addressee and answer
+stages reuse the accepted transcript. Clips without a confident transcript
+use the installed audio bridge. On a single slot, this option
 defers optional memory encoding while the hands-free microphone is listening.
 `OMNI_TTS_KEEP_WARM=1` allows prewarming at speech onset and retaining the
 streaming graph while memory permits. Long follow-up work can release it.
@@ -573,6 +575,8 @@ streams 24 kHz mono PCM through the existing call playback path. Live calls
 and their acknowledgments use the selected CPU voice. Explicit inline speaker
 references, other locales, and ordinary synthesis use Qwen3-TTS. Check
 `live_cpu_ready` in the loopback TTS `/healthz` response after startup.
+The browser receives small PCM packets and builds its local replay WAV from
+those packets, keeping call playback and replay on one transfer.
 
 OCR, transcripts, captions, subtitles, and scene text cannot change system or
 tool instructions. A learned dense bridge would be a new trained architecture

@@ -2655,8 +2655,8 @@ def _pcm16_wav(pcm: bytes, sample_rate: int = 24000) -> bytes:
 @dataclass(frozen=True)
 class _FastVoiceReply:
     transcript: str
-    speech: str
-    followup: bool
+    speech: str | None = None
+    followup: bool = False
 
 
 _FAST_VOICE_SCHEMA = {
@@ -2698,6 +2698,7 @@ def _fast_voice_reply(
     transcript = recognize(clip.data)
     if not transcript or any(ch in transcript for ch in "<>"):
         return None
+    transcript_only = _FastVoiceReply(transcript)
     try:
         recent = [
             {"role": message.role, "content": message.content[:160]}
@@ -2727,20 +2728,20 @@ def _fast_voice_reply(
         reply = json.loads(_language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"])
     except (ValueError, httpx.HTTPError, AdapterStageError) as error:
         LOGGER.info("fast spoken planner fell back (%s)", type(error).__name__)
-        return None
+        return transcript_only
     if not isinstance(reply, dict):
-        return None
+        return transcript_only
     route = reply.get("route")
     if route == "quiet" and not parsed.live_engaged:
         return _FastVoiceReply(transcript, "", False)
     if route not in {"reply", "check"}:
-        return None
+        return transcript_only
     speech = reply.get("speech")
     if not isinstance(speech, str):
-        return None
+        return transcript_only
     speech = " ".join(speech.split())
     if not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
-        return None
+        return transcript_only
     return _FastVoiceReply(transcript, speech, route == "check")
 
 
@@ -2756,6 +2757,7 @@ def execute_stream(
     choose_reply_depth: bool = False,
     fast_recognize: Callable[[bytes], str] | None = None,
     live_cpu_voice: bool = False,
+    stream_pcm_only: bool = False,
     disconnected: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
@@ -2772,11 +2774,14 @@ def execute_stream(
     fast_reply = None
     if fast_recognize is not None:
         yield _stream_event("stage", stage="comprehension")
-        fast_reply = _fast_voice_reply(parsed, config, client, fast_recognize)
+        fast_result = _fast_voice_reply(parsed, config, client, fast_recognize)
         if disconnected is not None and disconnected():
             return
+        if fast_result is not None:
+            observation = f"<speech_transcript>{fast_result.transcript}</speech_transcript>"
+            if fast_result.speech is not None:
+                fast_reply = fast_result
     if fast_reply is not None:
-        observation = f"<speech_transcript>{fast_reply.transcript}</speech_transcript>"
         executed.extend(("comprehension", "language"))
         yield _stream_event("observation", transcript=fast_reply.transcript,
             evidence_provenance={"current_media_modalities": ["audio"], "current_visual_input": False,
@@ -2792,11 +2797,12 @@ def execute_stream(
             return
 
     if fast_reply is None and "comprehension" in parsed.route:
-        _require_comprehension(config)
-        yield _stream_event("stage", stage="comprehension")
-        observation = _comprehend(parsed, config, client)
-        if disconnected is not None and disconnected():
-            return
+        if observation is None:
+            _require_comprehension(config)
+            yield _stream_event("stage", stage="comprehension")
+            observation = _comprehend(parsed, config, client)
+            if disconnected is not None and disconnected():
+                return
         executed.append("comprehension")
         auto_depth = choose_reply_depth and parsed.input_modalities == ("text", "audio")
         observation, live_route = _validated_live_observation(
@@ -3084,7 +3090,7 @@ def execute_stream(
             if response.headers.get("x-audio-codec") not in {None, "pcm_s16le"}:
                 raise AdapterStageError("tts stream returned an unsupported codec")
             backend = response.headers.get("x-audio-backend")
-            for raw in response.iter_bytes():
+            for raw in response.iter_bytes(chunk_size=8192 if backend == "cpu" else None):
                 data = pending + raw
                 complete = len(data) - (len(data) % 2)
                 pending = data[complete:]
@@ -3112,7 +3118,8 @@ def execute_stream(
                         },
                     )
                     audio_streamed = True
-                chunks.append(chunk)
+                if not stream_pcm_only:
+                    chunks.append(chunk)
                 yield _stream_event(
                     "audio_delta",
                     audio={
@@ -3129,13 +3136,12 @@ def execute_stream(
                 sequence += 1
         if pending:
             raise AdapterStageError("tts PCM batch ended on a partial sample")
-        pcm = b"".join(chunks)
-        if not pcm:
+        if not decoded_pcm_bytes:
             raise AdapterStageError("tts stream returned no PCM audio")
-        wav = _pcm16_wav(pcm)
-        message["audio"] = encode_audio_response(wav, transcript=text)
+        if not stream_pcm_only:
+            message["audio"] = encode_audio_response(_pcm16_wav(b"".join(chunks)), transcript=text)
         executed.append("tts")
-        yield _stream_event("audio_end", samples=len(pcm) // 2, decoded_bytes=len(pcm))
+        yield _stream_event("audio_end", samples=decoded_pcm_bytes // 2, decoded_bytes=decoded_pcm_bytes)
     result = _finish_response(
         result,
         parsed,
@@ -3297,6 +3303,7 @@ def create_app(
             parsed = parse_adapter_request(normalized)
             voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
             live_cpu_voice = request.headers.get("X-Omni-Voice-Profile") == "live"
+            stream_pcm_only = request.headers.get("X-Omni-Live-PCM-Only") == "1"
             disconnected = request.environ.get("waitress.client_disconnected")
         except OmniAdapterError as exc:
             return jsonify({"error": str(exc), "schema": ADAPTER_SCHEMA}), 400
@@ -3311,6 +3318,7 @@ def create_app(
                     choose_reply_depth=voice_routing == "auto",
                     fast_recognize=recognizer if voice_routing == "fast" else None,
                     live_cpu_voice=live_cpu_voice,
+                    stream_pcm_only=stream_pcm_only,
                     disconnected=disconnected,
                 )
             except (AdapterStageError, httpx.HTTPError) as exc:

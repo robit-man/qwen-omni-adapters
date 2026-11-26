@@ -238,6 +238,7 @@ DIAGNOSTIC_STRING_FIELDS = {
     "decision_band",
     "decision_checkpoint",
     "stage",
+    "audio_backend",
 }
 
 def load_voice_profile(path: Path) -> dict[str, Any]:
@@ -4420,6 +4421,7 @@ def create_app(
         requested_preface = payload.pop("portal_voice_preface", False) is True
         requested_auto_reasoning = payload.pop("portal_voice_auto_reasoning", False) is True
         requested_live_synthesis = payload.pop("portal_live_synthesis", False) is True
+        requested_pcm_only = payload.pop("portal_live_pcm_only", False) is True
         live_turn = (isinstance(payload.get("omni"), Mapping)
                      and payload["omni"].get("require_speech") is True)
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
@@ -4480,6 +4482,8 @@ def create_app(
             if not internal_background and (live_turn or (requested_live_synthesis and synthesis_only(payload)))
             else {}
         )
+        if speech_headers and requested_pcm_only:
+            speech_headers["X-Omni-Live-PCM-Only"] = "1"
         initial_headers = dict(speech_headers)
         if voice_auto_reasoning:
             initial_headers["X-Omni-Voice-Reasoning"] = "fast"
@@ -4853,7 +4857,7 @@ def create_app(
                             backend = audio.get("backend") if isinstance(audio, Mapping) else None
                             diagnostics.record(session_id,
                                 "audio_stream_started" if event["type"] == "audio_start" else "audio_stream_ended",
-                                {"request_id": request_id, **({"backend": backend} if backend in ("cpu", "qwen") else {})},
+                                {"request_id": request_id, **({"audio_backend": backend} if backend in ("cpu", "qwen") else {})},
                                 request_id=request_id)
                         if event.get("type") == "final":
                             candidate = event.get("response")

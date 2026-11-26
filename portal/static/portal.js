@@ -190,8 +190,8 @@
     releaseThreshold: 0.025,
     noiseMultiplier: 3.6,
     releaseMultiplier: 1.9,
-    startConfirmMs: 360,
-    minActiveMs: 440,
+    startConfirmMs: 160,
+    minActiveMs: 230,
   };
   const LIMITS = {
     audio: 30 * 1024 * 1024,
@@ -2139,6 +2139,8 @@
     const decoder = new TextDecoder();
     let buffered = "";
     let finalResponse = null;
+    let pcmParts = [];
+    let expectedPcmBytes = 0;
 
     const consume = async line => {
       if (!line.trim()) return;
@@ -2164,6 +2166,16 @@
       }
       if (event.type === "error") throw new Error(event.error || "Streaming inference failed");
       if (event.type === "final") finalResponse = event.response || null;
+      if (payload.portal_live_pcm_only === true) {
+        if (event.type === "audio_start") {
+          pcmParts = [];
+          expectedPcmBytes = 0;
+        } else if (event.type === "audio_delta" && event.audio?.data) {
+          pcmParts.push(base64ToBlob(event.audio.data, "audio/pcm"));
+        } else if (event.type === "audio_end") {
+          expectedPcmBytes = event.decoded_bytes;
+        }
+      }
       if (onEvent) await onEvent(event);
     };
 
@@ -2179,6 +2191,16 @@
     }
     if (buffered.trim()) await consume(buffered);
     if (!finalResponse) throw new Error("Model stream ended without a final response");
+    if (payload.portal_live_pcm_only === true && finalResponse.adapter?.audio_streamed
+      && finalResponse.message && !finalResponse.message.audio) {
+      const pcm = new Blob(pcmParts);
+      if (!pcm.size || pcm.size !== expectedPcmBytes || pcm.size % 2) {
+        throw new Error("Voice stream ended with incomplete PCM audio");
+      }
+      const wav = new Blob([pcmWavHeader(pcm.size, 24000), pcm], { type: "audio/wav" });
+      const encoded = await fileDataUrl(wav);
+      finalResponse.message.audio = { mime_type: "audio/wav", encoding: "base64", data: encoded.split(",", 2)[1] };
+    }
     timings.complete_ms = performance.now() - startedAt;
     reportDiagnostic("client_stream_timing", {
       request_id: requestId,
@@ -2560,14 +2582,14 @@
     return output;
   }
 
-  function pcmWav(samples, sampleRate = 16000) {
-    const buffer = new ArrayBuffer(44 + samples.length * 2);
+  function pcmWavHeader(pcmBytes, sampleRate) {
+    const buffer = new ArrayBuffer(44);
     const view = new DataView(buffer);
     const write = (offset, text) => {
       for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
     };
     write(0, "RIFF");
-    view.setUint32(4, 36 + samples.length * 2, true);
+    view.setUint32(4, 36 + pcmBytes, true);
     write(8, "WAVE");
     write(12, "fmt ");
     view.setUint32(16, 16, true);
@@ -2578,14 +2600,20 @@
     view.setUint16(32, 2, true);
     view.setUint16(34, 16, true);
     write(36, "data");
-    view.setUint32(40, samples.length * 2, true);
-    let offset = 44;
+    view.setUint32(40, pcmBytes, true);
+    return buffer;
+  }
+
+  function pcmWav(samples, sampleRate = 16000) {
+    const buffer = new ArrayBuffer(samples.length * 2);
+    const view = new DataView(buffer);
+    let offset = 0;
     for (const sample of samples) {
       const clamped = Math.max(-1, Math.min(1, sample));
       view.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
       offset += 2;
     }
-    return new Blob([buffer], { type: "audio/wav" });
+    return new Blob([pcmWavHeader(buffer.byteLength, sampleRate), buffer], { type: "audio/wav" });
   }
 
   function drawWaveform() {
@@ -3483,14 +3511,8 @@
 
   function enqueueCallUtterance(call, chunks, activeDurationMs) {
     if (state.call !== call) return;
-    const sampleCount = chunks.reduce((total, chunk) => total + chunk.length, 0);
-    const capturedDurationMs = sampleCount / call.context.sampleRate * 1000;
-    const confirmedDurationMs = Number.isFinite(activeDurationMs)
-      ? activeDurationMs
-      : capturedDurationMs;
-    if (confirmedDurationMs < call.vad.config.minActiveMs) return;
     // A submitted turn is immutable. Only the newly accepted speech can replace it.
-    callQueue.enqueue(call.pendingAudio, chunks, confirmedDurationMs);
+    callQueue.enqueue(call.pendingAudio, chunks, activeDurationMs);
     supersedeCallAudio(call, call.nextSequence);
     setComposerStatus(callListeningStatus(call));
     schedulePendingCallFlush(call);
@@ -3506,7 +3528,7 @@
     ) return;
     clearPendingCallFlush(call);
     const pending = callQueue.take(call.pendingAudio);
-    void submitCallUtterance(call, pending.chunks, pending.activeDurationMs, pending.segmentCount, pending.truncated);
+    void submitCallUtterance(call, pending.chunks, pending.segmentCount, pending.truncated);
   }
 
   function flushCallHistory(call) {
@@ -3568,6 +3590,7 @@
           response_modalities: ["audio"],
           speech_mode: "always",
           portal_live_synthesis: true,
+          portal_live_pcm_only: true,
           portal_voice: voicePayload(),
         }, {
           signal: turn.controller.signal,
@@ -3605,15 +3628,8 @@
     if (played && !turn.discardReply) setComposerStatus("Call · processing…");
   }
 
-  async function submitCallUtterance(call, chunks, activeDurationMs, segmentCount = 1, truncated = false) {
-    const sampleCount = chunks.reduce((total, chunk) => total + chunk.length, 0);
-    const capturedDurationMs = sampleCount / call.context.sampleRate * 1000;
-    const confirmedDurationMs = Number.isFinite(activeDurationMs)
-      ? activeDurationMs
-      : capturedDurationMs;
-    if (confirmedDurationMs < call.vad.config.minActiveMs || state.call !== call || call.inflight) {
-      return;
-    }
+  async function submitCallUtterance(call, chunks, segmentCount = 1, truncated = false) {
+    if (state.call !== call || call.inflight) return;
 
     const turn = {
       sequence: call.nextSequence,
@@ -3733,6 +3749,7 @@
           },
           response_modalities: ["text", "audio"],
           speech_mode: "always",
+          portal_live_pcm_only: true,
           portal_voice: voicePayload(),
           ...(showThinking ? { think: true } : {
             portal_voice_auto_reasoning: true,
@@ -4016,6 +4033,8 @@
       });
       if (["candidate", "start", "active"].includes(detection.event)) {
         call.captureVad = detector;
+      } else {
+        call.captureVad = null;
       }
       if (detection.event === "start") {
         clearPendingCallFlush(call);
@@ -4025,13 +4044,11 @@
         setComposerStatus("Call · listening to you…");
       }
       if (detection.event === "rejected") {
-        call.captureVad = null;
         setVadActive(call, false);
         setComposerStatus(callListeningStatus(call));
         return;
       }
       if (detection.event !== "utterance") return;
-      call.captureVad = null;
       setVadActive(call, false);
       enqueueCallUtterance(
         call,

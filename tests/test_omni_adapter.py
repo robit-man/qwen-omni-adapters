@@ -2433,6 +2433,30 @@ def test_long_tts_stream_uses_multiple_blocks_and_one_complete_wav(
     assert final["adapter"]["tts_blocks"] == 3
 
 
+def test_live_pcm_stream_sends_small_packets_and_no_duplicate_final_wav():
+    pcm = b"\x01\x00" * 10_000
+
+    def respond(request):
+        assert request.url.path == "/synthesize/stream/batch"
+        assert json.loads(request.content)["live_cpu_voice"] is True
+        return httpx.Response(200, content=pcm, headers={"X-Audio-Backend": "cpu"})
+
+    parsed = parse_adapter_request(_base_request(
+        omni={"schema": ADAPTER_SCHEMA, "task": "synthesize"},
+        response_modalities=["audio"], speech_mode="always",
+    ))
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        events = [json.loads(chunk) for chunk in execute_stream(
+            parsed, _adapter_config(), client, live_cpu_voice=True, stream_pcm_only=True,
+        )]
+    packets = [base64.b64decode(event["audio"]["data"]) for event in events if event["type"] == "audio_delta"]
+    assert [len(packet) for packet in packets] == [8192, 8192, 3616]
+    assert b"".join(packets) == pcm
+    assert events[-2] == {"type": "audio_end", "samples": 10_000, "decoded_bytes": 20_000}
+    assert events[-1]["response"]["adapter"]["audio_streamed"] is True
+    assert "audio" not in events[-1]["response"]["message"]
+
+
 def test_video_that_a_pipe_cannot_read_is_normalized(monkeypatch) -> None:
     """The backend pipes video to ffprobe, which cannot seek to a trailing moov."""
 
@@ -3444,6 +3468,40 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
     assert requests[0]["messages"][-1]["content"] == "Egg, can you hear me?"
     assert events[-1]["response"]["message"]["content"] == ("" if mode == "quiet" else "I hear you.")
     assert events[-1]["response"]["adapter"].get("fast_voice_followup", False) is (mode == "check")
+
+
+@pytest.mark.parametrize("addressee", ["AMBIGUOUS", "OTHER"])
+def test_failed_spoken_planner_reuses_confident_transcript_and_keeps_addressee_gate(addressee):
+    requests = []
+    transcript = "Could you check what we decided yesterday?"
+
+    def respond(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        assert request.url.path == "/v1/chat/completions"
+        if len(requests) == 1:
+            assert payload["response_format"]["type"] == "json_schema"
+            raise httpx.ReadTimeout("planner exceeded deadline", request=request)
+        if len(requests) == 2:
+            assert payload["messages"][-1]["content"] == transcript
+            return httpx.Response(200, json={"choices": [{"message": {"content": f"{addressee}|NONE"}}]})
+        assert payload["messages"][-1]["content"] == transcript
+        assert payload["stream"] is True
+        text = json.dumps({"choices": [{"delta": {"content": "I can check that."}}]})
+        return httpx.Response(200, text=f"data: {text}\n\ndata: [DONE]\n\n")
+
+    config = _adapter_config(
+        comprehension_url="http://unit.test/distinct-media-bridge",
+        language_api="openai", language_url="http://unit.test/v1/chat/completions",
+        live_addressee_gate=True, inkling_native_reasoning=True,
+    )
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        events = [json.loads(line) for line in execute_stream(
+            _live_spoken_request(), config, client, fast_recognize=lambda _: transcript,
+        )]
+    assert sum(event.get("stage") == "comprehension" for event in events) == 1
+    assert len(requests) == (2 if addressee == "OTHER" else 3)
+    assert events[-1]["response"]["message"]["content"] == ("" if addressee == "OTHER" else "I can check that.")
 
 
 def test_live_spoken_turn_carries_the_words_without_describing_the_voice() -> None:
