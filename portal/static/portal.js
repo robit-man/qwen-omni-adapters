@@ -3567,6 +3567,7 @@
           omni: { schema: SCHEMA, task: "synthesize" },
           response_modalities: ["audio"],
           speech_mode: "always",
+          portal_live_synthesis: true,
           portal_voice: voicePayload(),
         }, {
           signal: turn.controller.signal,

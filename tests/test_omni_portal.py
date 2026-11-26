@@ -2177,6 +2177,7 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     def respond(request):
         requests.append(json.loads(request.content))
         assert request.headers.get("X-Omni-Voice-Reasoning") == ("fast" if len(requests) == 1 else None)
+        assert request.headers["X-Omni-Voice-Profile"] == "live"
         response = {"message": {"role": "assistant", "content": "I hear you."}}
         if defer and len(requests) == 1:
             response["message"]["content"] = "I'll check."

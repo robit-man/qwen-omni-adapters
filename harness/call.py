@@ -705,6 +705,7 @@ class CallSession:
             "speech_mode": "always",
             "think": False,
             "portal_auto_tools": False,
+            "portal_live_synthesis": True,
             "stream": True,
         }
 

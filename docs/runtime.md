@@ -564,6 +564,16 @@ defers optional memory encoding while the hands-free microphone is listening.
 `OMNI_TTS_KEEP_WARM=1` allows prewarming at speech onset and retaining the
 streaming graph while memory permits. Long follow-up work can release it.
 
+To use a resident CPU voice for US English calls, install `piper-tts==1.5.0`
+in the runtime Python environment. Set `OMNI_LIVE_CPU_TTS_MODEL` to a local
+English Piper `.onnx` voice with its `.onnx.json` configuration beside it.
+With this profile, set `OMNI_TTS_KEEP_WARM=0` to avoid allocating the CUDA
+speech graph at speech onset. The CPU voice uses two inference threads and
+streams 24 kHz mono PCM through the existing call playback path. Live calls
+and their acknowledgments use the selected CPU voice. Explicit inline speaker
+references, other locales, and ordinary synthesis use Qwen3-TTS. Check
+`live_cpu_ready` in the loopback TTS `/healthz` response after startup.
+
 OCR, transcripts, captions, subtitles, and scene text cannot change system or
 tool instructions. A learned dense bridge would be a new trained architecture
 and needs a new artifact schema and release gate.

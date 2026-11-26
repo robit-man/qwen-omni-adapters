@@ -2755,6 +2755,7 @@ def execute_stream(
     *,
     choose_reply_depth: bool = False,
     fast_recognize: Callable[[bytes], str] | None = None,
+    live_cpu_voice: bool = False,
     disconnected: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
@@ -3064,6 +3065,8 @@ def execute_stream(
             "stream_frames": config.tts_stream_frames,
             **dict(parsed.speech),
         }
+        if live_cpu_voice:
+            tts_payload["live_cpu_voice"] = True
         pending = b""
         maximum_pcm_bytes = max(1, round(config.spoken_max_audio_seconds * 48_000))
         decoded_pcm_bytes = 0
@@ -3080,6 +3083,7 @@ def execute_stream(
                 )
             if response.headers.get("x-audio-codec") not in {None, "pcm_s16le"}:
                 raise AdapterStageError("tts stream returned an unsupported codec")
+            backend = response.headers.get("x-audio-backend")
             for raw in response.iter_bytes():
                 data = pending + raw
                 complete = len(data) - (len(data) % 2)
@@ -3104,6 +3108,7 @@ def execute_stream(
                             "channels": 1,
                             "sample_width_bits": 16,
                             "blocks": tts_block_count,
+                            **({"backend": backend} if backend in {"cpu", "qwen"} else {}),
                         },
                     )
                     audio_streamed = True
@@ -3291,6 +3296,7 @@ def create_app(
             normalized["stream"] = False
             parsed = parse_adapter_request(normalized)
             voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
+            live_cpu_voice = request.headers.get("X-Omni-Voice-Profile") == "live"
             disconnected = request.environ.get("waitress.client_disconnected")
         except OmniAdapterError as exc:
             return jsonify({"error": str(exc), "schema": ADAPTER_SCHEMA}), 400
@@ -3304,6 +3310,7 @@ def create_app(
                     decision_observer=observe_input_routing,
                     choose_reply_depth=voice_routing == "auto",
                     fast_recognize=recognizer if voice_routing == "fast" else None,
+                    live_cpu_voice=live_cpu_voice,
                     disconnected=disconnected,
                 )
             except (AdapterStageError, httpx.HTTPError) as exc:

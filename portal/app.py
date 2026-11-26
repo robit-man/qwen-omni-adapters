@@ -4419,6 +4419,7 @@ def create_app(
         requested_checkpoint = payload.pop("portal_voice_checkpoint", False) is True
         requested_preface = payload.pop("portal_voice_preface", False) is True
         requested_auto_reasoning = payload.pop("portal_voice_auto_reasoning", False) is True
+        requested_live_synthesis = payload.pop("portal_live_synthesis", False) is True
         live_turn = (isinstance(payload.get("omni"), Mapping)
                      and payload["omni"].get("require_speech") is True)
         raw_messages = copy.deepcopy(list(payload.get("messages") or []))
@@ -4474,6 +4475,14 @@ def create_app(
         if voice_auto_reasoning:
             payload["think"] = False
         voice_preface_enabled = requested_preface and live_turn and (voice_owner or voice_auto_reasoning)
+        speech_headers = (
+            {"X-Omni-Voice-Profile": "live"}
+            if not internal_background and (live_turn or (requested_live_synthesis and synthesis_only(payload)))
+            else {}
+        )
+        initial_headers = dict(speech_headers)
+        if voice_auto_reasoning:
+            initial_headers["X-Omni-Voice-Reasoning"] = "fast"
         if voice_preface_enabled and isinstance(payload.get("messages"), list):
             payload["messages"].insert(0, {
                 "role": "system", "content": context_text("directives", "live_action_preface"),
@@ -4675,7 +4684,7 @@ def create_app(
         try:
             upstream_request = session.build_request(
                 "POST", runtime.adapter_url.rstrip("/") + "/stream", json=payload,
-                headers={"X-Omni-Voice-Reasoning": "fast"} if voice_auto_reasoning else None,
+                headers=initial_headers,
             )
             upstream = session.send(upstream_request, stream=True)
             diagnostics.record(
@@ -4840,9 +4849,12 @@ def create_app(
                                 "voice_checkpoint": voice_checkpoint,
                             }, request_id=request_id)
                         elif event.get("type") in {"audio_start", "audio_end"}:
+                            audio = event.get("audio")
+                            backend = audio.get("backend") if isinstance(audio, Mapping) else None
                             diagnostics.record(session_id,
                                 "audio_stream_started" if event["type"] == "audio_start" else "audio_stream_ended",
-                                {"request_id": request_id}, request_id=request_id)
+                                {"request_id": request_id, **({"backend": backend} if backend in ("cpu", "qwen") else {})},
+                                request_id=request_id)
                         if event.get("type") == "final":
                             candidate = event.get("response")
                             if isinstance(candidate, dict):
@@ -4906,6 +4918,7 @@ def create_app(
                                     "POST",
                                     runtime.adapter_url.rstrip("/") + "/stream",
                                     json=current_payload,
+                                    headers=speech_headers,
                                 )
                                 current_upstream = session.send(
                                     retry_request, stream=True
@@ -5103,6 +5116,7 @@ def create_app(
                             "POST",
                             runtime.adapter_url.rstrip("/") + "/stream",
                             json=current_payload,
+                            headers=speech_headers,
                         )
                         current_upstream = session.send(next_request, stream=True)
                     except httpx.HTTPError as exc:

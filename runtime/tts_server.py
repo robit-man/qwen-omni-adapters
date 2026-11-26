@@ -12,6 +12,8 @@ from __future__ import annotations
 import atexit
 import base64
 import io
+import json
+import logging
 import os
 import queue
 import select
@@ -22,7 +24,7 @@ import tempfile
 import threading
 import time
 import wave
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -69,6 +71,7 @@ class Config:
     warm_speaker_file: str = ""
     context_tokens: int = 0
     keep_warm: bool = False
+    live_cpu_model: str = ""
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -142,6 +145,7 @@ class Config:
                 "OMNI_TTS_WARM_SPEAKER_FILE", ""
             ).strip(),
             keep_warm=os.environ.get("OMNI_TTS_KEEP_WARM", "0") == "1",
+            live_cpu_model=os.environ.get("OMNI_LIVE_CPU_TTS_MODEL", "").strip(),
         )
 
 
@@ -914,6 +918,39 @@ def _warm_spec(config: Config) -> SynthesisSpec | None:
     )
 
 
+def _load_live_cpu_voice(model: Path) -> Callable[[str], Iterator[bytes]]:
+    import numpy as np
+    import onnxruntime
+    from piper import PiperVoice
+    from piper.config import PiperConfig
+
+    voice_config = PiperConfig.from_dict(json.loads(Path(f"{model}.json").read_text()))
+    options = onnxruntime.SessionOptions()
+    options.intra_op_num_threads = 2
+    options.inter_op_num_threads = 1
+    options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+    voice = PiperVoice(
+        config=voice_config,
+        session=onnxruntime.InferenceSession(
+            str(model), sess_options=options, providers=["CPUExecutionProvider"],
+        ),
+    )
+
+    def stream(text: str) -> Iterator[bytes]:
+        # Both speech engines use the adapter's mono 24 kHz PCM16 contract.
+        for chunk in voice.synthesize(text):
+            samples = chunk.audio_int16_array
+            if not samples.size:
+                continue
+            if chunk.sample_rate != 24000:
+                count = round(samples.size * 24000 / chunk.sample_rate)
+                positions = np.arange(count) * (chunk.sample_rate / 24000)
+                samples = np.interp(positions, np.arange(samples.size), samples)
+            yield samples.astype("<i2", copy=False).tobytes()
+
+    return stream
+
+
 def create_app(config: Config | None = None) -> Flask:
     app = Flask(__name__)
     runtime = config or Config.from_environment()
@@ -921,6 +958,13 @@ def create_app(config: Config | None = None) -> Flask:
     persistent = PersistentTTSWorker(runtime) if runtime.persistent else None
     warm_spec = _warm_spec(runtime)
     governor = MemoryGovernor()
+    cpu_voice = None
+    cpu_lock = threading.Lock()
+    if runtime.live_cpu_model:
+        try:
+            cpu_voice = _load_live_cpu_voice(Path(runtime.live_cpu_model).expanduser())
+        except Exception as exc:
+            logging.getLogger("omni.tts").warning("Could not load live CPU speech: %s", exc)
 
     if persistent is not None:
         atexit.register(persistent.close)
@@ -954,6 +998,7 @@ def create_app(config: Config | None = None) -> Flask:
                 "persistent": bool(persistent),
                 "residency_policy": "memory-bounded" if runtime.keep_warm else "request",
                 "persistent_ready": bool(persistent and persistent.ready),
+                "live_cpu_ready": cpu_voice is not None,
                 "persistent_pid": persistent.pid if persistent else None,
                 "speaker_reference_configured": warm_spec is not None,
                 "speaker_reference_active": bool(
@@ -1071,8 +1116,17 @@ def create_app(config: Config | None = None) -> Flask:
             if not isinstance(body, dict):
                 raise TTSError("request body must be a JSON object")
             specs = _batch_specs(runtime, body)
+            use_cpu = (
+                cpu_voice is not None and body.get("live_cpu_voice") is True
+                and specs[0].locale in {"en", "en-US"} and specs[0].speaker_audio is None
+            )
 
             def generate() -> Iterator[bytes]:
+                if use_cpu and cpu_voice is not None:
+                    with cpu_lock:
+                        for spec in specs:
+                            yield from cpu_voice(spec.text)
+                    return
                 with lock:
                     inline_reference = specs[0].speaker_audio is not None
                     ephemeral = persistent is None or inline_reference
@@ -1102,6 +1156,7 @@ def create_app(config: Config | None = None) -> Flask:
                 specs[0].stream_frames
             )
             response.headers["X-Audio-Blocks"] = str(len(specs))
+            response.headers["X-Audio-Backend"] = "cpu" if use_cpu else "qwen"
             response.headers["X-Accel-Buffering"] = "no"
             return response
         except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
