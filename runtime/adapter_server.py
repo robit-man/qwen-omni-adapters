@@ -2690,7 +2690,7 @@ def _fast_voice_reply(
         return None
     try:
         recent = [
-            {"role": message.role, "content": message.content[:250]}
+            {"role": message.role, "content": message.content[:160]}
             for message in parsed.messages if message is not current
             and message.role in {"user", "assistant"} and message.content and not message.media
         ][-2:]
@@ -2698,11 +2698,10 @@ def _fast_voice_reply(
             "model": config.language_model or parsed.model,
             "messages": [
                 {"role": "system", "content": (
-                    f"You are {runtime_agent_name()} in a voice conversation. Use route reply for a short direct answer "
-                    "from current evidence or recent dialogue. Use check for an action, for retrieving earlier "
-                    "conversations or outside information, or when more analysis is needed. For check, acknowledge the "
-                    "specific request and say what you will look into without claiming it is already done. "
-                    "Use quiet if the speaker is addressing someone else or just talking aloud. Give one natural short sentence."
+                    f"You are {runtime_agent_name()} in a live conversation. Give one short natural sentence. "
+                    "Use reply to answer from current evidence or recent dialogue. Use check for actions, retrieval, "
+                    "or deeper analysis. For check, say what you will do without claiming success. "
+                    "Use quiet when someone else is addressed or the speaker is thinking aloud."
                 )},
                 *recent, {"role": "user", "content": transcript},
             ],
@@ -2716,7 +2715,8 @@ def _fast_voice_reply(
             payload["logit_bias"] = [[config.fast_voice_thinking_token, False]]
         response = client.post(language_request_url(config), json=payload, timeout=min(config.timeout_s, 7))
         reply = json.loads(_language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"])
-    except (ValueError, httpx.HTTPError, AdapterStageError):
+    except (ValueError, httpx.HTTPError, AdapterStageError) as error:
+        LOGGER.info("fast spoken planner fell back (%s)", type(error).__name__)
         return None
     if not isinstance(reply, dict):
         return None
@@ -2762,6 +2762,8 @@ def execute_stream(
     if fast_recognize is not None:
         yield _stream_event("stage", stage="comprehension")
         fast_reply = _fast_voice_reply(parsed, config, client, fast_recognize)
+        if disconnected is not None and disconnected():
+            return
     if fast_reply is not None:
         observation = f"<speech_transcript>{fast_reply.transcript}</speech_transcript>"
         executed.extend(("comprehension", "language"))

@@ -370,11 +370,16 @@ for line in sys.stdin.buffer:
     assert worker.speaker_reference_active is False
 
 
+@pytest.mark.parametrize("keep_warm", [False, True])
 def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch, keep_warm: bool,
 ) -> None:
+    from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
+
     reference = tmp_path / "reference.wav"
     reference.write_bytes(_wav(16000))
+    available_gib = 3.5
+    governor = MemoryGovernor(MemoryPolicy(enabled=True), sampler=lambda: available_gib)
 
     class FakePersistentWorker:
         def __init__(self, _config) -> None:
@@ -397,15 +402,19 @@ def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
     monkeypatch.setattr(
         "runtime.tts_server.PersistentTTSWorker", FakePersistentWorker
     )
-    app = create_tts_app(
-        _tts_config(
-            tmp_path,
-            persistent=True,
-            warm_speaker_file=str(reference),
-        )
+    monkeypatch.setattr("runtime.tts_server.MemoryGovernor", lambda: governor)
+    config = _tts_config(
+        tmp_path, persistent=True, warm_speaker_file=str(reference), keep_warm=keep_warm,
     )
+    config.model.touch()
+    config.projector.touch()
+    app = create_tts_app(config)
     client = app.test_client()
 
+    if keep_warm:
+        assert client.post("/residency", json={"action": "warm"}).status_code == 422
+        assert client.get("/healthz").json["persistent_ready"] is False
+        available_gib = 5.0
     assert client.post("/residency", json={"action": "warm"}).json[
         "persistent_ready"
     ] is True

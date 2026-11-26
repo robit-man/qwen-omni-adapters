@@ -1387,11 +1387,11 @@ def _with_heard_words(messages: list[Any], response: Mapping[str, Any]) -> list[
     transcript = adapter.get("input_transcript") if isinstance(adapter, Mapping) else None
     if not isinstance(transcript, str) or not transcript.strip():
         return messages
-    messages = list(messages)
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
         if isinstance(message, Mapping) and message.get("role") == "user":
             if message.get("audios"):
+                messages = list(messages)
                 messages[index] = {**message, "content": transcript.strip()}
             break
     return messages
@@ -4883,7 +4883,13 @@ def create_app(
                         if not (yield from play_preface(acknowledgement)):
                             return
                         fast_acknowledged = True
+                        # Carry the accepted speech as dialogue. Re-sending the
+                        # recording would run the media bridge a second time.
                         followup = {**current_payload, "think": True}
+                        messages = list(current_payload.get("messages") or [])
+                        heard = _with_heard_words(messages, final_response)
+                        if heard is not messages:
+                            followup["messages"] = _without_media(heard)
                         round_tools = []
                         _made_progress = False
                     elif not auto_tools:

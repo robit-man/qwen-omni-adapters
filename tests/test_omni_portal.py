@@ -2178,7 +2178,7 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
         response = {"message": {"role": "assistant", "content": "I hear you."}}
         if defer and len(requests) == 1:
             response["message"]["content"] = "I'll check."
-            response["adapter"] = {"fast_voice_followup": True}
+            response["adapter"] = {"fast_voice_followup": True, "input_transcript": "What did we decide?"}
         return httpx.Response(200, text=json.dumps({
             "type": "final", "response": response,
         }) + "\n")
@@ -2189,6 +2189,7 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     voice.set_cookie("omni_portal_session", cookie)
     payload = _request(
         stream=True, portal_voice_auto_reasoning=True, portal_voice_preface=True,
+        messages=[{"role": "user", "content": "Attached recording", "audios": ["fixture"]}],
         omni={"schema": "robit.ollama.omni-adapter.v1", "require_speech": True},
     )
     payload.pop("think")
@@ -2205,6 +2206,9 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     finally:
         reply.close()
     assert [item["think"] for item in requests] == ([False, True] if defer else [False])
+    if defer:
+        spoken = [message for message in requests[1]["messages"] if message["role"] == "user"]
+        assert spoken[-1]["content"] == "What did we decide?" and "audios" not in spoken[-1]
     assert [event["type"] for event in events] == ["final"]
     assert events[0]["response"]["message"]["content"] == "I hear you."
 

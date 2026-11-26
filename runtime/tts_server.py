@@ -986,9 +986,10 @@ def create_app(config: Config | None = None) -> Flask:
                 else:
                     if warm_spec is None:
                         raise TTSError("no warm speaker reference is configured")
-                        if runtime.keep_warm and not persistent.ready:
-                            weights_gib = (runtime.model.stat().st_size + runtime.projector.stat().st_size) / 1024**3
-                            governor.require_capacity("warm speech graph", weights_gib + 0.75)
+                    if runtime.keep_warm and governor.enabled and not persistent.ready:
+                        weights_gib = (runtime.model.stat().st_size + runtime.projector.stat().st_size) / 1024**3
+                        safety_band_gib = governor.policy.soft_floor_gib - governor.policy.hard_floor_gib
+                        governor.require_capacity("warm speech graph", weights_gib + 0.75 + safety_band_gib)
                     persistent.ensure(warm_spec)
                 return jsonify(
                     {
