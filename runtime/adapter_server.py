@@ -2720,17 +2720,24 @@ def _fast_voice_reply(
         return None
     transcript_only = _FastVoiceReply(transcript)
     read_tools = _fast_voice_read_tools(parsed)
-    schema = {
-        **_FAST_VOICE_SCHEMA,
-        "properties": {**_FAST_VOICE_SCHEMA["properties"], "route": {
-            "type": "string", "enum": ["reply", "check", "quiet", *read_tools],
-        }},
-    }
-    read_contract = (
-        " If exactly one of these reads can answer the whole question, choose its route: "
-        + "; ".join(f"{name}: {description}" for name, description in read_tools.items())
-        if read_tools else ""
-    )
+    schema = _FAST_VOICE_SCHEMA
+    read_contract = ""
+    if read_tools:
+        schema = {
+            **_FAST_VOICE_SCHEMA,
+            "properties": {
+                "route": _FAST_VOICE_SCHEMA["properties"]["route"],
+                "read": {"type": "string", "enum": ["none", *read_tools]},
+                "speech": _FAST_VOICE_SCHEMA["properties"]["speech"],
+            },
+            "required": ["route", "read", "speech"],
+        }
+        read_contract = (
+            " Set read=none unless route=check and a single listed read fully answers the request. "
+            "For requests that need outside research, past conversations, a change, or several steps, "
+            "use check with read=none. Do not choose a read just because its output might be useful. "
+            "Available reads: " + "; ".join(f"{name}: {description}" for name, description in read_tools.items())
+        )
     try:
         recent = [
             {"role": message.role, "content": message.content[:160]}
@@ -2767,7 +2774,7 @@ def _fast_voice_reply(
     route = reply.get("route")
     if route == "quiet" and not parsed.live_engaged:
         return _FastVoiceReply(transcript, "", False)
-    if not isinstance(route, str) or route not in {"reply", "check", *read_tools}:
+    if route not in ("reply", "check"):
         return transcript_only
     speech = reply.get("speech")
     if not isinstance(speech, str):
@@ -2775,7 +2782,9 @@ def _fast_voice_reply(
     speech = " ".join(speech.split())
     if not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
         return transcript_only
-    return _FastVoiceReply(transcript, speech, route == "check", route if route in read_tools else None)
+    read = reply.get("read")
+    tool = read if route == "check" and isinstance(read, str) and read in read_tools else None
+    return _FastVoiceReply(transcript, speech, route == "check" and tool is None, tool)
 
 
 def execute_stream(

@@ -90,9 +90,11 @@ activity above an adaptive threshold, requires at least 400 ms of confirmed
 activity, and closes an utterance after 760 ms of silence. The lower adaptive
 threshold and longer release window admit quieter speakers and natural pauses
 without sending brief clicks or steady calibrated room noise.
-It submits a 16 kHz WAV only after that confirmed utterance; silence, transient
-clicks, and elevated steady room noise do not call remote ASR. Playback-time
-barge-in uses a stricter 360 ms confirmation to reject speaker echo. The
+It submits a 16 kHz WAV after that confirmed utterance. Silence, transient
+clicks, and steady room noise leave the call listening. During playback,
+barge-in uses a higher energy threshold, 160 ms of sustained onset, and at
+least 230 ms of confirmed activity. Browser echo cancellation filters playback
+from the microphone input. The
 waveform border, line, and label remain translucent
 while inactive and become opaque only while VAD is active. Confirmed speech is
 sent through Qwen3-Omni and Qwen3.8, response text is relayed as Ollama produces
@@ -106,15 +108,10 @@ turn, then consumes them after that response.
 The microphone remains active during inference and playback, but the browser
 permits only one cognitive request at a time. Consecutive confirmed segments
 are joined with short silence boundaries into one bounded latest-turn buffer.
-If the user continues while a request is active, its now-stale reply is
-suppressed while the submitted audio is allowed to drain exactly once. Only
-new speech enters the bounded client buffer and is sent once as the next turn
-after the active request finishes. Submitted samples are never requeued, which
-prevents repeated earlier speech and server-side inference pileups when a
-browser abort cannot cancel work already running upstream. The buffer retains
-at most the newest 45 seconds. Sustained speech during playback stops the
-current audio while capture continues. Tap the phone icon again to clear
-pending audio, abort the active turn, and stop playback.
+When the detector confirms new speech during an active turn, the browser
+cancels that request, stops its playback, and submits the newly captured speech.
+The buffer retains at most the newest 45 seconds. Tap the phone icon again to
+clear pending audio, abort the active turn, and stop playback.
 
 Call turns answer the speaker's intent directly and do not echo, transcribe, or
 paraphrase unless explicitly asked. They include bounded prior text dialogue.

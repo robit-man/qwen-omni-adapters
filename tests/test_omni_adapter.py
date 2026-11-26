@@ -3514,9 +3514,10 @@ def test_fast_spoken_planner_can_request_one_allowed_argument_free_read():
     def respond(request):
         payload = json.loads(request.content)
         schema = payload["response_format"]["json_schema"]["schema"]
-        assert schema["properties"]["route"]["enum"] == ["reply", "check", "quiet", "get_current_time"]
+        assert schema["properties"]["route"]["enum"] == ["reply", "check", "quiet"]
+        assert schema["properties"]["read"]["enum"] == ["none", "get_current_time"]
         return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
-            "route": "get_current_time", "speech": "I'll look at the clock.",
+            "route": "check", "read": "get_current_time", "speech": "I'll look at the clock.",
         })}}]})
 
     config = _adapter_config(language_api="openai", inkling_native_reasoning=True)
