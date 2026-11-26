@@ -2221,6 +2221,60 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     assert events[0]["response"]["message"]["content"] == "I hear you."
 
 
+def test_only_the_live_owner_can_reuse_checkpoints_from_this_turn(tmp_path, monkeypatch):
+    import hashlib
+
+    from harness.history import ConversationHistory
+
+    history = tmp_path / "conversation.sqlite3"
+    ConversationHistory(history).close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(history))
+    request_bodies = []
+    fragments = iter(("start with three", "add one"))
+
+    def respond(request):
+        body = json.loads(request.content)
+        request_bodies.append(body)
+        if body["omni"].get("task") == "transcribe":
+            assert request.headers.get("X-Omni-Accepted-Voice") is None
+            assert "_omni_checkpoint_observation" not in body
+            answer = {"message": {"content": ""}, "adapter": {
+                "input_transcript": next(fragments), "audio_observation": "Quiet room.",
+            }}
+        else:
+            assert request.headers["X-Omni-Accepted-Voice"] == "1"
+            assert body["_omni_checkpoint_observation"] == ["start with three add one", "Quiet room."]
+            assert body["messages"][-1]["content"] == "start with three add one"
+            assert "audios" not in body["messages"][-1]
+            answer = {"message": {"content": "Four."}}
+        return httpx.Response(200, text=json.dumps({"type": "final", "response": answer}) + "\n")
+
+    app = create_app(_config(), httpx.Client(transport=httpx.MockTransport(respond)))
+    voice = app.test_client()
+    voice.set_cookie("omni_portal_session", hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest())
+    headers = {"Authorization": "Bearer " + TOKEN}
+    group = "a" * 32
+    captured = _request(stream=True, think=False, portal_voice_checkpoint=True, portal_voice_checkpoint_group=group,
+                        messages=[{"role": "user", "content": "recording", "audios": ["fixture"]}],
+                        omni={"schema": "robit.ollama.omni-adapter.v1", "task": "transcribe"},
+                        _omni_checkpoint_observation=["forged", ""])
+    receipts = []
+    for _ in range(2):
+        response = voice.post("/api/chat/stream", headers=headers, json=captured)
+        assert response.status_code == 200
+        receipts.append(json.loads(response.data)["response"]["portal"]["voice_checkpoint_receipt"])
+    continued = _request(stream=True, think=False, portal_voice_checkpoints={"group": group, "receipts": receipts},
+                         messages=[{"role": "user", "content": "placeholder"}],
+                         omni={"schema": "robit.ollama.omni-adapter.v1", "require_speech": True})
+    response = voice.post("/api/chat/stream", headers=headers, json=continued)
+    assert json.loads(response.data)["response"]["message"]["content"] == "Four."
+    other = app.test_client()
+    assert other.post("/api/chat/stream", headers=headers, json=continued).status_code == 403
+    continued["portal_voice_checkpoints"]["group"] = "b" * 32
+    assert voice.post("/api/chat/stream", headers=headers, json=continued).status_code == 409
+    assert len(request_bodies) == 3
+
+
 @pytest.mark.parametrize("enabled", [False, True])
 def test_browser_voice_warmup_requires_authentication_and_uses_memory_guard(monkeypatch, enabled):
     monkeypatch.setenv("OMNI_TTS_KEEP_WARM", "1" if enabled else "0")

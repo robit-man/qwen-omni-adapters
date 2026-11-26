@@ -20,6 +20,7 @@ import json
 import logging
 import queue
 import re
+import secrets
 import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -191,6 +192,7 @@ class CallConfig:
     # Trial a tentative fast pause only after the array corroborates the
     # software VAD. The normal transcript check still commits or resumes it.
     fast_barge_in: bool = False
+    reuse_speech_checkpoints: bool = False
     # How long a finished utterance waits for the speaker to carry on.
     #
     # People stop to think mid-sentence, and every one of those pauses looks
@@ -228,6 +230,8 @@ class TurnResult:
     first_audio_ms: float | None = None
     total_ms: float = 0.0
     speech_addressee: str = "UNKNOWN"
+    checkpoint_receipt: str | None = None
+    portal_status: int | None = None
 
 
 @dataclass
@@ -620,14 +624,15 @@ class CallSession:
         message: dict[str, Any] = {
             "role": "user",
             "content": content,
-            "audios": [
+        }
+        if wav_audio:
+            message["audios"] = [
                 {
                     "mime_type": "audio/wav",
                     "encoding": "base64",
                     "data": base64.b64encode(wav_audio).decode("ascii"),
                 }
-            ],
-        }
+            ]
         if frame:
             key = (
                 "videos"
@@ -785,13 +790,16 @@ class CallSession:
                 with self._speaker_lock:
                     self._active_responses.discard(response)
 
-    def comprehend_interruption(self, samples: np.ndarray, *, checkpoint: bool = False) -> TurnResult:
+    def comprehend_interruption(self, samples: np.ndarray, *, checkpoint: bool = False,
+                                 checkpoint_group: str | None = None) -> TurnResult:
         """Transcribe paused near-end audio without generating or speaking a reply."""
 
         result = TurnResult()
         payload = self._build_interruption_probe_payload(samples)
         if checkpoint:
             payload["portal_voice_checkpoint"] = True
+            if checkpoint_group:
+                payload["portal_voice_checkpoint_group"] = checkpoint_group
 
         def read(client: httpx.Client) -> None:
             for event in self._events(payload, client=client):
@@ -811,6 +819,10 @@ class CallSession:
                     result.audio_observation = str(
                         adapter.get("audio_observation") or result.audio_observation
                     ).strip()
+                    portal = response.get("portal")
+                    receipt = portal.get("voice_checkpoint_receipt") if isinstance(portal, Mapping) else None
+                    if isinstance(receipt, str):
+                        result.checkpoint_receipt = receipt
                 elif event.get("type") == "error":
                     result.error = str(event.get("error") or "stream error")
 
@@ -831,17 +843,20 @@ class CallSession:
 
     def take_turn(self, samples: np.ndarray, segments: int = 1,
                   *, transcript_prefix: tuple[str, ...] = (),
-                  transcript_audio: np.ndarray | None = None) -> TurnResult:
+                  transcript_audio: np.ndarray | None = None, checkpoint_group: str | None = None,
+                  checkpoint_receipts: tuple[str, ...] = ()) -> TurnResult:
         """Capture every decoded turn, including interrupted/error exits."""
         submitted_at = time.time()
-        result = (self._take_turn(samples, segments, transcript_prefix=transcript_prefix, transcript_audio=transcript_audio)
+        result = (self._take_turn(samples, segments, transcript_prefix=transcript_prefix, transcript_audio=transcript_audio,
+                                  checkpoint_group=checkpoint_group, checkpoint_receipts=checkpoint_receipts)
                   if transcript_prefix else self._take_turn(samples, segments))
         self._persist(result, occurred_at=submitted_at)
         return result
 
     def _take_turn(self, samples: np.ndarray, segments: int = 1,
                    *, transcript_prefix: tuple[str, ...] = (),
-                   transcript_audio: np.ndarray | None = None) -> TurnResult:
+                   transcript_audio: np.ndarray | None = None, checkpoint_group: str | None = None,
+                   checkpoint_receipts: tuple[str, ...] = ()) -> TurnResult:
         """Answer what was heard, with tools in the answer-producing pass.
 
         This is the same chain as the cloudflared browser: the portal exposes
@@ -865,11 +880,23 @@ class CallSession:
                 return TurnResult(error=f"comprehension is not ready: {error}")
 
         earlier_speech = ""
+        accepted_checkpoints = None
         if transcript_prefix and transcript_audio is not None:
-            tail = self.comprehend_interruption(samples) if samples.size else TurnResult()
+            can_reuse = bool(self.config.reuse_speech_checkpoints and checkpoint_group
+                             and len(transcript_prefix) == len(checkpoint_receipts) < 64)
+            if samples.size and can_reuse:
+                tail = self.comprehend_interruption(samples, checkpoint=True, checkpoint_group=checkpoint_group)
+            else:
+                tail = self.comprehend_interruption(samples) if samples.size else TurnResult()
             if tail.error:
                 return TurnResult(transcript=" ".join(transcript_prefix), error=tail.error)
-            if tail.transcript and not self._is_recent_playback_echo(tail.transcript):
+            tail_accepted = bool(tail.transcript and not self._is_recent_playback_echo(tail.transcript))
+            if can_reuse and (not tail_accepted or tail.checkpoint_receipt):
+                receipts = list(checkpoint_receipts)
+                if tail_accepted:
+                    receipts.append(tail.checkpoint_receipt)
+                accepted_checkpoints = {"group": checkpoint_group, "receipts": receipts}
+            if tail_accepted:
                 earlier_speech = " ".join(transcript_prefix)
             else:
                 samples = transcript_audio
@@ -885,15 +912,21 @@ class CallSession:
         # it speaks comes from that completed work. There is no tool-less
         # classification pass and no separate text for it to confuse with an
         # action.
-        payload = self._build_payload(
-            audio,
-            segments,
-            None,
-            with_tools=self.config.tools_enabled,
-            earlier_speech=earlier_speech,
-        )
+        def turn_payload(frame: dict[str, Any] | None = None) -> dict[str, Any]:
+            payload = self._build_payload(
+                b"" if accepted_checkpoints else audio, segments, frame,
+                with_tools=self.config.tools_enabled, earlier_speech="" if accepted_checkpoints else earlier_speech,
+            )
+            if accepted_checkpoints:
+                payload["portal_voice_checkpoints"] = accepted_checkpoints
+            return payload
+
+        payload = turn_payload()
         result = self._run(payload)
-        if earlier_speech and result.transcript:
+        if accepted_checkpoints and result.portal_status == 409 and not result.interrupted:
+            accepted_checkpoints = None
+            result = self._run(turn_payload())
+        if not accepted_checkpoints and earlier_speech and result.transcript:
             result.transcript = earlier_speech + " " + result.transcript
         if result.echo_suppressed:
             return result
@@ -932,15 +965,7 @@ class CallSession:
                 result.spoke_seconds = 0.0
                 result.first_audio_ms = None
             else:
-                follow = self._run(
-                    self._build_payload(
-                        audio,
-                        segments,
-                        frame,
-                        with_tools=self.config.tools_enabled,
-                        earlier_speech=earlier_speech,
-                    ),
-                )
+                follow = self._run(turn_payload(frame))
                 result.tools_used = list(
                     dict.fromkeys([*result.tools_used, *follow.tools_used])
                 )
@@ -1245,6 +1270,8 @@ class CallSession:
                     break
         except Exception as error:  # noqa: BLE001 - one bad turn is not fatal
             if not self._barge.is_set():
+                if isinstance(error, _PortalError):
+                    result.portal_status = error.status
                 result.error = f"{type(error).__name__}: {error}"
                 logger.warning("call turn failed: %s", result.error)
         finally:
@@ -1608,7 +1635,8 @@ def run_call_loop(
                     session.direction = describe_direction(array.direction)
                     result = session.take_turn(
                         pending.audio(), segments=max(1, pending.segments),
-                        **({"transcript_prefix": pending.transcript_prefix, "transcript_audio": pending.transcript_audio}
+                        **({"transcript_prefix": pending.transcript_prefix, "transcript_audio": pending.transcript_audio,
+                            "checkpoint_group": pending.checkpoint_group, "checkpoint_receipts": pending.checkpoint_receipts}
                            if pending.transcript_prefix else {}),
                     )
                     if result.interrupted:
@@ -1674,9 +1702,11 @@ def run_call_loop(
     checkpoint_deadline: float | None = None
     transcript_prefix: list[str] = []
     transcript_audio: np.ndarray | None = None
+    checkpoint_group: str | None = None
+    checkpoint_receipts: list[str] = []
 
-    def recognize_checkpoint(portion: Utterance) -> None:
-        checkpoints.put((portion, session.comprehend_interruption(portion.samples(), checkpoint=True)))
+    def recognize_checkpoint(portion: Utterance, group: str | None) -> None:
+        checkpoints.put((portion, session.comprehend_interruption(portion.samples(), checkpoint=True, checkpoint_group=group)))
 
     def comprehend_barge(pending: Pending) -> None:
         """Resolve a paused interruption without discarding the current reply."""
@@ -1769,6 +1799,8 @@ def run_call_loop(
                                 waiting.prepend(portion.samples(), portion.active_duration_ms)
                     elif recognized.transcript and not session._is_recent_playback_echo(recognized.transcript):
                         transcript_prefix.append(recognized.transcript)
+                        if recognized.checkpoint_receipt is not None:
+                            checkpoint_receipts.append(recognized.checkpoint_receipt)
                         transcript_audio = portion.samples()
                     else:
                         # A noisy room can keep the amplitude detector open
@@ -1950,8 +1982,10 @@ def run_call_loop(
                         and now_ms >= checkpoint_deadline and not checkpoint_pending and not busy.is_set()):
                     checkpoint_pending = True
                     checkpoint_deadline = now_ms + SPEECH_CHECKPOINT_MS
+                    if config.reuse_speech_checkpoints and checkpoint_group is None:
+                        checkpoint_group = secrets.token_hex(16)
                     threading.Thread(
-                        target=recognize_checkpoint, args=(vad.take_checkpoint(),),
+                        target=recognize_checkpoint, args=(vad.take_checkpoint(), checkpoint_group),
                         name="omni-speech-checkpoint", daemon=True,
                     ).start()
                 if checkpoint_pending or settle_until is None or now < settle_until:
@@ -1988,6 +2022,8 @@ def run_call_loop(
                     pending = waiting.take()
                 pending.transcript_prefix = tuple(transcript_prefix)
                 pending.transcript_audio = transcript_audio
+                pending.checkpoint_group = checkpoint_group
+                pending.checkpoint_receipts = tuple(checkpoint_receipts)
                 settle_until = None
                 try:
                     work.put_nowait(pending)
@@ -1998,6 +2034,8 @@ def run_call_loop(
                 else:
                     transcript_prefix.clear()
                     transcript_audio = None
+                    checkpoint_group = None
+                    checkpoint_receipts.clear()
     finally:
         worker_stop.set()
         agent_stop.set()

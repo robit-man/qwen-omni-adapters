@@ -40,6 +40,8 @@ class Pending:
     truncated: bool = False
     transcript_prefix: tuple[str, ...] = ()
     transcript_audio: np.ndarray | None = None
+    checkpoint_group: str | None = None
+    checkpoint_receipts: tuple[str, ...] = ()
 
     def __bool__(self) -> bool:
         return self.samples > 0 and self.segments > 0

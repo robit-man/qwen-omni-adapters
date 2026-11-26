@@ -405,6 +405,7 @@ def main(argv: list[str] | None = None) -> int:
         input_device=device,
         output_device=args.output_device,
         fast_barge_in=_env_enabled("OMNI_CALL_FAST_BARGE_IN"),
+        reuse_speech_checkpoints=_env_enabled("OMNI_CALL_REUSE_CHECKPOINTS"),
         input_channels=max(1, channels),
         input_channel=max(0, channel),
         tools_enabled=not args.no_tools,

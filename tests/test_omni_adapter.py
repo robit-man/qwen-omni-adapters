@@ -3546,6 +3546,39 @@ def test_compact_native_reply_falls_back_if_exact_rendered_prompt_exceeds_budget
     assert events[-1]["response"]["adapter"]["speech_addressee"] == "other"
 
 
+def test_verified_checkpoints_supply_speech_to_compact_route_without_asr():
+    paths = []
+    transcript = "Start with three. Add one."
+
+    def respond(request):
+        payload = json.loads(request.content)
+        paths.append(request.url.path)
+        assert request.url.host == "127.0.0.1"
+        if request.url.path == "/apply-template":
+            return httpx.Response(200, json={"prompt": "short reply"})
+        if request.url.path == "/tokenize":
+            return httpx.Response(200, json={"tokens": [1, 2, 3]})
+        assert payload["messages"][-1] == {"role": "user", "content": transcript}
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
+            "route": "reply", "addressee": "SELF", "speech": "Four.",
+        })}}]})
+
+    original = _live_spoken_request(think=False)
+    turn = dataclasses.replace(original, messages=(dataclasses.replace(original.messages[0], audios=()),))
+    config = _adapter_config(language_api="openai", language_url="http://127.0.0.1:8901/v1/chat/completions",
+                             language_llama_context_probe=True, inkling_native_reasoning=True)
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        events = [json.loads(line) for line in execute_stream(
+            turn, config, client, compact_native_voice=True, accepted_voice=(transcript, "Quiet room."),
+        )]
+    assert paths == ["/apply-template", "/tokenize", "/v1/chat/completions"]
+    evidence = events[-1]["response"]["adapter"]
+    assert evidence["input_transcript"] == transcript
+    assert evidence["route"] == ["language"]
+    assert evidence["evidence_provenance"]["current_media_modalities"] == ["audio"]
+    assert not evidence["evidence_provenance"]["current_visual_input"]
+
+
 @pytest.mark.parametrize("addressee", ["AMBIGUOUS", "OTHER"])
 def test_failed_spoken_planner_reuses_confident_transcript_and_keeps_addressee_gate(addressee):
     requests = []

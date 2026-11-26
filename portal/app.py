@@ -831,6 +831,44 @@ class _VoicePreface:
     received: threading.Event = field(default_factory=threading.Event)
 
 
+@dataclass(frozen=True)
+class _VoiceCheckpoint:
+    session: str
+    group: str
+    expires: float
+    transcript: str
+    sound: str
+
+
+class _VoiceCheckpoints:
+    """Retain verified words briefly for the native caller's current turn."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._items: dict[str, _VoiceCheckpoint] = {}
+
+    def record(self, session: str, group: str, transcript: str, sound: str) -> str:
+        receipt = secrets.token_urlsafe(18)
+        now = time.monotonic()
+        with self._lock:
+            self._items = {key: item for key, item in self._items.items() if item.expires >= now}
+            if len(self._items) >= 256:
+                del self._items[next(iter(self._items))]
+            self._items[receipt] = _VoiceCheckpoint(session, group, now + 300, transcript, sound)
+        return receipt
+
+    def resolve(self, session: str, group: str, receipts: list[str]) -> tuple[str, str] | None:
+        now = time.monotonic()
+        with self._lock:
+            items = [self._items.get(receipt) for receipt in receipts]
+        if any(item is None or (item.session, item.group) != (session, group) or item.expires < now for item in items):
+            return None
+        matched = [item for item in items if item is not None]
+        if any(left.expires >= right.expires for left, right in zip(matched, matched[1:], strict=False)):
+            return None
+        return (" ".join(item.transcript for item in matched), matched[-1].sound)
+
+
 def _action_acknowledgement(message: Any) -> str:
     if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
         return ""
@@ -2392,6 +2430,7 @@ def create_app(
     app.extensions["tool_traces"] = tool_traces
     voice_prefaces: dict[tuple[str, str], _VoicePreface] = {}
     voice_prefaces_lock = threading.Lock()
+    voice_checkpoints = _VoiceCheckpoints()
     documents = SessionDocumentStore(ttl_s=runtime.session_log_ttl_s)
     repository_root = Path(os.environ.get("OMNI_REPO_ROOT") or ".").expanduser()
     default_delivery_roots = (
@@ -4424,6 +4463,9 @@ def create_app(
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
         requested_checkpoint = payload.pop("portal_voice_checkpoint", False) is True
+        checkpoint_group = payload.pop("portal_voice_checkpoint_group", None)
+        requested_checkpoints = payload.pop("portal_voice_checkpoints", None)
+        payload.pop("_omni_checkpoint_observation", None)
         requested_preface = payload.pop("portal_voice_preface", False) is True
         requested_auto_reasoning = payload.pop("portal_voice_auto_reasoning", False) is True
         requested_live_synthesis = payload.pop("portal_live_synthesis", False) is True
@@ -4475,6 +4517,24 @@ def create_app(
             return jsonify({"error": "stream endpoint requires stream=true"}), 400
         session_id = request_session_id()
         voice_owner = tool_harness.can_read_conversation_history(session_id)
+        accepted_checkpoint = None
+        if requested_checkpoints is not None:
+            if not voice_owner or not live_turn or internal_background or detached_turn:
+                return jsonify({"error": "checkpoint reuse requires a live owner session"}), 403
+            group = requested_checkpoints.get("group") if isinstance(requested_checkpoints, dict) else None
+            receipts = requested_checkpoints.get("receipts") if isinstance(requested_checkpoints, dict) else None
+            if (not isinstance(group, str) or not re.fullmatch(r"[a-f0-9]{32}", group)
+                    or not isinstance(receipts, list) or not 1 <= len(receipts) <= 64
+                    or any(not isinstance(part, str) or not re.fullmatch(r"[A-Za-z0-9_-]{24}", part) for part in receipts)
+                    or len(set(receipts)) != len(receipts)):
+                return jsonify({"error": "invalid voice checkpoint selection"}), 400
+            accepted_checkpoint = voice_checkpoints.resolve(session_id, group, receipts)
+            if accepted_checkpoint is None:
+                return jsonify({"error": "voice checkpoints expired or do not belong to this turn"}), 409
+            if not raw_messages or not isinstance(raw_messages[-1], dict) or raw_messages[-1].get("role") != "user" or raw_messages[-1].get("audios"):
+                return jsonify({"error": "checkpoint reuse requires a user turn without an audio attachment"}), 400
+            raw_messages[-1]["content"] = accepted_checkpoint[0]
+            payload["messages"] = copy.deepcopy(raw_messages)
         voice_auto_reasoning = (
             requested_auto_reasoning and live_turn and not internal_background
             and "think" not in payload
@@ -4490,6 +4550,9 @@ def create_app(
             else {}
         )
         initial_headers = dict(speech_headers)
+        if accepted_checkpoint is not None:
+            payload["_omni_checkpoint_observation"] = list(accepted_checkpoint)
+            initial_headers["X-Omni-Accepted-Voice"] = "1"
         if voice_auto_reasoning:
             initial_headers["X-Omni-Voice-Reasoning"] = (
                 "native" if voice_owner and voice_preface_enabled else "fast"
@@ -4504,10 +4567,15 @@ def create_app(
         request_id = secrets.token_urlsafe(9)
         started = time.monotonic()
         diagnostic_fields = _request_diagnostic_fields(payload)
+        if accepted_checkpoint is not None:
+            diagnostic_fields["has_audio_input"] = True
         voice_checkpoint = (requested_checkpoint and diagnostic_fields.get("task") == "transcribe"
                             and tool_harness.can_read_conversation_history(session_id))
         if voice_checkpoint:
             diagnostic_fields["voice_checkpoint"] = True
+        issue_checkpoint = (voice_checkpoint and diagnostic_fields.get("has_audio_input") is True
+                            and isinstance(checkpoint_group, str)
+                            and re.fullmatch(r"[a-f0-9]{32}", checkpoint_group))
         diagnostic_fields["tools_requested"] = auto_tools
         diagnostic_media_ids = _request_media_digests(payload)
         try:
@@ -4926,7 +4994,8 @@ def create_app(
                                     "POST",
                                     runtime.adapter_url.rstrip("/") + "/stream",
                                     json=current_payload,
-                                    headers=speech_headers,
+                                    headers=(initial_headers if accepted_checkpoint is not None
+                                             and round_index == 0 and not fast_acknowledged else speech_headers),
                                 )
                                 current_upstream = session.send(
                                     retry_request, stream=True
@@ -5082,6 +5151,15 @@ def create_app(
                         }
                         if allowed_tools is not None:
                             final_response["portal"]["tool_allowlist"] = sorted(allowed_tools)
+                        if issue_checkpoint:
+                            evidence = final_response.get("adapter")
+                            if isinstance(evidence, Mapping):
+                                heard = evidence.get("input_transcript")
+                                sound = evidence.get("audio_observation")
+                                if isinstance(heard, str) and 0 < len(heard) <= 8_000 and not any(ch in heard for ch in "<>"):
+                                    final_response["portal"]["voice_checkpoint_receipt"] = voice_checkpoints.record(
+                                        session_id, checkpoint_group, heard, sound if isinstance(sound, str) else "",
+                                    )
                         yield event_bytes({"type": "final", "response": final_response})
                         return
                     if not recovery_retry and round_tools:
@@ -5104,6 +5182,7 @@ def create_app(
                             }
                         )
                     current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
+                    current_payload.pop("_omni_checkpoint_observation", None)
                     if voice_auto_reasoning and round_index:
                         # Once a typed receipt closes the tool phase, spend the
                         # remaining turn on a spoken answer from that evidence.

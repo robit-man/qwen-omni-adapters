@@ -559,6 +559,12 @@ answer can finish in that pass. When the turn needs further work, the harness
 plays the model's request-specific acknowledgment before the portal opens a
 reasoning-enabled follow-up. A confirmed interruption closes the old live HTTP
 stream so the next local utterance can proceed.
+Set `OMNI_CALL_REUSE_CHECKPOINTS=1` to trial reuse of accepted partial
+transcripts during long native turns. The same audio bridge transcribes only
+the remaining tail. The portal accepts short-lived receipts scoped to the
+authenticated device-owner session and the current utterance. The reasoning
+pass gets the ordered words as one request without attaching the recording a
+second time. If the portal lost the receipts, the harness uses its audio path.
 Set `OMNI_CALL_FAST_BARGE_IN=1` to trial a 40 ms tentative playback fade when
 the local ReSpeaker corroborates the software voice detector. Transcript
 verification still decides whether to yield or resume. With uncertain array

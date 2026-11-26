@@ -2469,6 +2469,7 @@ def _finish_response(
     suppress_tts: bool = False,
     suppress_tts_reason: str | None = None,
     speech_addressee: str | None = None,
+    checkpoint_audio: bool = False,
 ) -> dict[str, Any]:
     message = result.get("message")
     if not isinstance(message, dict):
@@ -2507,15 +2508,18 @@ def _finish_response(
         message["audio"] = encode_audio_response(wav, transcript=assistant_text)
         executed.append("tts")
 
+    modalities = list(parsed.input_modalities)
+    if checkpoint_audio and "audio" not in modalities:
+        modalities.insert(1 if modalities and modalities[0] == "text" else 0, "audio")
     result["adapter"] = {
         "schema": ADAPTER_SCHEMA,
         "task": parsed.task,
         "route": executed,
-        "input_modalities": list(parsed.input_modalities),
+        "input_modalities": modalities,
         "evidence_provenance": {
             "current_media_modalities": [
                 kind
-                for kind in parsed.input_modalities
+                for kind in modalities
                 if kind in {"audio", "image", "video"}
             ],
             "current_visual_input": any(
@@ -2839,6 +2843,7 @@ def execute_stream(
     choose_reply_depth: bool = False,
     fast_recognize: Callable[[bytes], str] | None = None,
     compact_native_voice: bool = False,
+    accepted_voice: tuple[str, str] | None = None,
     stream_pcm_only: bool = False,
     disconnected: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
@@ -2869,19 +2874,27 @@ def execute_stream(
             evidence_provenance={"current_media_modalities": ["audio"], "current_visual_input": False,
                                  "tool_data_is_visual_input": False, "prior_dialogue_is_current_observation": False})
 
-    if fast_reply is None and "comprehension" in parsed.route:
-        if observation is None:
+    needs_media = "comprehension" in parsed.route
+    if fast_reply is None and (needs_media or accepted_voice is not None):
+        if observation is None and needs_media:
             _require_comprehension(config)
             yield _stream_event("stage", stage="comprehension")
             observation = _comprehend(parsed, config, client)
             if disconnected is not None and disconnected():
                 return
-        executed.append("comprehension")
-        auto_depth = choose_reply_depth and parsed.input_modalities == ("text", "audio")
+        if needs_media:
+            executed.append("comprehension")
+        if accepted_voice is not None:
+            words, sound = accepted_voice
+            observation = f"<speech_transcript>{words}</speech_transcript>\n" + (observation or "")
+            if sound and not any(ch in sound for ch in "<>"):
+                observation += f"\n<audio_observation>{sound}</audio_observation>"
+        audio_only = parsed.input_modalities == ("text", "audio") or (accepted_voice is not None and not needs_media)
+        auto_depth = choose_reply_depth and audio_only
         transcript = _observation_transcript(observation)
         if (compact_native_voice and config.inkling_native_reasoning and transcript
                 and _is_live_spoken_turn(parsed) and not _thinking_requested(parsed)
-                and parsed.input_modalities == ("text", "audio")):
+                and audio_only):
             plan = _plan_fast_voice_reply(parsed, config, client, transcript, native=True)
             if disconnected is not None and disconnected():
                 return
@@ -2901,9 +2914,12 @@ def execute_stream(
         if live_route is not None:
             speech_addressee = live_route.addressee
         transcript = _observation_transcript(observation)
+        current_modalities = [kind for kind in parsed.input_modalities if kind in {"audio", "image", "video"}]
+        if accepted_voice is not None and "audio" not in current_modalities:
+            current_modalities.insert(0, "audio")
         values: dict[str, Any] = {"content": observation,
             "evidence_provenance": {
-                "current_media_modalities": [kind for kind in parsed.input_modalities if kind in {"audio", "image", "video"}],
+                "current_media_modalities": current_modalities,
                 "current_visual_input": any(kind in {"image", "video"} for kind in parsed.input_modalities),
                 "tool_data_is_visual_input": False, "prior_dialogue_is_current_observation": False},
             "speech_addressee": speech_addressee}
@@ -2927,6 +2943,7 @@ def execute_stream(
                 observation=observation,
                 executed=executed,
                 suppress_tts=True,
+                checkpoint_audio=accepted_voice is not None,
             )
             yield _stream_event("final", response=result)
             return
@@ -2942,6 +2959,7 @@ def execute_stream(
                 executed=executed,
                 suppress_tts_reason=not_your_turn,
                 speech_addressee=speech_addressee,
+                checkpoint_audio=accepted_voice is not None,
             )
             yield _stream_event("final", response=result)
             return
@@ -2960,6 +2978,7 @@ def execute_stream(
             result = _finish_response(
                 result, parsed, config, client, observation=observation, executed=executed,
                 suppress_tts=True, speech_addressee=speech_addressee,
+                checkpoint_audio=accepted_voice is not None,
             )
             result["adapter"]["fast_voice_followup"] = True
             yield _stream_event("final", response=result)
@@ -3251,6 +3270,7 @@ def execute_stream(
         text_streamed=True,
         audio_streamed=audio_streamed,
         speech_addressee=speech_addressee,
+        checkpoint_audio=accepted_voice is not None,
     )
     if tts_block_count:
         result["adapter"]["tts_blocks"] = tts_block_count
@@ -3399,7 +3419,16 @@ def create_app(
                 raise OmniAdapterError("stream endpoint requires stream=true")
             normalized = dict(body)
             normalized["stream"] = False
+            checkpoint = normalized.pop("_omni_checkpoint_observation", None)
             parsed = parse_adapter_request(normalized)
+            accepted_voice = None
+            if request.headers.get("X-Omni-Accepted-Voice") == "1":
+                if (not _is_live_spoken_turn(parsed) or "audio" in parsed.input_modalities
+                        or not isinstance(checkpoint, list) or len(checkpoint) != 2
+                        or any(not isinstance(value, str) for value in checkpoint)
+                        or not checkpoint[0].strip() or any(ch in checkpoint[0] for ch in "<>")):
+                    raise OmniAdapterError("invalid accepted voice evidence")
+                accepted_voice = (checkpoint[0], checkpoint[1])
             voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
             compact_voice = voice_routing == "native" and runtime_config.compact_native_voice
             stream_pcm_only = request.headers.get("X-Omni-Live-PCM-Only") == "1"
@@ -3417,6 +3446,7 @@ def create_app(
                     choose_reply_depth=voice_routing == "auto",
                     fast_recognize=recognizer if voice_routing in {"fast", "native"} and not compact_voice else None,
                     compact_native_voice=compact_voice,
+                    accepted_voice=accepted_voice,
                     stream_pcm_only=stream_pcm_only,
                     disconnected=disconnected,
                 )

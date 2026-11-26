@@ -415,6 +415,33 @@ def test_continued_turn_preserves_earlier_transcript_and_live_routing(monkeypatc
         call.close()
 
 
+def test_checkpoint_turn_sends_only_the_unrecognized_tail_to_asr(monkeypatch) -> None:
+    call = CallSession(CallConfig(token="t", model="m", reuse_speech_checkpoints=True))
+    tail = tone(0.1)
+    group = "a" * 32
+    payloads = []
+    probes = []
+
+    def recognize(samples, **options):
+        probes.append((samples, options))
+        return TurnResult(transcript="add one", checkpoint_receipt="tail-receipt")
+
+    monkeypatch.setattr(call, "comprehend_interruption", recognize)
+    monkeypatch.setattr(call, "_run", lambda payload: payloads.append(payload)
+                        or TurnResult(transcript="start with three add one", reply="Four."))
+    try:
+        result = call._take_turn(tail, transcript_prefix=("start with three",), transcript_audio=tone(0.2),
+                                 checkpoint_group=group, checkpoint_receipts=("first-receipt",))
+        assert len(probes) == 1 and probes[0][0] is tail
+        assert probes[0][1] == {"checkpoint": True, "checkpoint_group": group}
+        assert len(payloads) == 1
+        assert payloads[0]["portal_voice_checkpoints"] == {"group": group, "receipts": ["first-receipt", "tail-receipt"]}
+        assert all("audios" not in message for message in payloads[0]["messages"])
+        assert result.transcript == "start with three add one"
+    finally:
+        call.close()
+
+
 def test_the_noise_floor_rises_with_a_noisy_room() -> None:
     """Otherwise a fan becomes a permanent speaker."""
 
