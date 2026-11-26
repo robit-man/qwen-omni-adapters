@@ -2221,6 +2221,60 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     assert events[0]["response"]["message"]["content"] == "I hear you."
 
 
+def test_fast_read_uses_one_authorized_tool_then_only_its_receipt(monkeypatch):
+    calls = []
+    requests = []
+    transcript = "What time is it where you are?"
+
+    def execute(_self, _session_id, name, arguments, **_kwargs):
+        calls.append((name, arguments))
+        return {"time": "2026-11-26T06:34:00+00:00"}
+
+    monkeypatch.setattr(PortalToolHarness, "execute", execute)
+
+    def respond(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            message = {"content": "<action_ack>I'll check the clock.</action_ack>", "tool_calls": [{
+                "id": "call_clock", "type": "function",
+                "function": {"name": "get_current_time", "arguments": {}},
+            }]}
+            adapter = {"fast_voice_read_tool": "get_current_time", "input_transcript": transcript}
+        else:
+            assert [message["role"] for message in body["messages"]] == ["system", "user", "assistant", "tool"]
+            assert body["messages"][1]["content"] == transcript
+            assert json.loads(body["messages"][-1]["content"])["time"].startswith("2026-11-26T06:34")
+            assert "tools" not in body and body["tool_choice"] == "none" and body["think"] is False
+            message, adapter = {"content": "It's 6:34 a.m."}, {}
+        return httpx.Response(200, text=json.dumps({
+            "type": "final", "response": {"message": message, "adapter": adapter},
+        }) + "\n")
+
+    client = create_app(_config(), httpx.Client(transport=httpx.MockTransport(respond))).test_client()
+    client.set_cookie("omni_portal_session", "browser-call-fixture-session")
+    headers = {"Authorization": "Bearer " + TOKEN}
+    payload = _request(
+        stream=True, portal_voice_auto_reasoning=True, portal_voice_preface=True,
+        portal_auto_tools=True, portal_tool_allowlist=["get_current_time"],
+        messages=[{"role": "user", "content": "Recording", "audios": ["fixture"]}],
+        omni={"schema": "robit.ollama.omni-adapter.v1", "require_speech": True},
+    )
+    payload.pop("think")
+    reply = client.post("/api/chat/stream", headers=headers, buffered=False, json=payload)
+    try:
+        preface = json.loads(next(reply.response))
+        assert preface["type"] == "voice_preface" and not calls
+        receipt = client.post("/api/voice/preface", headers=headers, json={"id": preface["id"], "played": True})
+        assert receipt.status_code == 204
+        events = [json.loads(line) for line in reply.response]
+    finally:
+        reply.close()
+    assert calls == [("get_current_time", {})]
+    assert len(requests) == 2
+    assert events[-1]["response"]["message"]["content"] == "It's 6:34 a.m."
+
+
 @pytest.mark.parametrize("enabled", [False, True])
 def test_browser_voice_warmup_requires_authentication_and_uses_memory_guard(monkeypatch, enabled):
     monkeypatch.setenv("OMNI_TTS_KEEP_WARM", "1" if enabled else "0")

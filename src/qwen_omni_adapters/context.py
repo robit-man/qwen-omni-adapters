@@ -17,6 +17,10 @@ from typing import Any
 
 CONTEXT_SCHEMA = "robit.omni.context.v1"
 CONTEXT_FILE_ENV = "OMNI_CONTEXT_FILE"
+# Argument-free reads eligible to complete a live spoken request in one tool round.
+LIVE_IMMEDIATE_READ_TOOLS = frozenset({
+    "get_current_time", "get_system_snapshot", "get_user_location", "get_portal_capabilities",
+})
 
 
 class ContextConfigError(RuntimeError):

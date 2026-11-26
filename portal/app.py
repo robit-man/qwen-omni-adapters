@@ -54,6 +54,7 @@ if __package__ in {None, ""}:
 from harness.camera import CameraSet
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 from qwen_omni_adapters.context import (
+    LIVE_IMMEDIATE_READ_TOOLS,
     context_text,
     live_call_system_prompt,
     retained_tool_names,
@@ -1766,6 +1767,34 @@ def _latest_concrete_tool_context(messages: list[Any]) -> str:
             continue
         return str(message.get("content") or "").strip()
     return ""
+
+
+def _compact_live_read_answer(
+    followup: dict[str, Any], adapter: object, executed: list[dict[str, Any]],
+) -> bool:
+    if not isinstance(adapter, Mapping) or len(executed) != 1:
+        return False
+    name = adapter.get("fast_voice_read_tool")
+    transcript = adapter.get("input_transcript")
+    completed = executed[0]
+    if (not isinstance(name, str) or name not in LIVE_IMMEDIATE_READ_TOOLS
+            or name != completed["name"] or not completed["ok"]
+            or not isinstance(transcript, str) or not transcript.strip()):
+        return False
+    messages = followup["messages"]
+    if [message.get("role") for message in messages[-2:]] != ["assistant", "tool"]:
+        return False
+    followup["messages"] = [
+        {"role": "system", "content": (
+            "Use the real tool result to answer the spoken question in one short sentence. "
+            "Respond in the speaker's language. If the result lacks the answer, say so."
+        )},
+        {"role": "user", "content": transcript},
+        *messages[-2:],
+    ]
+    followup.pop("tools", None)
+    followup["tool_choice"] = "none"
+    return True
 
 
 def _tool_followup(
@@ -5100,20 +5129,26 @@ def create_app(
                             }
                         )
                     current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
+                    compact_read = voice_auto_reasoning and round_index == 1 and _compact_live_read_answer(
+                        current_payload, adapter_result, round_tools,
+                    )
                     if voice_auto_reasoning and round_index:
                         # Once a typed receipt closes the tool phase, spend the
                         # remaining turn on a spoken answer from that evidence.
                         current_payload["think"] = current_payload.get("tool_choice") != "none"
-                    _repacked, repack_summary = safe_repack_virtual_followup(
-                        current_payload,
-                        session_id,
-                        query=virtual_query,
-                        system_contract=(virtual_contract + "\n\n" + _malformed_tool_retry_directive(current_payload)
-                                         if format_retry else virtual_contract),
-                        internal_background=internal_background,
-                        virtual_session_id=virtual_session_id,
-                    )
-                    virtual_summary.update(repack_summary)
+                    if compact_read:
+                        virtual_summary["compact_live_read"] = True
+                    else:
+                        _repacked, repack_summary = safe_repack_virtual_followup(
+                            current_payload,
+                            session_id,
+                            query=virtual_query,
+                            system_contract=(virtual_contract + "\n\n" + _malformed_tool_retry_directive(current_payload)
+                                             if format_retry else virtual_contract),
+                            internal_background=internal_background,
+                            virtual_session_id=virtual_session_id,
+                        )
+                        virtual_summary.update(repack_summary)
                     stream_retries = 0
                     try:
                         next_request = session.build_request(

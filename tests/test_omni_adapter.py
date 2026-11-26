@@ -3504,6 +3504,34 @@ def test_failed_spoken_planner_reuses_confident_transcript_and_keeps_addressee_g
     assert events[-1]["response"]["message"]["content"] == ("" if addressee == "OTHER" else "I can check that.")
 
 
+def test_fast_spoken_planner_can_request_one_allowed_argument_free_read():
+    tools = [
+        {"type": "function", "function": {"name": "get_current_time", "description": "Read host time."}},
+        {"type": "function", "function": {"name": "memory_write", "description": "Store a note."}},
+    ]
+    turn = dataclasses.replace(_live_spoken_request(), tool_routing="relevant", passthrough={"tools": tools})
+
+    def respond(request):
+        payload = json.loads(request.content)
+        schema = payload["response_format"]["json_schema"]["schema"]
+        assert schema["properties"]["route"]["enum"] == ["reply", "check", "quiet", "get_current_time"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
+            "route": "get_current_time", "speech": "I'll look at the clock.",
+        })}}]})
+
+    config = _adapter_config(language_api="openai", inkling_native_reasoning=True)
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        events = [json.loads(line) for line in execute_stream(
+            turn, config, client, fast_recognize=lambda _: "What is your local time?",
+        )]
+    final = events[-1]["response"]
+    assert final["adapter"]["fast_voice_read_tool"] == "get_current_time"
+    message = final["message"]
+    assert message["content"] == "<action_ack>I'll look at the clock.</action_ack>"
+    assert message["tool_calls"][0]["function"] == {"name": "get_current_time", "arguments": {}}
+    assert "audio" not in message
+
+
 def test_live_spoken_turn_carries_the_words_without_describing_the_voice() -> None:
     observation = (
         "<speech_transcript>Hey mickey, kick ass.</speech_transcript>"

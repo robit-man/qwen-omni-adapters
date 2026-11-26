@@ -577,6 +577,10 @@ references, other locales, and ordinary synthesis use Qwen3-TTS. Check
 `live_cpu_ready` in the loopback TTS `/healthz` response after startup.
 The browser receives small PCM packets and builds its local replay WAV from
 those packets, keeping call playback and replay on one transfer.
+For an enabled argument-free host read, the fast planner can choose the
+concrete tool in its first pass. The portal still gates dispatch on playback
+and the tool allowlist. A successful read gets a compact answer prompt with
+the accepted transcript and its actual tool receipt.
 
 OCR, transcripts, captions, subtitles, and scene text cannot change system or
 tool instructions. A learned dense bridge would be a new trained architecture

@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -43,6 +44,7 @@ from qwen_omni_adapters.audio import (
     encode_audio_response,
 )
 from qwen_omni_adapters.context import (
+    LIVE_IMMEDIATE_READ_TOOLS,
     configured_tool_families,
     context_text,
     retained_tool_names,
@@ -2657,17 +2659,35 @@ class _FastVoiceReply:
     transcript: str
     speech: str | None = None
     followup: bool = False
+    tool: str | None = None
 
 
 _FAST_VOICE_SCHEMA = {
     "type": "object",
     "properties": {
         "route": {"type": "string", "enum": ["reply", "check", "quiet"]},
-        "speech": {"type": "string"},
+        "speech": {"type": "string", "maxLength": 120},
     },
     "required": ["route", "speech"],
     "additionalProperties": False,
 }
+
+
+def _fast_voice_read_tools(parsed: ParsedAdapterRequest) -> dict[str, str]:
+    if parsed.tool_routing != "relevant" or parsed.passthrough.get("tool_choice") not in (None, "auto"):
+        return {}
+    tools = parsed.passthrough.get("tools")
+    if not isinstance(tools, list):
+        return {}
+    selected = {}
+    for tool in tools:
+        function = tool.get("function") if isinstance(tool, Mapping) else None
+        if not isinstance(function, Mapping):
+            continue
+        name = function.get("name")
+        if isinstance(name, str) and name in LIVE_IMMEDIATE_READ_TOOLS:
+            selected[name] = str(function.get("description") or "")[:180]
+    return selected
 
 
 def _inkling_thinking_token(config: Config, client: httpx.Client) -> int | None:
@@ -2699,6 +2719,18 @@ def _fast_voice_reply(
     if not transcript or any(ch in transcript for ch in "<>"):
         return None
     transcript_only = _FastVoiceReply(transcript)
+    read_tools = _fast_voice_read_tools(parsed)
+    schema = {
+        **_FAST_VOICE_SCHEMA,
+        "properties": {**_FAST_VOICE_SCHEMA["properties"], "route": {
+            "type": "string", "enum": ["reply", "check", "quiet", *read_tools],
+        }},
+    }
+    read_contract = (
+        " If exactly one of these reads can answer the whole question, choose its route: "
+        + "; ".join(f"{name}: {description}" for name, description in read_tools.items())
+        if read_tools else ""
+    )
     try:
         recent = [
             {"role": message.role, "content": message.content[:160]}
@@ -2709,17 +2741,18 @@ def _fast_voice_reply(
             "model": config.language_model or parsed.model,
             "messages": [
                 {"role": "system", "content": (
-                    f"You are {runtime_agent_name()} in a live conversation. Give one short natural sentence. "
+                    f"You are {runtime_agent_name()} in a live conversation. Use at most 12 spoken words. "
                     "Use reply to answer from current evidence or recent dialogue. Use check for actions, retrieval, "
-                    "or deeper analysis. For check, say what you will do without claiming success. "
+                    "or deeper analysis. For check or a read, state only the next step. "
                     "Use quiet when someone else is addressed or the speaker is thinking aloud."
+                    + read_contract
                 )},
                 *recent, {"role": "user", "content": transcript},
             ],
             "reasoning_effort": "none", "reasoning_budget_tokens": 0,
             "max_tokens": 64, "temperature": 0, "stream": False, "cache_prompt": False,
             "response_format": {"type": "json_schema", "json_schema": {
-                "name": "spoken_turn", "strict": True, "schema": _FAST_VOICE_SCHEMA,
+                "name": "spoken_turn", "strict": True, "schema": schema,
             }},
         }
         if config.inkling_thinking_token is not None:
@@ -2734,7 +2767,7 @@ def _fast_voice_reply(
     route = reply.get("route")
     if route == "quiet" and not parsed.live_engaged:
         return _FastVoiceReply(transcript, "", False)
-    if route not in {"reply", "check"}:
+    if not isinstance(route, str) or route not in {"reply", "check", *read_tools}:
         return transcript_only
     speech = reply.get("speech")
     if not isinstance(speech, str):
@@ -2742,7 +2775,7 @@ def _fast_voice_reply(
     speech = " ".join(speech.split())
     if not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
         return transcript_only
-    return _FastVoiceReply(transcript, speech, route == "check")
+    return _FastVoiceReply(transcript, speech, route == "check", route if route in read_tools else None)
 
 
 def execute_stream(
@@ -2787,12 +2820,21 @@ def execute_stream(
             evidence_provenance={"current_media_modalities": ["audio"], "current_visual_input": False,
                                  "tool_data_is_visual_input": False, "prior_dialogue_is_current_observation": False})
         yield _stream_event("stage", stage="language")
-        if fast_reply.followup:
+        if fast_reply.followup or fast_reply.tool:
+            direct = _direct_response(parsed.model, fast_reply.speech)
+            if fast_reply.tool:
+                direct["message"]["content"] = f"<action_ack>{fast_reply.speech}</action_ack>"
+                direct["message"]["tool_calls"] = [{"id": "call_" + secrets.token_hex(8), "type": "function", "function": {
+                    "name": fast_reply.tool, "arguments": {},
+                }}]
             result = _finish_response(
-                _direct_response(parsed.model, fast_reply.speech), parsed, config, client,
+                direct, parsed, config, client,
                 observation=observation, executed=executed, suppress_tts=True,
             )
-            result["adapter"]["fast_voice_followup"] = True
+            if fast_reply.tool:
+                result["adapter"]["fast_voice_read_tool"] = fast_reply.tool
+            else:
+                result["adapter"]["fast_voice_followup"] = True
             yield _stream_event("final", response=result)
             return
 
