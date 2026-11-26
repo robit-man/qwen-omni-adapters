@@ -2176,7 +2176,8 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
 
     def respond(request):
         requests.append(json.loads(request.content))
-        assert request.headers.get("X-Omni-Voice-Reasoning") == ("fast" if len(requests) == 1 else None)
+        initial_mode = "native" if owner else "fast"
+        assert request.headers.get("X-Omni-Voice-Reasoning") == (initial_mode if len(requests) == 1 else None)
         assert request.headers["X-Omni-Live-PCM-Only"] == "1"
         assert "portal_live_pcm_only" not in requests[-1]
         response = {"message": {"role": "assistant", "content": "I hear you."}}

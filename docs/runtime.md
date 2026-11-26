@@ -558,6 +558,12 @@ reasoning-enabled follow-up. A confirmed interruption closes the old live HTTP
 stream so the next local utterance can proceed.
 Inkling's live pipeline uses the installed Omni package's audio bridge for
 speech recognition and its native language weights for replies.
+Set `OMNI_INKLING_COMPACT_VOICE=1` to trial the compact first reply for the
+authenticated native voice owner in automatic reasoning mode. It uses the
+bundled transcript and a no-thinking, text-only decision capped at 500 rendered
+tokens. The existing route handles over-budget or failed decisions. A request
+requiring further work uses the existing playback receipt before continuing
+with the full context and tools. The option defaults to off.
 `OMNI_TTS_KEEP_WARM=1` allows prewarming at speech onset and retaining the
 streaming graph while memory permits. Long follow-up work can release it.
 

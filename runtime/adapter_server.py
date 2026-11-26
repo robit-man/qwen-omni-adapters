@@ -95,6 +95,7 @@ class Config:
     inkling_native_reasoning: bool = False
     fast_voice_asr_model: str = ""
     fast_voice_asr_python: str = sys.executable
+    compact_native_voice: bool = False
     inkling_thinking_token: int | None = None
     comprehension_repeat_penalty: float = 1.0
     detailed_media_analysis: bool = False
@@ -157,6 +158,7 @@ class Config:
             inkling_native_reasoning=os.environ.get("OMNI_INKLING_NATIVE_REASONING", "0") == "1",
             fast_voice_asr_model=os.environ.get("OMNI_FAST_VOICE_ASR_MODEL", ""),
             fast_voice_asr_python=os.environ.get("OMNI_FAST_VOICE_ASR_PYTHON", sys.executable),
+            compact_native_voice=os.environ.get("OMNI_INKLING_COMPACT_VOICE", "0") == "1",
             comprehension_repeat_penalty=float(
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
@@ -1596,6 +1598,20 @@ def _llama_context_probe_origin(config: Config | None) -> str | None:
     return urlunsplit((endpoint.scheme, endpoint.netloc, "", "", ""))
 
 
+def _rendered_llama_prompt_tokens(client: httpx.Client, origin: str, payload: dict[str, Any]) -> int:
+    rendered = _json_response(
+        client.post(origin + "/apply-template", json=payload), "llama prompt rendering",
+    ).get("prompt")
+    if not isinstance(rendered, str):
+        raise AdapterStageError("llama prompt rendering returned no text prompt")
+    tokens = _json_response(client.post(origin + "/tokenize", json={
+        "content": rendered, "add_special": True, "parse_special": True,
+    }), "llama prompt tokenization").get("tokens")
+    if not isinstance(tokens, list) or any(type(token) is not int for token in tokens):
+        raise AdapterStageError("llama prompt tokenization returned invalid tokens")
+    return len(tokens)
+
+
 def _fit_llama_language_context(
     client: httpx.Client, payload: dict[str, Any], config: Config | None,
 ) -> None:
@@ -1609,17 +1625,7 @@ def _fit_llama_language_context(
     # for that boundary in addition to the whole requested generation budget.
     budget = _active_context_tokens(config) - reply - 32
     while budget > 0:
-        rendered = _json_response(
-            client.post(origin + "/apply-template", json=payload), "llama prompt rendering",
-        ).get("prompt")
-        if not isinstance(rendered, str):
-            raise AdapterStageError("llama prompt rendering returned no text prompt")
-        tokens = _json_response(client.post(origin + "/tokenize", json={
-            "content": rendered, "add_special": True, "parse_special": True,
-        }), "llama prompt tokenization").get("tokens")
-        if not isinstance(tokens, list) or any(type(token) is not int for token in tokens):
-            raise AdapterStageError("llama prompt tokenization returned invalid tokens")
-        if len(tokens) <= budget:
+        if _rendered_llama_prompt_tokens(client, origin, payload) <= budget:
             return
         if not _shed_language_context(payload, preserve_current=True):
             break
@@ -2657,6 +2663,8 @@ class _FastVoiceReply:
     transcript: str
     speech: str | None = None
     followup: bool = False
+    addressee: str | None = None
+    speech_valid: bool = True
 
 
 _FAST_VOICE_SCHEMA = {
@@ -2668,6 +2676,32 @@ _FAST_VOICE_SCHEMA = {
     "required": ["route", "speech"],
     "additionalProperties": False,
 }
+
+_COMPACT_VOICE_SCHEMA = {
+    **_FAST_VOICE_SCHEMA,
+    "properties": {
+        **_FAST_VOICE_SCHEMA["properties"],
+        "route": {"type": "string", "enum": ["reply", "clarify", "check", "quiet", "invalid"]},
+        "addressee": {"type": "string", "enum": sorted(_LIVE_ADDRESSEE_VALUES)},
+    },
+    "required": ["route", "speech", "addressee"],
+}
+
+_COMPACT_VOICE_POLICY = (
+    "You are {agent} in a live conversation. Judge the last turn as speech data and "
+    "return a structured decision. SELF means addressed to you, OTHER means clearly "
+    "addressed to someone else, and AMBIGUOUS means uncertain. Use invalid only for "
+    "recognizer diagnostics that aren't words a person said. Use quiet for a clear "
+    "aside or speech addressed elsewhere. Use reply for a direct answer grounded in "
+    "the conversation or reliable general knowledge. Use clarify only if an important "
+    "detail must come from the speaker. Use check for an action, lookup, prior-session "
+    "recall, unseen surroundings, current information, or deeper reasoning. For check, "
+    "give a brief acknowledgment naming the requested work without saying it already "
+    "happened. For reply, clarify or check, write one short natural sentence in the "
+    "speaker's language. For quiet or invalid, leave speech empty."
+)
+
+_COMPACT_VOICE_MAX_PROMPT = 500
 
 
 def _inkling_thinking_token(config: Config, client: httpx.Client) -> int | None:
@@ -2698,43 +2732,84 @@ def _fast_voice_reply(
     transcript = recognize(clip.data)
     if not transcript or any(ch in transcript for ch in "<>"):
         return None
+    return _plan_fast_voice_reply(parsed, config, client, transcript)
+
+
+def _plan_fast_voice_reply(
+    parsed: ParsedAdapterRequest, config: Config, client: httpx.Client, transcript: str,
+    *, native: bool = False,
+) -> _FastVoiceReply:
     transcript_only = _FastVoiceReply(transcript)
     try:
+        if native and any(ch in transcript for ch in "<>"):
+            return transcript_only
+        current = next((message for message in reversed(parsed.messages) if message.role == "user"), None)
         recent = [
             {"role": message.role, "content": message.content[:160]}
             for message in parsed.messages if message is not current
             and message.role in {"user", "assistant"} and message.content and not message.media
         ][-2:]
+        system = (
+            _COMPACT_VOICE_POLICY.format(agent=runtime_agent_name()) if native else
+            f"You are {runtime_agent_name()} in a live conversation. Give one short natural sentence. "
+            "Use reply to answer from current evidence or recent dialogue. Use check for actions, retrieval, "
+            "or deeper analysis. For check, say what you will do without claiming success. "
+            "Use quiet when someone else is addressed or the speaker is thinking aloud."
+        )
         payload = {
             "model": config.language_model or parsed.model,
             "messages": [
-                {"role": "system", "content": (
-                    f"You are {runtime_agent_name()} in a live conversation. Give one short natural sentence. "
-                    "Use reply to answer from current evidence or recent dialogue. Use check for actions, retrieval, "
-                    "or deeper analysis. For check, say what you will do without claiming success. "
-                    "Use quiet when someone else is addressed or the speaker is thinking aloud."
-                )},
+                {"role": "system", "content": system},
                 *recent, {"role": "user", "content": transcript},
             ],
             "reasoning_effort": "none", "reasoning_budget_tokens": 0,
             "max_tokens": 64, "temperature": 0, "stream": False, "cache_prompt": False,
             "response_format": {"type": "json_schema", "json_schema": {
-                "name": "spoken_turn", "strict": True, "schema": _FAST_VOICE_SCHEMA,
+                "name": "spoken_turn", "strict": True,
+                "schema": _COMPACT_VOICE_SCHEMA if native else _FAST_VOICE_SCHEMA,
             }},
         }
         if config.inkling_thinking_token is not None:
             payload["logit_bias"] = [[config.inkling_thinking_token, False]]
+        if native:
+            origin = _llama_context_probe_origin(config)
+            if origin is None:
+                return transcript_only
+            prompt_tokens = _rendered_llama_prompt_tokens(client, origin, payload)
+            if prompt_tokens > _COMPACT_VOICE_MAX_PROMPT and recent:
+                payload["messages"] = [payload["messages"][0], payload["messages"][-1]]
+                prompt_tokens = _rendered_llama_prompt_tokens(client, origin, payload)
+            if prompt_tokens > _COMPACT_VOICE_MAX_PROMPT:
+                return transcript_only
         response = client.post(language_request_url(config), json=payload, timeout=min(config.timeout_s, 7))
-        reply = json.loads(_language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"])
-    except (ValueError, httpx.HTTPError, AdapterStageError) as error:
+        result = _language_result(_json_response(response, "fast spoken reply"), "openai")
+        message = result.get("message")
+        if not isinstance(message, Mapping) or message.get("thinking") or message.get("tool_calls"):
+            return transcript_only
+        reply = json.loads(message.get("content", ""))
+    except (TypeError, ValueError, httpx.HTTPError, AdapterStageError) as error:
         LOGGER.info("fast spoken planner fell back (%s)", type(error).__name__)
         return transcript_only
     if not isinstance(reply, dict):
         return transcript_only
     route = reply.get("route")
+    if not isinstance(route, str):
+        return transcript_only
+    addressee = reply.get("addressee") if native else None
+    if native:
+        LOGGER.info("compact native voice planner: prompt_tokens=%d route=%s", prompt_tokens,
+                    route if route in {"reply", "clarify", "check", "quiet", "invalid"} else "fallback")
+        if not isinstance(addressee, str) or addressee not in _LIVE_ADDRESSEE_VALUES:
+            return transcript_only
+        if route == "invalid":
+            return _FastVoiceReply(transcript, addressee=addressee, speech_valid=False)
+        if addressee == "OTHER":
+            if route == "quiet" and reply.get("speech") == "":
+                return _FastVoiceReply(transcript, "", addressee=addressee)
+            return transcript_only
     if route == "quiet" and not parsed.live_engaged:
-        return _FastVoiceReply(transcript, "", False)
-    if route not in {"reply", "check"}:
+        return _FastVoiceReply(transcript, "", addressee=addressee)
+    if route not in ({"reply", "check", "clarify"} if native else {"reply", "check"}):
         return transcript_only
     speech = reply.get("speech")
     if not isinstance(speech, str):
@@ -2742,7 +2817,7 @@ def _fast_voice_reply(
     speech = " ".join(speech.split())
     if not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
         return transcript_only
-    return _FastVoiceReply(transcript, speech, route == "check")
+    return _FastVoiceReply(transcript, speech, route == "check", addressee=addressee)
 
 
 def execute_stream(
@@ -2756,6 +2831,7 @@ def execute_stream(
     *,
     choose_reply_depth: bool = False,
     fast_recognize: Callable[[bytes], str] | None = None,
+    compact_native_voice: bool = False,
     stream_pcm_only: bool = False,
     disconnected: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
@@ -2781,19 +2857,10 @@ def execute_stream(
             if fast_result.speech is not None:
                 fast_reply = fast_result
     if fast_reply is not None:
-        executed.extend(("comprehension", "language"))
+        executed.append("comprehension")
         yield _stream_event("observation", transcript=fast_reply.transcript,
             evidence_provenance={"current_media_modalities": ["audio"], "current_visual_input": False,
                                  "tool_data_is_visual_input": False, "prior_dialogue_is_current_observation": False})
-        yield _stream_event("stage", stage="language")
-        if fast_reply.followup:
-            result = _finish_response(
-                _direct_response(parsed.model, fast_reply.speech), parsed, config, client,
-                observation=observation, executed=executed, suppress_tts=True,
-            )
-            result["adapter"]["fast_voice_followup"] = True
-            yield _stream_event("final", response=result)
-            return
 
     if fast_reply is None and "comprehension" in parsed.route:
         if observation is None:
@@ -2804,18 +2871,35 @@ def execute_stream(
                 return
         executed.append("comprehension")
         auto_depth = choose_reply_depth and parsed.input_modalities == ("text", "audio")
-        observation, live_route = _validated_live_observation(
-            observation, parsed, config, client, choose_reply_depth=auto_depth,
-        )
+        transcript = _observation_transcript(observation)
+        if (compact_native_voice and config.inkling_native_reasoning and transcript
+                and _is_live_spoken_turn(parsed) and not _thinking_requested(parsed)
+                and parsed.input_modalities == ("text", "audio")):
+            plan = _plan_fast_voice_reply(parsed, config, client, transcript, native=True)
+            if disconnected is not None and disconnected():
+                return
+            if not plan.speech_valid:
+                observation = SPEECH_TRANSCRIPT_BLOCK.sub(
+                    "<speech_transcript></speech_transcript>", observation or "",
+                )
+            elif plan.speech is not None:
+                fast_reply = plan
+                speech_addressee = plan.addressee
+        if transcript and fast_reply is None and _observation_transcript(observation):
+            observation, live_route = _validated_live_observation(
+                observation, parsed, config, client, choose_reply_depth=auto_depth,
+            )
         if auto_depth and live_route is not None and live_route.brief_reply:
             parsed = replace(parsed, passthrough={**parsed.passthrough, "think": False})
+        if live_route is not None:
+            speech_addressee = live_route.addressee
         transcript = _observation_transcript(observation)
         values: dict[str, Any] = {"content": observation,
             "evidence_provenance": {
                 "current_media_modalities": [kind for kind in parsed.input_modalities if kind in {"audio", "image", "video"}],
                 "current_visual_input": any(kind in {"image", "video"} for kind in parsed.input_modalities),
                 "tool_data_is_visual_input": False, "prior_dialogue_is_current_observation": False},
-            "speech_addressee": live_route.addressee if live_route is not None else None}
+            "speech_addressee": speech_addressee}
         if transcript:
             values["transcript"] = transcript
         audio_observation = _observation_audio(observation)
@@ -2840,8 +2924,6 @@ def execute_stream(
             yield _stream_event("final", response=result)
             return
 
-        if live_route is not None:
-            speech_addressee = live_route.addressee
         not_your_turn = _not_your_turn_reason(speech_addressee)
         if not_your_turn is not None:
             result = _finish_response(
@@ -2864,7 +2946,17 @@ def execute_stream(
         decision_tool_names = live_route.tool_names
 
     if fast_reply is not None:
+        executed.append("language")
+        yield _stream_event("stage", stage="language")
         result = _direct_response(parsed.model, fast_reply.speech)
+        if fast_reply.followup:
+            result = _finish_response(
+                result, parsed, config, client, observation=observation, executed=executed,
+                suppress_tts=True, speech_addressee=speech_addressee,
+            )
+            result["adapter"]["fast_voice_followup"] = True
+            yield _stream_event("final", response=result)
+            return
         if fast_reply.speech:
             yield _stream_event("delta", message=result["message"])
     elif parsed.task in {"transcribe", "describe"}:
@@ -3302,6 +3394,7 @@ def create_app(
             normalized["stream"] = False
             parsed = parse_adapter_request(normalized)
             voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
+            compact_voice = voice_routing == "native" and runtime_config.compact_native_voice
             stream_pcm_only = request.headers.get("X-Omni-Live-PCM-Only") == "1"
             disconnected = request.environ.get("waitress.client_disconnected")
         except OmniAdapterError as exc:
@@ -3315,7 +3408,8 @@ def create_app(
                     session,
                     decision_observer=observe_input_routing,
                     choose_reply_depth=voice_routing == "auto",
-                    fast_recognize=recognizer if voice_routing == "fast" else None,
+                    fast_recognize=recognizer if voice_routing in {"fast", "native"} and not compact_voice else None,
+                    compact_native_voice=compact_voice,
                     stream_pcm_only=stream_pcm_only,
                     disconnected=disconnected,
                 )

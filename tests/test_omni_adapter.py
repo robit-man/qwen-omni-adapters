@@ -3411,7 +3411,7 @@ def test_inkling_bridge_routes_audio_and_language_with_native_effort(think) -> N
     assert retry["reasoning_budget_tokens"] == 0
 
 
-def _live_spoken_request() -> object:
+def _live_spoken_request(*, think: bool = True) -> object:
     return parse_adapter_request(
         _base_request(
             messages=[
@@ -3422,6 +3422,7 @@ def _live_spoken_request() -> object:
                 }
             ],
             omni={"schema": ADAPTER_SCHEMA, "task": "chat", "require_speech": True},
+            think=think,
         )
     )
 
@@ -3452,6 +3453,94 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
     assert requests[0]["messages"][-1]["content"] == "Egg, can you hear me?"
     assert events[-1]["response"]["message"]["content"] == ("" if mode == "quiet" else "I hear you.")
     assert events[-1]["response"]["adapter"].get("fast_voice_followup", False) is (mode == "check")
+
+
+@pytest.mark.parametrize(("route", "addressee", "text"), [
+    ("reply", "SELF", "Six plus seven is thirteen."),
+    ("clarify", "AMBIGUOUS", "Which case did you mean?"),
+    ("check", "SELF", "I'll look for what we decided after dinner."),
+    ("quiet", "OTHER", ""),
+    ("invalid", "AMBIGUOUS", ""),
+])
+def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addressee, text):
+    transcript = "Could you check what we decided after dinner?"
+    observation = f"<speech_transcript>{transcript}</speech_transcript><audio_observation>Keyboard.</audio_observation>"
+    requests = []
+
+    def respond(request):
+        payload = json.loads(request.content)
+        requests.append((request.url.path, payload))
+        if request.url.host == "comprehension":
+            assert payload["cache_prompt"] is False
+            assert any(part["type"] == "input_audio" for part in payload["messages"][-1]["content"])
+            return httpx.Response(200, json={"choices": [{"message": {"content": observation}}]})
+        if request.url.path == "/apply-template":
+            return httpx.Response(200, json={"prompt": "rendered compact turn"})
+        if request.url.path == "/tokenize":
+            return httpx.Response(200, json={"tokens": list(range(342))})
+        assert request.url.path == "/v1/chat/completions"
+        assert payload["messages"][-1] == {"role": "user", "content": transcript}
+        assert payload["reasoning_effort"] == "none" and payload["reasoning_budget_tokens"] == 0
+        assert payload["logit_bias"] == [[123, False]]
+        assert "tools" not in payload and payload["cache_prompt"] is False
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
+            "route": route, "addressee": addressee, "speech": text,
+        })}}]})
+
+    config = _adapter_config(
+        language_api="openai", language_url="http://127.0.0.1:8901/v1/chat/completions",
+        language_llama_context_probe=True, live_addressee_gate=True,
+        inkling_native_reasoning=True, inkling_thinking_token=123,
+    )
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        events = [json.loads(line) for line in execute_stream(
+            _live_spoken_request(think=False), config, client, compact_native_voice=True,
+        )]
+
+    assert [path for path, _ in requests] == [
+        "/v1/chat/completions", "/apply-template", "/tokenize", "/v1/chat/completions",
+    ]
+    heard = next(event for event in events if event["type"] == "observation")
+    assert heard.get("transcript", "") == ("" if route == "invalid" else transcript)
+    assert heard["audio_observation"] == "Keyboard."
+    assert heard["evidence_provenance"]["current_visual_input"] is False
+    response = events[-1]["response"]
+    assert response["message"]["content"] == text
+    assert response["adapter"].get("fast_voice_followup", False) is (route == "check")
+    if route != "invalid":
+        assert response["adapter"]["speech_addressee"] == addressee.lower()
+    if route in {"quiet", "invalid", "check"}:
+        assert not any(event["type"] == "audio_delta" for event in events)
+
+
+def test_compact_native_reply_falls_back_if_exact_rendered_prompt_exceeds_budget():
+    transcript = "Can you check the earlier recording?"
+    requests = []
+
+    def respond(request):
+        payload = json.loads(request.content)
+        requests.append(request.url.path)
+        if request.url.host == "comprehension":
+            return httpx.Response(200, json={"choices": [{"message": {
+                "content": f"<speech_transcript>{transcript}</speech_transcript>",
+            }}]})
+        if request.url.path == "/apply-template":
+            return httpx.Response(200, json={"prompt": "over budget"})
+        if request.url.path == "/tokenize":
+            return httpx.Response(200, json={"tokens": list(range(501))})
+        assert "response_format" not in payload and payload["messages"][-1]["content"] == transcript
+        return httpx.Response(200, json={"choices": [{"message": {"content": "OTHER|NONE"}}]})
+
+    config = _adapter_config(
+        language_api="openai", language_url="http://127.0.0.1:8901/v1/chat/completions",
+        language_llama_context_probe=True, live_addressee_gate=True, inkling_native_reasoning=True,
+    )
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        events = [json.loads(line) for line in execute_stream(
+            _live_spoken_request(think=False), config, client, compact_native_voice=True,
+        )]
+    assert requests == ["/v1/chat/completions", "/apply-template", "/tokenize", "/v1/chat/completions"]
+    assert events[-1]["response"]["adapter"]["speech_addressee"] == "other"
 
 
 @pytest.mark.parametrize("addressee", ["AMBIGUOUS", "OTHER"])

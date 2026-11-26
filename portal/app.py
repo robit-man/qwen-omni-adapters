@@ -4491,7 +4491,9 @@ def create_app(
         )
         initial_headers = dict(speech_headers)
         if voice_auto_reasoning:
-            initial_headers["X-Omni-Voice-Reasoning"] = "fast"
+            initial_headers["X-Omni-Voice-Reasoning"] = (
+                "native" if voice_owner and voice_preface_enabled else "fast"
+            )
         if voice_preface_enabled and isinstance(payload.get("messages"), list):
             payload["messages"].insert(0, {
                 "role": "system", "content": context_text("directives", "live_action_preface"),
