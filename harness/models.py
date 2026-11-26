@@ -24,11 +24,17 @@ class ModelActionError(RuntimeError):
     pass
 
 
-def _table_tags(output: str) -> set[str]:
-    lines = [line.strip() for line in output.splitlines() if line.strip()]
-    if not lines:
-        return set()
-    return {line.split()[0] for line in lines[1:] if line.split()}
+def _ollama_api_tags(payload: Any) -> set[str]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("models"), list):
+        raise ValueError("Ollama inventory did not include a model list")
+    tags: set[str] = set()
+    for item in payload["models"]:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("model")
+        if isinstance(name, str) and name:
+            tags.add(name)
+    return tags
 
 
 def _replace_env(path: Path, values: dict[str, str], remove: set[str]) -> None:
@@ -94,32 +100,18 @@ class IndicatorModelManager:
             self._inventory_refreshing = True
 
         def refresh() -> None:
-            installed: set[str] = set()
-            loaded: set[str] = set()
             try:
-                listed = subprocess.run(
-                    ["ollama", "list"],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=20,
-                )
-                running = subprocess.run(
-                    ["ollama", "ps"],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=20,
-                )
-                if listed.returncode == 0:
-                    installed = _table_tags(listed.stdout)
-                if running.returncode == 0:
-                    loaded = _table_tags(running.stdout)
-            except (OSError, subprocess.SubprocessError):
+                with httpx.Client(base_url=self.ollama_url, timeout=5) as client:
+                    installed = _ollama_api_tags(client.get("/api/tags").raise_for_status().json())
+                    loaded = _ollama_api_tags(client.get("/api/ps").raise_for_status().json())
+                with self._lock:
+                    self._cached_inventory = (time.monotonic(), installed, loaded)
+            except (httpx.HTTPError, ValueError):
+                # Keep the last confirmed inventory while the broker reconnects.
                 pass
-            with self._lock:
-                self._cached_inventory = (time.monotonic(), installed, loaded)
-                self._inventory_refreshing = False
+            finally:
+                with self._lock:
+                    self._inventory_refreshing = False
 
         threading.Thread(
             target=refresh,

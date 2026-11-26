@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from harness.indicator import model_views
-from harness.models import IndicatorModelManager, _replace_env, _table_tags
+from harness.models import IndicatorModelManager, _ollama_api_tags, _replace_env
 from qwen_omni_adapters.model_catalog import MANAGED_MODELS
 
 
@@ -52,10 +52,12 @@ def test_catalog_contains_compact_and_legacy_models_but_not_rejected_ornith() ->
     ]
 
 
-def test_ollama_tables_are_parsed_as_exact_tags() -> None:
-    output = "NAME ID SIZE MODIFIED\nrobit/a:q4 abc 1 GB now\nrobit/b:q8 def 2 GB now\n"
+def test_ollama_inventory_is_parsed_as_exact_tags() -> None:
+    payload = {"models": [{"name": "robit/a:q4"}, {"model": "robit/b:q8"}, {}, None]}
 
-    assert _table_tags(output) == {"robit/a:q4", "robit/b:q8"}
+    assert _ollama_api_tags(payload) == {"robit/a:q4", "robit/b:q8"}
+    with pytest.raises(ValueError, match="did not include a model list"):
+        _ollama_api_tags({"models": None})
 
 
 def test_environment_replacement_is_atomic_and_preserves_unrelated_values(
