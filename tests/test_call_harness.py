@@ -442,6 +442,37 @@ def test_checkpoint_turn_sends_only_the_unrecognized_tail_to_asr(monkeypatch) ->
         call.close()
 
 
+@pytest.mark.parametrize("expired", [False, True])
+def test_confirmed_interruption_reuses_receipt_with_original_audio_fallback(monkeypatch, expired) -> None:
+    call = CallSession(CallConfig(token="t", model="m", reuse_speech_checkpoints=True))
+    audio = tone(0.1)
+    group = "a" * 32
+    payloads = []
+
+    def run(payload):
+        payloads.append(payload)
+        if expired and len(payloads) == 1:
+            return TurnResult(portal_status=409)
+        return TurnResult(transcript="what causes an eclipse", reply="One body blocks light.")
+
+    def unexpected_probe(_samples):
+        pytest.fail("A fully recognized interruption has no unrecognized tail")
+
+    monkeypatch.setattr(call, "_run", run)
+    monkeypatch.setattr(call, "comprehend_interruption", unexpected_probe)
+    try:
+        result = call.take_turn(audio, checkpoint_group=group, checkpoint_receipts=("barge-receipt",))
+        assert result.transcript == "what causes an eclipse"
+        assert payloads[0]["portal_voice_checkpoints"] == {"group": group, "receipts": ["barge-receipt"]}
+        assert all("audios" not in message for message in payloads[0]["messages"])
+        assert len(payloads) == (2 if expired else 1)
+        if expired:
+            assert "portal_voice_checkpoints" not in payloads[1]
+            assert payloads[1]["messages"][-1]["audios"]
+    finally:
+        call.close()
+
+
 def test_the_noise_floor_rises_with_a_noisy_room() -> None:
     """Otherwise a fan becomes a permanent speaker."""
 

@@ -849,7 +849,7 @@ class CallSession:
         submitted_at = time.time()
         result = (self._take_turn(samples, segments, transcript_prefix=transcript_prefix, transcript_audio=transcript_audio,
                                   checkpoint_group=checkpoint_group, checkpoint_receipts=checkpoint_receipts)
-                  if transcript_prefix else self._take_turn(samples, segments))
+                  if transcript_prefix or checkpoint_receipts else self._take_turn(samples, segments))
         self._persist(result, occurred_at=submitted_at)
         return result
 
@@ -881,7 +881,12 @@ class CallSession:
 
         earlier_speech = ""
         accepted_checkpoints = None
-        if transcript_prefix and transcript_audio is not None:
+        if (self.config.reuse_speech_checkpoints and checkpoint_group
+                and not transcript_prefix and len(checkpoint_receipts) == 1):
+            # The interruption probe accepted this entire recording. Keep
+            # its audio as the fallback if the portal rejects the receipt.
+            accepted_checkpoints = {"group": checkpoint_group, "receipts": list(checkpoint_receipts)}
+        elif transcript_prefix and transcript_audio is not None:
             can_reuse = bool(self.config.reuse_speech_checkpoints and checkpoint_group
                              and len(transcript_prefix) == len(checkpoint_receipts) < 64)
             if samples.size and can_reuse:
@@ -1637,7 +1642,7 @@ def run_call_loop(
                         pending.audio(), segments=max(1, pending.segments),
                         **({"transcript_prefix": pending.transcript_prefix, "transcript_audio": pending.transcript_audio,
                             "checkpoint_group": pending.checkpoint_group, "checkpoint_receipts": pending.checkpoint_receipts}
-                           if pending.transcript_prefix else {}),
+                           if pending.transcript_prefix or pending.checkpoint_receipts else {}),
                     )
                     if result.interrupted:
                         logger.info("reply yielded to the speaker")
@@ -1711,17 +1716,20 @@ def run_call_loop(
     def comprehend_barge(pending: Pending) -> None:
         """Resolve a paused interruption without discarding the current reply."""
 
-        probe = session.comprehend_interruption(pending.audio())
+        audio = pending.audio()
+        group = secrets.token_hex(16) if config.reuse_speech_checkpoints else None
+        probe = (
+            session.comprehend_interruption(audio, checkpoint=True, checkpoint_group=group)
+            if group is not None else session.comprehend_interruption(audio)
+        )
         playback_echo = bool(
             probe.transcript and session._is_recent_playback_echo(probe.transcript)
         )
-        barge_decisions.put(
-            (
-                _interruption_decision(probe, playback_echo=playback_echo),
-                pending,
-                probe,
-            )
-        )
+        decision = _interruption_decision(probe, playback_echo=playback_echo)
+        if decision == "yield" and group is not None and not probe.error and probe.checkpoint_receipt:
+            pending.checkpoint_group = group
+            pending.checkpoint_receipts = (probe.checkpoint_receipt,)
+        barge_decisions.put((decision, pending, probe))
 
     try:
         with microphone:
