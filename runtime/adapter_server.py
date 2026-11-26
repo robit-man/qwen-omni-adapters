@@ -95,7 +95,7 @@ class Config:
     inkling_native_reasoning: bool = False
     fast_voice_asr_model: str = ""
     fast_voice_asr_python: str = sys.executable
-    fast_voice_thinking_token: int | None = None
+    inkling_thinking_token: int | None = None
     comprehension_repeat_penalty: float = 1.0
     detailed_media_analysis: bool = False
     detailed_audio_analysis: bool | None = None
@@ -1983,6 +1983,16 @@ def build_language_payload(
                 payload["reasoning_effort"] = "high" if thinking_requested else "none"
             if not thinking_requested:
                 payload["reasoning_budget_tokens"] = 0
+                # Native zero budget can still admit the opener for an empty
+                # thinking block. Ban it in no-thinking language passes.
+                if config.inkling_thinking_token is not None:
+                    token = config.inkling_thinking_token
+                    bias = payload.get("logit_bias")
+                    if isinstance(bias, Mapping):
+                        payload["logit_bias"] = {**bias, str(token): False}
+                    else:
+                        pairs = bias if isinstance(bias, list) else []
+                        payload["logit_bias"] = [*pairs, [token, False]]
         else:
             template_kwargs = payload.get("chat_template_kwargs")
             payload["chat_template_kwargs"] = {
@@ -2660,7 +2670,7 @@ _FAST_VOICE_SCHEMA = {
 }
 
 
-def _fast_voice_thinking_token(config: Config, client: httpx.Client) -> int | None:
+def _inkling_thinking_token(config: Config, client: httpx.Client) -> int | None:
     try:
         origin = _llama_context_probe_origin(config)
         if origin is None:
@@ -2711,8 +2721,8 @@ def _fast_voice_reply(
                 "name": "spoken_turn", "strict": True, "schema": _FAST_VOICE_SCHEMA,
             }},
         }
-        if config.fast_voice_thinking_token is not None:
-            payload["logit_bias"] = [[config.fast_voice_thinking_token, False]]
+        if config.inkling_thinking_token is not None:
+            payload["logit_bias"] = [[config.inkling_thinking_token, False]]
         response = client.post(language_request_url(config), json=payload, timeout=min(config.timeout_s, 7))
         reply = json.loads(_language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"])
     except (ValueError, httpx.HTTPError, AdapterStageError) as error:
@@ -3146,8 +3156,10 @@ def create_app(
     runtime_config = config or Config.from_environment()
     session = client or httpx.Client(timeout=runtime_config.timeout_s)
     recognizer = None
-    if runtime_config.fast_voice_asr_model and runtime_config.inkling_native_reasoning and runtime_config.language_api == "openai":
-        runtime_config = replace(runtime_config, fast_voice_thinking_token=_fast_voice_thinking_token(runtime_config, session))
+    native_inkling = runtime_config.inkling_native_reasoning and runtime_config.language_api == "openai"
+    if native_inkling:
+        runtime_config = replace(runtime_config, inkling_thinking_token=_inkling_thinking_token(runtime_config, session))
+    if native_inkling and runtime_config.fast_voice_asr_model:
         try:
             recognizer = fast_voice_asr.FastVoiceRecognizer(
                 runtime_config.fast_voice_asr_python, runtime_config.fast_voice_asr_model,

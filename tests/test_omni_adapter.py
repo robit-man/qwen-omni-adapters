@@ -3354,12 +3354,14 @@ def test_trained_bridge_comprehension_uses_its_no_thinking_prefill(think: bool) 
     assert payload["cache_prompt"] is False
 
 
-def test_inkling_bridge_routes_audio_and_language_with_native_effort() -> None:
+@pytest.mark.parametrize("think", [False, "low"])
+def test_inkling_bridge_routes_audio_and_language_with_native_effort(think) -> None:
     from runtime import adapter_server
 
     parsed = parse_adapter_request(
         _base_request(
-            think="low",
+            think=think,
+            logit_bias={"456": -2},
             omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
             messages=[{
                 "role": "user",
@@ -3372,11 +3374,13 @@ def test_inkling_bridge_routes_audio_and_language_with_native_effort() -> None:
         language_api="openai",
         comprehension_disable_thinking=True,
         inkling_native_reasoning=True,
+        inkling_thinking_token=123,
     )
     media = adapter_server.build_comprehension_payload(parsed, config)
     language = adapter_server.build_language_payload(parsed, None, "inkling", "openai", config)
     assert media["reasoning_effort"] == "none"
-    assert language["reasoning_effort"] == "low"
+    assert language["reasoning_effort"] == (think or "none")
+    assert language["logit_bias"] == ({"456": -2} if think else {"456": -2, "123": False})
     retry = adapter_server._required_tool_retry_payload(language)
     assert retry["reasoning_effort"] == "none"
     assert retry["reasoning_budget_tokens"] == 0
@@ -3408,7 +3412,7 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
             "message": {"content": json.dumps({"route": mode, "speech": "I hear you."})},
         }]})
 
-    config = _adapter_config(language_api="openai", inkling_native_reasoning=True, fast_voice_thinking_token=123)
+    config = _adapter_config(language_api="openai", inkling_native_reasoning=True, inkling_thinking_token=123)
     turn = dataclasses.replace(_live_spoken_request(), live_engaged=False)
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         events = [json.loads(line) for line in execute_stream(
