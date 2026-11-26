@@ -556,25 +556,14 @@ answer can finish in that pass. When the turn needs further work, the harness
 plays the model's request-specific acknowledgment before the portal opens a
 reasoning-enabled follow-up. A confirmed interruption closes the old live HTTP
 stream so the next local utterance can proceed.
-On Inkling, `OMNI_FAST_VOICE_ASR_MODEL` can point to an existing local
-faster-whisper snapshot and `OMNI_FAST_VOICE_ASR_PYTHON` to its interpreter.
-Clear short clips can use that CPU recognizer and a compact reply prompt.
-If the reply planner cannot finish, the ordinary live addressee and answer
-stages reuse the accepted transcript. Clips without a confident transcript
-use the installed audio bridge. On a single slot, this option
-defers optional memory encoding while the hands-free microphone is listening.
+Inkling's live pipeline uses the installed Omni package's audio bridge for
+speech recognition and its native language weights for replies.
 `OMNI_TTS_KEEP_WARM=1` allows prewarming at speech onset and retaining the
 streaming graph while memory permits. Long follow-up work can release it.
 
-To use a resident CPU voice for US English calls, install `piper-tts==1.5.0`
-in the runtime Python environment. Set `OMNI_LIVE_CPU_TTS_MODEL` to a local
-English Piper `.onnx` voice with its `.onnx.json` configuration beside it.
-With this profile, set `OMNI_TTS_KEEP_WARM=0` to avoid allocating the CUDA
-speech graph at speech onset. The CPU voice uses two inference threads and
-streams 24 kHz mono PCM through the existing call playback path. Live calls
-and their acknowledgments use the selected CPU voice. Explicit inline speaker
-references, other locales, and ordinary synthesis use Qwen3-TTS. Check
-`live_cpu_ready` in the loopback TTS `/healthz` response after startup.
+The Inkling portal uses the Omni package's Qwen3-TTS with a cloned speaker
+reference for spoken output. The selected preset or uploaded reference supplies
+the clone. Requests without a voice selection use the server's configured reference.
 The browser receives small PCM packets and builds its local replay WAV from
 those packets, keeping call playback and replay on one transfer.
 

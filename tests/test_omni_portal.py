@@ -2177,7 +2177,6 @@ def test_auto_voice_checks_only_after_a_spoken_acknowledgment(tmp_path, monkeypa
     def respond(request):
         requests.append(json.loads(request.content))
         assert request.headers.get("X-Omni-Voice-Reasoning") == ("fast" if len(requests) == 1 else None)
-        assert request.headers["X-Omni-Voice-Profile"] == "live"
         assert request.headers["X-Omni-Live-PCM-Only"] == "1"
         assert "portal_live_pcm_only" not in requests[-1]
         response = {"message": {"role": "assistant", "content": "I hear you."}}
@@ -4772,6 +4771,36 @@ def test_portal_enforces_server_voice_profile() -> None:
 
     assert response.status_code == 200
     assert seen[0]["speech"] == {key: value for key, value in profile.items() if key != "name"}
+
+
+@pytest.mark.parametrize("reference", ["/srv/voices/selected.wav", ""])
+def test_inkling_portal_requires_a_clone_for_spoken_output(reference):
+    model = "robit/inkling-2-mini-omni:iq4-xs"
+    seen = []
+
+    def handler(request):
+        if request.method == "POST":
+            seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "Hello."}})
+
+    app = create_app(
+        _config(model=model, voice_profile={"language": "en", "speaker_file": reference}),
+        httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    client = app.test_client()
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    response = client.post(
+        "/api/chat", headers=headers,
+        json=_request(model=model, speech_mode="always", portal_voice={"clone_enabled": False}),
+    )
+    assert client.get("/api/status", headers=headers).json["voice_profile"]["clone_required"] is True
+    if reference:
+        assert response.status_code == 200
+        assert seen[0]["speech"]["speaker_file"] == reference
+    else:
+        assert response.status_code == 400
+        assert "requires a configured clone reference" in response.json["error"]
+        assert not seen
 
 
 def test_portal_hot_reloads_indicator_voice_selection(tmp_path: Path) -> None:

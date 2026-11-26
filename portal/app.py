@@ -238,7 +238,6 @@ DIAGNOSTIC_STRING_FIELDS = {
     "decision_band",
     "decision_checkpoint",
     "stage",
-    "audio_backend",
 }
 
 def load_voice_profile(path: Path) -> dict[str, Any]:
@@ -2366,6 +2365,7 @@ def create_app(
         template_folder=str(root / "templates"),
     )
     runtime = config or PortalConfig.from_environment()
+    clone_required = runtime.model.startswith("robit/inkling-2-mini-omni:")
     if host_cameras is None and runtime.remote_camera_enabled:
         host_cameras = (
             CameraSet(_candidates=list(runtime.remote_camera_devices))
@@ -3162,7 +3162,7 @@ def create_app(
         clone_enabled = client_voice.pop("clone_enabled", None)
         speaker_audio = client_voice.pop("speaker_audio", None)
         preset_id = client_voice.pop("preset", None)
-        if clone_enabled is False:
+        if clone_enabled is False and not clone_required:
             speech.pop("speaker_file", None)
         elif clone_enabled is True:
             if speaker_audio is None and not speech.get("speaker_file"):
@@ -3181,6 +3181,11 @@ def create_app(
                     raise PortalRequestError(f"unknown voice preset: {preset_id}")
                 speech["speaker_file"] = str(selected["speaker_file"])
         speech.update(client_voice)
+        if clone_required and not (speech.get("speaker_file") or speech.get("speaker_audio")):
+            fields = _request_diagnostic_fields(payload)
+            mode = str(payload.get("speech_mode") or "auto").lower()
+            if fields["task"] == "synthesize" or mode == "always" or (mode == "auto" and fields["audio_requested"]):
+                raise PortalRequestError("Inkling speech requires a configured clone reference")
         payload.pop("speech", None)
         if speech:
             payload["speech"] = speech
@@ -3688,6 +3693,7 @@ def create_app(
                         or "en"
                     ),
                     "speaker_reference": bool(voice_profile.get("speaker_file")),
+                    "clone_required": clone_required,
                     "temperature": float(voice_profile.get("temperature", 0.7)),
                     "top_k": int(voice_profile.get("top_k", 40)),
                     "top_p": float(voice_profile.get("top_p", 0.9)),
@@ -4478,12 +4484,11 @@ def create_app(
             payload["think"] = False
         voice_preface_enabled = requested_preface and live_turn and (voice_owner or voice_auto_reasoning)
         speech_headers = (
-            {"X-Omni-Voice-Profile": "live"}
-            if not internal_background and (live_turn or (requested_live_synthesis and synthesis_only(payload)))
+            {"X-Omni-Live-PCM-Only": "1"}
+            if requested_pcm_only and not internal_background
+            and (live_turn or (requested_live_synthesis and synthesis_only(payload)))
             else {}
         )
-        if speech_headers and requested_pcm_only:
-            speech_headers["X-Omni-Live-PCM-Only"] = "1"
         initial_headers = dict(speech_headers)
         if voice_auto_reasoning:
             initial_headers["X-Omni-Voice-Reasoning"] = "fast"
@@ -4853,12 +4858,9 @@ def create_app(
                                 "voice_checkpoint": voice_checkpoint,
                             }, request_id=request_id)
                         elif event.get("type") in {"audio_start", "audio_end"}:
-                            audio = event.get("audio")
-                            backend = audio.get("backend") if isinstance(audio, Mapping) else None
                             diagnostics.record(session_id,
                                 "audio_stream_started" if event["type"] == "audio_start" else "audio_stream_ended",
-                                {"request_id": request_id, **({"audio_backend": backend} if backend in ("cpu", "qwen") else {})},
-                                request_id=request_id)
+                                {"request_id": request_id}, request_id=request_id)
                         if event.get("type") == "final":
                             candidate = event.get("response")
                             if isinstance(candidate, dict):

@@ -397,6 +397,7 @@
     voice: {
       initialized: false,
       serverReference: false,
+      cloneRequired: false,
       reference: null,
       referenceUrl: null,
       presets: [],
@@ -2395,6 +2396,7 @@
       if (!state.voice.initialized && data.voice_profile) {
         const profile = data.voice_profile;
         state.voice.serverReference = Boolean(profile.speaker_reference);
+        state.voice.cloneRequired = Boolean(profile.clone_required);
         state.voice.presets = Array.isArray(profile.presets) ? profile.presets : [];
         state.voice.selectedPreset = String(
           (state.voice.presets.find(preset => preset.default) || state.voice.presets[0] || {}).id || "",
@@ -2751,11 +2753,15 @@
   }
 
   function syncVoiceUi() {
+    if (state.voice.cloneRequired) elements.voiceCloneEnabled.checked = true;
     const enabled = elements.voiceCloneEnabled.checked;
     const selectedPreset = state.voice.presets.find(preset => preset.id === state.voice.selectedPreset);
     elements.voiceCloneToggle.classList.toggle("active", enabled);
     elements.voiceCloneToggle.setAttribute("aria-pressed", String(enabled));
-    elements.voiceCloneToggle.querySelector("small").textContent = enabled ? "Enabled" : "Disabled";
+    elements.voiceCloneToggle.disabled = state.voice.cloneRequired;
+    elements.voiceCloneToggle.querySelector("small").textContent = state.voice.cloneRequired
+      ? "Required"
+      : enabled ? "Enabled" : "Disabled";
     elements.voiceModeRow.classList.toggle("preset-open", state.voice.presetMenuOpen);
     elements.voicePresetToggle.setAttribute("aria-expanded", String(state.voice.presetMenuOpen));
     elements.voicePresetCurrent.textContent = selectedPreset
@@ -2924,7 +2930,7 @@
       return Number.isInteger(value) ? value : fallback;
     };
     const payload = {
-      clone_enabled: elements.voiceCloneEnabled.checked,
+      clone_enabled: state.voice.cloneRequired || elements.voiceCloneEnabled.checked,
       locale: elements.voiceLanguage.value,
       temperature: Number(elements.voiceTemperature.value),
       top_k: integer(elements.voiceTopK, 40),

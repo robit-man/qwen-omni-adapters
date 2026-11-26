@@ -481,23 +481,6 @@ def test_tts_starts_cold_and_sheds_after_each_completed_synthesis(
     assert health["persistent_pid"] is None
 
 
-@pytest.mark.parametrize("eligible", [True, False])
-def test_live_cpu_speech_routes_only_eligible_calls(tmp_path: Path, monkeypatch, eligible):
-    cpu_pcm = b"\x01\x00" * 240
-    qwen_pcm = b"\x02\x00" * 240
-    monkeypatch.setattr("runtime.tts_server._load_live_cpu_voice", lambda _path: lambda _text: iter([cpu_pcm]))
-    monkeypatch.setattr("runtime.tts_server._stream_worker_batch", lambda _worker, _specs: iter([qwen_pcm]))
-    app = create_tts_app(_tts_config(tmp_path, live_cpu_model="voice.onnx"))
-    client = app.test_client()
-    assert client.get("/healthz").json["live_cpu_ready"] is True
-    response = client.post("/synthesize/stream/batch", json={
-        "blocks": ["Hello there."], "locale": "en-US" if eligible else "es-ES", "live_cpu_voice": True,
-    })
-    assert response.status_code == 200
-    assert response.headers["X-Audio-Backend"] == ("cpu" if eligible else "qwen")
-    assert response.data == (cpu_pcm if eligible else qwen_pcm)
-
-
 def test_nonpersistent_tts_batch_reuses_one_process_for_the_whole_utterance(
     tmp_path: Path,
     monkeypatch,
@@ -2438,16 +2421,17 @@ def test_live_pcm_stream_sends_small_packets_and_no_duplicate_final_wav():
 
     def respond(request):
         assert request.url.path == "/synthesize/stream/batch"
-        assert json.loads(request.content)["live_cpu_voice"] is True
-        return httpx.Response(200, content=pcm, headers={"X-Audio-Backend": "cpu"})
+        assert json.loads(request.content)["speaker_file"] == "/test/selected-reference.wav"
+        return httpx.Response(200, content=pcm)
 
     parsed = parse_adapter_request(_base_request(
         omni={"schema": ADAPTER_SCHEMA, "task": "synthesize"},
         response_modalities=["audio"], speech_mode="always",
+        speech={"speaker_file": "/test/selected-reference.wav"},
     ))
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         events = [json.loads(chunk) for chunk in execute_stream(
-            parsed, _adapter_config(), client, live_cpu_voice=True, stream_pcm_only=True,
+            parsed, _adapter_config(), client, stream_pcm_only=True,
         )]
     packets = [base64.b64decode(event["audio"]["data"]) for event in events if event["type"] == "audio_delta"]
     assert [len(packet) for packet in packets] == [8192, 8192, 3616]

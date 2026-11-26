@@ -2756,7 +2756,6 @@ def execute_stream(
     *,
     choose_reply_depth: bool = False,
     fast_recognize: Callable[[bytes], str] | None = None,
-    live_cpu_voice: bool = False,
     stream_pcm_only: bool = False,
     disconnected: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
@@ -3071,8 +3070,6 @@ def execute_stream(
             "stream_frames": config.tts_stream_frames,
             **dict(parsed.speech),
         }
-        if live_cpu_voice:
-            tts_payload["live_cpu_voice"] = True
         pending = b""
         maximum_pcm_bytes = max(1, round(config.spoken_max_audio_seconds * 48_000))
         decoded_pcm_bytes = 0
@@ -3089,8 +3086,12 @@ def execute_stream(
                 )
             if response.headers.get("x-audio-codec") not in {None, "pcm_s16le"}:
                 raise AdapterStageError("tts stream returned an unsupported codec")
-            backend = response.headers.get("x-audio-backend")
-            for raw in response.iter_bytes(chunk_size=8192 if backend == "cpu" else None):
+            audio_chunks = response.iter_bytes()
+            packets = (
+                (chunk[offset:offset + 8192] for chunk in audio_chunks for offset in range(0, len(chunk), 8192))
+                if stream_pcm_only else audio_chunks
+            )
+            for raw in packets:
                 data = pending + raw
                 complete = len(data) - (len(data) % 2)
                 pending = data[complete:]
@@ -3114,7 +3115,6 @@ def execute_stream(
                             "channels": 1,
                             "sample_width_bits": 16,
                             "blocks": tts_block_count,
-                            **({"backend": backend} if backend in {"cpu", "qwen"} else {}),
                         },
                     )
                     audio_streamed = True
@@ -3302,7 +3302,6 @@ def create_app(
             normalized["stream"] = False
             parsed = parse_adapter_request(normalized)
             voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
-            live_cpu_voice = request.headers.get("X-Omni-Voice-Profile") == "live"
             stream_pcm_only = request.headers.get("X-Omni-Live-PCM-Only") == "1"
             disconnected = request.environ.get("waitress.client_disconnected")
         except OmniAdapterError as exc:
@@ -3317,7 +3316,6 @@ def create_app(
                     decision_observer=observe_input_routing,
                     choose_reply_depth=voice_routing == "auto",
                     fast_recognize=recognizer if voice_routing == "fast" else None,
-                    live_cpu_voice=live_cpu_voice,
                     stream_pcm_only=stream_pcm_only,
                     disconnected=disconnected,
                 )

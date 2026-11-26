@@ -42,6 +42,12 @@ editing the controller during every difficult trajectory.
 
 ## Architectural invariants
 
+- Preserve the installed Inkling Omni package as the live voice pipeline. Use
+  its trained audio bridge, language weights, and bundled Qwen3-TTS with the
+  selected clone reference. Treat voice identity as a requirement when tuning
+  latency. Get explicit user direction before introducing a substitute model
+  or voice into a live deployment. Measure latency through the ordinary
+  microphone and speaker path with the selected clone active.
 - `robit/qwen3.8-27b-e03-obliterated-omni:q4km` is one logical Ollama tag.
 - Stock Ollama executes the standard Qwen3.8 model/projector layers. It does
   not execute the custom audio/video/TTS sidecar layer.
