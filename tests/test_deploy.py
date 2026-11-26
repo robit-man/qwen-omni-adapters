@@ -74,7 +74,14 @@ def test_inkling_candidate_dry_run_uses_one_model_tag() -> None:
     assert f"OMNI_LANGUAGE_MODEL={tag}" in completed.stdout
 
 
-def test_inkling_download_uses_the_published_tag_without_starting_services() -> None:
+def test_inkling_download_uses_the_published_tag_without_starting_services(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ollama = tmp_path / "ollama"
+    ollama.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    ollama.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path), prepend=os.pathsep)
+
     completed = _run(
         "inkling2-mini", "--action", "download", "--no-auto-update", "--yes", "--dry-run",
     )
