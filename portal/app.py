@@ -4431,9 +4431,7 @@ def create_app(
             and tool_harness.can_read_conversation_history(session_id)
         )
         if voice_auto_reasoning:
-            # Initial voice routing may select the short direct reply. Any
-            # subsequent tool round keeps the deliberative mode.
-            payload["think"] = True
+            payload["think"] = False
         voice_preface_enabled = requested_preface and live_turn and tool_harness.can_read_conversation_history(session_id)
         if voice_preface_enabled and isinstance(payload.get("messages"), list):
             payload["messages"].insert(0, {
@@ -4627,7 +4625,7 @@ def create_app(
         try:
             upstream_request = session.build_request(
                 "POST", runtime.adapter_url.rstrip("/") + "/stream", json=payload,
-                headers={"X-Omni-Voice-Reasoning": "auto"} if voice_auto_reasoning else None,
+                headers={"X-Omni-Voice-Reasoning": "fast"} if voice_auto_reasoning else None,
             )
             upstream = session.send(upstream_request, stream=True)
             diagnostics.record(
@@ -4675,6 +4673,7 @@ def create_app(
             stream_retries = 0
             format_retries = 0
             audio_started = False
+            fast_acknowledged = False
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
                 emitted = copy.deepcopy(dict(event))
@@ -4684,6 +4683,39 @@ def create_app(
                     )
                     emitted["turn_id"] = supplied_turn_id
                 return (json.dumps(emitted, separators=(",", ":")) + "\n").encode()
+
+            def play_preface(text):
+                nonlocal active_ticket, final_status
+                receipt_id = secrets.token_urlsafe(18)
+                receipt_key = (session_id, receipt_id)
+                preface = _VoicePreface()
+                with voice_prefaces_lock:
+                    voice_prefaces[receipt_key] = preface
+                inference_queue.release(active_ticket)
+                active_ticket = None
+                try:
+                    yield event_bytes({"type": "voice_preface", "id": receipt_id, "text": text})
+                    if not preface.received.wait(75) or not preface.played:
+                        final_status = 499
+                        yield event_bytes({"type": "error", "error": "Action interrupted before dispatch."})
+                        return False
+                finally:
+                    with voice_prefaces_lock:
+                        voice_prefaces.pop(receipt_key, None)
+                if os.environ.get("OMNI_TTS_KEEP_WARM") == "1":
+                    try:
+                        session.post(
+                            runtime.tts_health_url.removesuffix("/healthz") + "/residency",
+                            json={"action": "shed"}, timeout=5,
+                        ).raise_for_status()
+                    except httpx.HTTPError:
+                        app.logger.debug("speech graph was unavailable ahead of follow-up")
+                active_ticket = inference_queue.acquire(session_id, runtime.timeout_s)
+                if active_ticket is None:
+                    final_status = 503
+                    yield event_bytes({"type": "error", "error": "Inference queue is full or timed out."})
+                    return False
+                return True
 
             try:
                 if current_upstream.status_code >= 400:
@@ -4833,7 +4865,19 @@ def create_app(
                     audio_started = audio_started or _response_has_audio(final_response)
                     format_retry = False
 
-                    if not auto_tools:
+                    adapter_result = final_response.get("adapter")
+                    fast_followup = (voice_auto_reasoning and not fast_acknowledged
+                                     and isinstance(adapter_result, Mapping)
+                                     and adapter_result.get("fast_voice_followup") is True)
+                    if fast_followup:
+                        acknowledgement = str(final_response["message"]["content"])
+                        if not (yield from play_preface(acknowledgement)):
+                            return
+                        fast_acknowledged = True
+                        followup = {**current_payload, "think": True}
+                        round_tools = []
+                        _made_progress = False
+                    elif not auto_tools:
                         followup = None
                         round_tools: list[dict[str, Any]] = []
                         _made_progress = False
@@ -4867,28 +4911,13 @@ def create_app(
                             return
                         if calls:
                             acknowledgement = _action_acknowledgement(final_response.get("message")) if voice_preface_enabled else ""
+                            if voice_preface_enabled and voice_auto_reasoning:
+                                acknowledgement = (
+                                    acknowledgement or "I'll look into that."
+                                ) if round_index == 0 and not fast_acknowledged else ""
                             if acknowledgement:
                                 final_response["message"]["content"] = acknowledgement
-                                receipt_id = secrets.token_urlsafe(18)
-                                receipt_key = (session_id, receipt_id)
-                                preface = _VoicePreface()
-                                with voice_prefaces_lock:
-                                    voice_prefaces[receipt_key] = preface
-                                inference_queue.release(active_ticket)
-                                active_ticket = None
-                                try:
-                                    yield event_bytes({"type": "voice_preface", "id": receipt_id, "text": acknowledgement})
-                                    if not preface.received.wait(75) or not preface.played:
-                                        final_status = 499
-                                        yield event_bytes({"type": "error", "error": "Action interrupted before dispatch."})
-                                        return
-                                finally:
-                                    with voice_prefaces_lock:
-                                        voice_prefaces.pop(receipt_key, None)
-                                active_ticket = inference_queue.acquire(session_id, runtime.timeout_s)
-                                if active_ticket is None:
-                                    final_status = 503
-                                    yield event_bytes({"type": "error", "error": "Inference queue is full or timed out."})
+                                if not (yield from play_preface(acknowledgement)):
                                     return
                             round_index += 1
                             _record_tool_diagnostics(
@@ -4963,7 +4992,7 @@ def create_app(
                             final_response["portal"]["tool_allowlist"] = sorted(allowed_tools)
                         yield event_bytes({"type": "final", "response": final_response})
                         return
-                    if not recovery_retry:
+                    if not recovery_retry and round_tools:
                         executed.extend(round_tools)
                         _record_tool_diagnostics(
                             diagnostics,
@@ -4983,6 +5012,8 @@ def create_app(
                             }
                         )
                     current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
+                    if voice_auto_reasoning and round_index:
+                        current_payload["think"] = True
                     _repacked, repack_summary = safe_repack_virtual_followup(
                         current_payload,
                         session_id,

@@ -157,6 +157,7 @@ class CallConfig:
     # pass is complete, then these callbacks bracket one direct synthesis pass.
     prepare_speech: Callable[[], None] | None = None
     restore_after_speech: Callable[[], None] | None = None
+    warm_speech: Callable[[], None] | None = None
     # Block until the evicted worker can hear again. Called at the point a turn
     # actually needs comprehension rather than when the last reply finished, so
     # its reload overlaps the reply still playing and the pause before anyone
@@ -684,11 +685,9 @@ class CallSession:
                 payload["portal_client_location"] = dict(client_location)
         if with_tools and self.config.portal_tool_allowlist is not None:
             payload["portal_tool_allowlist"] = list(self.config.portal_tool_allowlist)
-        if self.config.reasoning_auto and not self.config.reasoning_enabled and not earlier_speech:
+        if self.config.reasoning_auto and not self.config.reasoning_enabled:
             payload.pop("think")
             payload["portal_voice_auto_reasoning"] = True
-        elif self.config.reasoning_auto and earlier_speech:
-            payload["think"] = True
         return payload
 
     def _build_synthesis_payload(self, text: str) -> dict[str, Any]:
@@ -1428,6 +1427,21 @@ def run_call_loop(
     array = ReSpeaker()
     array.start()
     display = _InterruptionDisplay(array, outer_notify)
+    speech_onset = threading.Event()
+
+    def prewarm_speech() -> None:
+        while not stop.is_set() and not worker_stop.is_set():
+            if not speech_onset.wait(0.2):
+                continue
+            speech_onset.clear()
+            if config.warm_speech is not None:
+                try:
+                    config.warm_speech()
+                except (httpx.HTTPError, OSError):
+                    logger.debug("speech prewarm deferred")
+
+    if config.warm_speech is not None:
+        threading.Thread(target=prewarm_speech, name="omni-tts-prewarm", daemon=True).start()
 
     # Echo cancellation is what makes talking over a reply safe. Without it the
     # microphone hears the speakers and the harness interrupts itself.
@@ -1800,6 +1814,7 @@ def run_call_loop(
                             session.request_barge()
                         if not busy.is_set():
                             notify("hearing", "")
+                            speech_onset.set()
                     if (
                         verdict.event in {"start", "active"}
                         and can_barge

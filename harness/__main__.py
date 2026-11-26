@@ -360,13 +360,14 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(
             "OMNI_BACKGROUND_RESIDENCY_MODE must be conversation or action"
         )
+    keep_voice_warm = os.environ.get("OMNI_TTS_KEEP_WARM", "0") == "1"
     background_tts = (
         BackgroundTTSResidency(
             os.environ.get(
                 "OMNI_TTS_RESIDENCY_URL", "http://127.0.0.1:8892"
             )
         )
-        if background_residency_mode == "action"
+        if background_residency_mode == "action" or keep_voice_warm
         else None
     )
     background_pointing = (
@@ -443,6 +444,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         prepare_speech=residency.prepare_speech if residency else None,
         restore_after_speech=residency.restore if residency else None,
+        warm_speech=background_tts.warm if keep_voice_warm and background_tts else None,
         await_comprehension=residency.await_ready if residency else None,
         comprehension_ready=residency.ready_now if residency else None,
         content_trace=(

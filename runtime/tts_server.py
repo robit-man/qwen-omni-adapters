@@ -43,6 +43,7 @@ from qwen_omni_adapters.audio import (
     AudioContractError,
     decode_wav_payload,
 )
+from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 from qwen_omni_adapters.ollama_sidecar import resolve_ollama_sidecar
 from qwen_omni_adapters.single_gguf import materialize_component_view
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
@@ -67,6 +68,7 @@ class Config:
     persistent: bool = True
     warm_speaker_file: str = ""
     context_tokens: int = 0
+    keep_warm: bool = False
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -139,6 +141,7 @@ class Config:
             warm_speaker_file=os.environ.get(
                 "OMNI_TTS_WARM_SPEAKER_FILE", ""
             ).strip(),
+            keep_warm=os.environ.get("OMNI_TTS_KEEP_WARM", "0") == "1",
         )
 
 
@@ -917,9 +920,25 @@ def create_app(config: Config | None = None) -> Flask:
     lock = threading.Lock()
     persistent = PersistentTTSWorker(runtime) if runtime.persistent else None
     warm_spec = _warm_spec(runtime)
+    governor = MemoryGovernor()
 
     if persistent is not None:
         atexit.register(persistent.close)
+        if runtime.keep_warm:
+            stop_monitor = threading.Event()
+            atexit.register(stop_monitor.set)
+
+            def reclaim_idle_speech() -> None:
+                while not stop_monitor.wait(0.5):
+                    if not governor.enabled or governor.available_gib() >= governor.policy.soft_floor_gib:
+                        continue
+                    if lock.acquire(blocking=False):
+                        try:
+                            persistent.close()
+                        finally:
+                            lock.release()
+
+            threading.Thread(target=reclaim_idle_speech, name="omni-tts-memory", daemon=True).start()
 
     @app.get("/healthz")
     def healthz():
@@ -933,7 +952,7 @@ def create_app(config: Config | None = None) -> Flask:
                 "ok": not missing,
                 "missing": missing,
                 "persistent": bool(persistent),
-                "residency_policy": "request",
+                "residency_policy": "memory-bounded" if runtime.keep_warm else "request",
                 "persistent_ready": bool(persistent and persistent.ready),
                 "persistent_pid": persistent.pid if persistent else None,
                 "speaker_reference_configured": warm_spec is not None,
@@ -967,6 +986,9 @@ def create_app(config: Config | None = None) -> Flask:
                 else:
                     if warm_spec is None:
                         raise TTSError("no warm speaker reference is configured")
+                        if runtime.keep_warm and not persistent.ready:
+                            weights_gib = (runtime.model.stat().st_size + runtime.projector.stat().st_size) / 1024**3
+                            governor.require_capacity("warm speech graph", weights_gib + 0.75)
                     persistent.ensure(warm_spec)
                 return jsonify(
                     {
@@ -978,7 +1000,7 @@ def create_app(config: Config | None = None) -> Flask:
                         ),
                     }
                 )
-        except (TTSError, ValueError, subprocess.TimeoutExpired) as exc:
+        except (MemoryPressure, OSError, TTSError, ValueError, subprocess.TimeoutExpired) as exc:
             return jsonify({"error": str(exc)}), 422
 
     @app.post("/synthesize")
@@ -1058,10 +1080,13 @@ def create_app(config: Config | None = None) -> Flask:
                         raise TTSError("TTS worker is unavailable")
                     if inline_reference and persistent is not None:
                         persistent.close()
+                    complete = False
                     try:
                         yield from _stream_worker_batch(worker, specs)
+                        complete = True
                     finally:
-                        worker.close()
+                        if ephemeral or not runtime.keep_warm or not complete:
+                            worker.close()
 
             response = Response(
                 stream_with_context(generate()),

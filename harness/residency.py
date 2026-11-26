@@ -194,6 +194,12 @@ class BackgroundTTSResidency:
     tts_url: str
     timeout_s: float = 15.0
 
+    def warm(self) -> None:
+        httpx.post(
+            f"{self.tts_url.rstrip('/')}/residency",
+            json={"action": "warm"}, timeout=self.timeout_s,
+        ).raise_for_status()
+
     def shed(self) -> None:
         endpoint = f"{self.tts_url.rstrip('/')}/residency"
         response = httpx.post(

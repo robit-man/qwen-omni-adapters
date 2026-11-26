@@ -34,6 +34,7 @@ from waitress import serve
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from qwen_omni_adapters import fast_voice_asr
 from qwen_omni_adapters.audio import (
     DEFAULT_AUDIO_CONTRACT,
     AudioContractError,
@@ -90,6 +91,8 @@ class Config:
     # is known to degenerate, so this stays opt-in per deployment profile.
     comprehension_disable_thinking: bool = False
     inkling_native_reasoning: bool = False
+    fast_voice_asr_model: str = ""
+    fast_voice_asr_python: str = sys.executable
     comprehension_repeat_penalty: float = 1.0
     detailed_media_analysis: bool = False
     detailed_audio_analysis: bool | None = None
@@ -149,6 +152,8 @@ class Config:
                 os.environ.get("OMNI_COMPREHENSION_DISABLE_THINKING", "0") == "1"
             ),
             inkling_native_reasoning=os.environ.get("OMNI_INKLING_NATIVE_REASONING", "0") == "1",
+            fast_voice_asr_model=os.environ.get("OMNI_FAST_VOICE_ASR_MODEL", ""),
+            fast_voice_asr_python=os.environ.get("OMNI_FAST_VOICE_ASR_PYTHON", sys.executable),
             comprehension_repeat_penalty=float(
                 os.environ.get("OMNI_COMPREHENSION_REPEAT_PENALTY", "1.0")
             ),
@@ -628,6 +633,7 @@ def _classify_live_turn(
         }
         if config.inkling_native_reasoning:
             payload["reasoning_effort"] = "none"
+            payload["reasoning_budget_tokens"] = 0
         else:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
             payload["stop"] = ["<|im_start|>", "<|im_end|>"]
@@ -1972,6 +1978,8 @@ def build_language_payload(
                 payload["reasoning_effort"] = think
             else:
                 payload["reasoning_effort"] = "high" if thinking_requested else "none"
+            if not thinking_requested:
+                payload["reasoning_budget_tokens"] = 0
         else:
             template_kwargs = payload.get("chat_template_kwargs")
             payload["chat_template_kwargs"] = {
@@ -2181,6 +2189,7 @@ def _required_tool_retry_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         retry["think"] = False
     if "reasoning_effort" in retry:
         retry["reasoning_effort"] = "none"
+        retry["reasoning_budget_tokens"] = 0
     template_kwargs = retry.get("chat_template_kwargs")
     if isinstance(template_kwargs, Mapping) and "enable_thinking" in template_kwargs:
         retry["chat_template_kwargs"] = {
@@ -2630,6 +2639,64 @@ def _pcm16_wav(pcm: bytes, sample_rate: int = 24000) -> bytes:
     return output.getvalue()
 
 
+@dataclass(frozen=True)
+class _FastVoiceReply:
+    transcript: str
+    speech: str
+    followup: bool
+
+
+def _fast_voice_reply(
+    parsed: ParsedAdapterRequest, config: Config, client: httpx.Client,
+) -> _FastVoiceReply | None:
+    if (not config.fast_voice_asr_model or not config.inkling_native_reasoning or config.language_api != "openai"
+            or not _is_live_spoken_turn(parsed) or parsed.input_modalities != ("text", "audio")):
+        return None
+    current = next((message for message in reversed(parsed.messages) if message.role == "user"), None)
+    if current is None or len(current.audios) != 1:
+        return None
+    clip = current.audios[0]
+    if clip.mime_type != "audio/wav" or len(clip.data) > fast_voice_asr.MAX_AUDIO_BYTES:
+        return None
+    worker = Path(fast_voice_asr.__file__).resolve()
+    try:
+        recognition = subprocess.run(  # noqa: S603 - operator-configured offline interpreter
+            [config.fast_voice_asr_python, str(worker), config.fast_voice_asr_model],
+            input=clip.data, capture_output=True, timeout=4, check=True,
+        )
+        transcript = json.loads(recognition.stdout)
+        if not isinstance(transcript, str) or not transcript or any(ch in transcript for ch in "<>"):
+            return None
+        recent = [
+            {"role": message.role, "content": message.content[:250]}
+            for message in parsed.messages if message is not current
+            and message.role in {"user", "assistant"} and message.content and not message.media
+        ][-2:]
+        response = client.post(language_request_url(config), json={
+            "model": config.language_model or parsed.model,
+            "messages": [
+                {"role": "system", "content": (
+                    f"You are {runtime_agent_name()} in a live conversation. Give one short spoken sentence. "
+                    "Output REPLY: then your answer when you can resolve the ask from the recent exchange "
+                    "or what you already know. Output CHECK: then acknowledge the ask in one short sentence "
+                    "when it needs more thought, current evidence or an action. Never claim work has "
+                    "already happened. If the speaker is addressing someone else or only talking aloud, output QUIET."
+                )},
+                *recent, {"role": "user", "content": transcript},
+            ],
+            "reasoning_effort": "none", "reasoning_budget_tokens": 0,
+            "max_tokens": 56, "temperature": 0, "stream": False, "cache_prompt": False,
+        }, timeout=min(config.timeout_s, 7))
+        reply = _language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"]
+    except (OSError, ValueError, subprocess.SubprocessError, httpx.HTTPError, AdapterStageError):
+        return None
+    mode, _, speech = reply.partition(":")
+    speech = " ".join(speech.split())
+    if mode.strip().upper() not in {"REPLY", "CHECK"} or not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
+        return None
+    return _FastVoiceReply(transcript, speech, mode.strip().upper() == "CHECK")
+
+
 def execute_stream(
     parsed: ParsedAdapterRequest,
     config: Config,
@@ -2640,6 +2707,7 @@ def execute_stream(
     | None = None,
     *,
     choose_reply_depth: bool = False,
+    fast_voice: bool = False,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
 
@@ -2652,8 +2720,27 @@ def execute_stream(
     executed: list[str] = []
     speech_addressee: str | None = None
     live_route: _LiveTurnRoute | None = None
+    fast_reply = None
+    if fast_voice and config.fast_voice_asr_model:
+        yield _stream_event("stage", stage="comprehension")
+        fast_reply = _fast_voice_reply(parsed, config, client)
+    if fast_reply is not None:
+        observation = f"<speech_transcript>{fast_reply.transcript}</speech_transcript>"
+        executed.extend(("comprehension", "language"))
+        yield _stream_event("observation", transcript=fast_reply.transcript,
+            evidence_provenance={"current_media_modalities": ["audio"], "current_visual_input": False,
+                                 "tool_data_is_visual_input": False, "prior_dialogue_is_current_observation": False})
+        yield _stream_event("stage", stage="language")
+        if fast_reply.followup:
+            result = _finish_response(
+                _direct_response(parsed.model, fast_reply.speech), parsed, config, client,
+                observation=observation, executed=executed, suppress_tts=True,
+            )
+            result["adapter"]["fast_voice_followup"] = True
+            yield _stream_event("final", response=result)
+            return
 
-    if "comprehension" in parsed.route:
+    if fast_reply is None and "comprehension" in parsed.route:
         _require_comprehension(config)
         yield _stream_event("stage", stage="comprehension")
         observation = _comprehend(parsed, config, client)
@@ -2713,12 +2800,15 @@ def execute_stream(
             return
 
     decision_tool_names = (
-        decision_observer(parsed, observation) if decision_observer is not None else None
+        decision_observer(parsed, observation) if decision_observer is not None and fast_reply is None else None
     )
     if decision_tool_names is None and live_route is not None:
         decision_tool_names = live_route.tool_names
 
-    if parsed.task in {"transcribe", "describe"}:
+    if fast_reply is not None:
+        result = _direct_response(parsed.model, fast_reply.speech)
+        yield _stream_event("delta", message=result["message"])
+    elif parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
         if observation:
             yield _stream_event(
@@ -3135,7 +3225,7 @@ def create_app(
             normalized = dict(body)
             normalized["stream"] = False
             parsed = parse_adapter_request(normalized)
-            choose_reply_depth = request.headers.get("X-Omni-Voice-Reasoning") == "auto"
+            voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
         except OmniAdapterError as exc:
             return jsonify({"error": str(exc), "schema": ADAPTER_SCHEMA}), 400
 
@@ -3146,7 +3236,8 @@ def create_app(
                     runtime_config,
                     session,
                     decision_observer=observe_input_routing,
-                    choose_reply_depth=choose_reply_depth,
+                    choose_reply_depth=voice_routing == "auto",
+                    fast_voice=voice_routing == "fast",
                 )
             except (AdapterStageError, httpx.HTTPError) as exc:
                 yield _stream_event("error", error=str(exc), schema=ADAPTER_SCHEMA)

@@ -551,6 +551,17 @@ which is removed before history and TTS and reported as
 still when current gaze/attention is materially necessary to resolve an
 ambiguous addressee, but no ambient frame is attached eagerly.
 
+The local voice owner starts automatic replies with thinking disabled. A short
+answer can finish in that pass. When the turn needs further work, the harness
+plays one acknowledgment before the portal opens a reasoning-enabled follow-up.
+On Inkling, `OMNI_FAST_VOICE_ASR_MODEL` can point to an existing local
+faster-whisper snapshot and `OMNI_FAST_VOICE_ASR_PYTHON` to its interpreter.
+Clear short clips can use that CPU recognizer and a compact reply prompt.
+Other clips use the installed audio bridge. On a single slot, this option
+defers optional memory encoding while the hands-free microphone is listening.
+`OMNI_TTS_KEEP_WARM=1` allows prewarming at speech onset and retaining the
+streaming graph while memory permits. Long follow-up work can release it.
+
 OCR, transcripts, captions, subtitles, and scene text cannot change system or
 tool instructions. A learned dense bridge would be a new trained architecture
 and needs a new artifact schema and release gate.

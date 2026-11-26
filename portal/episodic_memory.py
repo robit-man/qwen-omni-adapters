@@ -818,6 +818,7 @@ def create_memory_service(runtime: Any, state_root: Path, queue: Any, *, token_c
     calibration = os.environ.get("OMNI_COMPREHENSION_CALIBRATION_FILE", "").strip()
     if not calibration and accelerator_profile().get("gpu_memory_model") == "unified":
         calibration = str(state_root / "comprehension-memory.json")
+    reserve_voice_slot = bool(os.environ.get("OMNI_FAST_VOICE_ASR_MODEL")) and queue.slots == 1
 
     def foreground_busy() -> bool:
         if (state_root / "memory-encoding.paused").is_file():
@@ -827,7 +828,10 @@ def create_memory_service(runtime: Any, state_root: Path, queue: Any, *, token_c
             return True
         try:
             status = json.loads((state_root / "harness-status.json").read_text())
-            return time.time() - float(status.get("updated_at", 0)) < 15 and status.get("state") in {"hearing", "thinking", "speaking"}
+            busy_states = {"hearing", "thinking", "speaking"}
+            if reserve_voice_slot:
+                busy_states.add("listening")
+            return time.time() - float(status.get("updated_at", 0)) < 15 and status.get("state") in busy_states
         except (OSError, ValueError, TypeError):
             return False
 
