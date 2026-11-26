@@ -62,6 +62,7 @@ from qwen_omni_adapters.context import (
 )
 from qwen_omni_adapters.contract import OmniAdapterError, parse_adapter_request
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState, DecisionWaveResult
+from qwen_omni_adapters.http_stream import watch_for_disconnect
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
 from qwen_omni_adapters.virtual_memory import ContextOverflow, LlamaCppTokenCounter
 from qwen_omni_adapters.voice_locale import VoiceLocaleError, normalize_voice_locale
@@ -4399,6 +4400,7 @@ def create_app(
             return jsonify({"error": str(exc)}), 400
         internal_background = payload.pop("portal_background_worker", False) is True
         continuation_enabled = detached_turn and not internal_background
+        disconnected = None if continuation_enabled else request.environ.get("waitress.client_disconnected")
         preserve_controller_packet = (
             payload.pop("portal_preserve_controller_packet", False) is True
         )
@@ -4674,6 +4676,7 @@ def create_app(
             format_retries = 0
             audio_started = False
             fast_acknowledged = False
+            disconnect_watch = watch_for_disconnect(disconnected, lambda: current_upstream)
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
                 emitted = copy.deepcopy(dict(event))
@@ -4723,6 +4726,9 @@ def create_app(
                     return
                 round_index = 0
                 while True:
+                    if disconnected is not None and disconnected():
+                        final_status = 499
+                        return
                     final_response: dict[str, Any] | None = None
                     stream_error = ""
                     round_audio_started = False
@@ -4798,6 +4804,9 @@ def create_app(
                                 and _action_acknowledgement(event.get("message"))):
                             yield event_bytes(event)
                     current_upstream.close()
+                    if disconnected is not None and disconnected():
+                        final_status = 499
+                        return
                     if not stream_error and final_response is None:
                         stream_error = "adapter stream ended without a final response"
                     if stream_error:
@@ -4911,10 +4920,8 @@ def create_app(
                             return
                         if calls:
                             acknowledgement = _action_acknowledgement(final_response.get("message")) if voice_preface_enabled else ""
-                            if voice_preface_enabled and voice_auto_reasoning:
-                                acknowledgement = (
-                                    acknowledgement or "I'll look into that."
-                                ) if round_index == 0 and not fast_acknowledged else ""
+                            if voice_auto_reasoning and (round_index or fast_acknowledged):
+                                acknowledgement = ""
                             if acknowledgement:
                                 final_response["message"]["content"] = acknowledgement
                                 if not (yield from play_preface(acknowledgement)):
@@ -5047,6 +5054,7 @@ def create_app(
                         )
                         return
             finally:
+                disconnect_watch.set()
                 current_upstream.close()
                 if active_ticket is not None:
                     inference_queue.release(active_ticket)
@@ -5126,5 +5134,6 @@ if __name__ == "__main__":
         host=os.environ.get("OMNI_PORTAL_HOST", "127.0.0.1"),
         port=int(os.environ.get("OMNI_PORTAL_PORT", "8920")),
         threads=int(os.environ.get("OMNI_PORTAL_THREADS", "12")),
+        channel_request_lookahead=1,
         channel_timeout=int(os.environ.get("OMNI_PORTAL_TIMEOUT_S", "1200")) + 60,
     )

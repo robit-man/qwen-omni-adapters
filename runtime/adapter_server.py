@@ -60,6 +60,7 @@ from qwen_omni_adapters.contract import (
     parse_adapter_request,
 )
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState
+from qwen_omni_adapters.http_stream import abort_on_disconnect
 
 
 @dataclass(frozen=True)
@@ -94,6 +95,7 @@ class Config:
     inkling_native_reasoning: bool = False
     fast_voice_asr_model: str = ""
     fast_voice_asr_python: str = sys.executable
+    fast_voice_thinking_token: int | None = None
     comprehension_repeat_penalty: float = 1.0
     detailed_media_analysis: bool = False
     detailed_audio_analysis: bool | None = None
@@ -2658,6 +2660,19 @@ _FAST_VOICE_SCHEMA = {
 }
 
 
+def _fast_voice_thinking_token(config: Config, client: httpx.Client) -> int | None:
+    try:
+        origin = _llama_context_probe_origin(config)
+        if origin is None:
+            return None
+        tokens = _json_response(client.post(origin + "/tokenize", json={
+            "content": "<|content_thinking|>", "add_special": False, "parse_special": True,
+        }, timeout=3), "voice tokenizer").get("tokens")
+    except (AdapterStageError, httpx.HTTPError):
+        return None
+    return tokens[0] if isinstance(tokens, list) and len(tokens) == 1 and type(tokens[0]) is int else None
+
+
 def _fast_voice_reply(
     parsed: ParsedAdapterRequest, config: Config, client: httpx.Client,
     recognize: Callable[[bytes], str],
@@ -2679,14 +2694,15 @@ def _fast_voice_reply(
             for message in parsed.messages if message is not current
             and message.role in {"user", "assistant"} and message.content and not message.media
         ][-2:]
-        response = client.post(language_request_url(config), json={
+        payload = {
             "model": config.language_model or parsed.model,
             "messages": [
                 {"role": "system", "content": (
-                    f"You are {runtime_agent_name()} in a voice conversation. Use route reply for a direct answer "
-                    "you know now, including greetings and connection checks. Use check for an action, missing facts "
-                    "or more thought, and say what you will check. Use quiet for ambient speech or another addressee. "
-                    "The speech field is one short natural sentence."
+                    f"You are {runtime_agent_name()} in a voice conversation. Use route reply for a short direct answer "
+                    "from current evidence or recent dialogue. Use check for an action, for retrieving earlier "
+                    "conversations or outside information, or when more analysis is needed. For check, acknowledge the "
+                    "specific request and say what you will look into without claiming it is already done. "
+                    "Use quiet if the speaker is addressing someone else or just talking aloud. Give one natural short sentence."
                 )},
                 *recent, {"role": "user", "content": transcript},
             ],
@@ -2695,11 +2711,19 @@ def _fast_voice_reply(
             "response_format": {"type": "json_schema", "json_schema": {
                 "name": "spoken_turn", "strict": True, "schema": _FAST_VOICE_SCHEMA,
             }},
-        }, timeout=min(config.timeout_s, 7))
+        }
+        if config.fast_voice_thinking_token is not None:
+            payload["logit_bias"] = [[config.fast_voice_thinking_token, False]]
+        response = client.post(language_request_url(config), json=payload, timeout=min(config.timeout_s, 7))
         reply = json.loads(_language_result(_json_response(response, "fast spoken reply"), "openai")["message"]["content"])
     except (ValueError, httpx.HTTPError, AdapterStageError):
         return None
-    if not isinstance(reply, dict) or reply.get("route") not in {"reply", "check"}:
+    if not isinstance(reply, dict):
+        return None
+    route = reply.get("route")
+    if route == "quiet" and not parsed.live_engaged:
+        return _FastVoiceReply(transcript, "", False)
+    if route not in {"reply", "check"}:
         return None
     speech = reply.get("speech")
     if not isinstance(speech, str):
@@ -2707,7 +2731,7 @@ def _fast_voice_reply(
     speech = " ".join(speech.split())
     if not 0 < len(speech) <= 220 or any(ch in speech for ch in "<>"):
         return None
-    return _FastVoiceReply(transcript, speech, reply["route"] == "check")
+    return _FastVoiceReply(transcript, speech, route == "check")
 
 
 def execute_stream(
@@ -2721,6 +2745,7 @@ def execute_stream(
     *,
     choose_reply_depth: bool = False,
     fast_recognize: Callable[[bytes], str] | None = None,
+    disconnected: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
 
@@ -2757,6 +2782,8 @@ def execute_stream(
         _require_comprehension(config)
         yield _stream_event("stage", stage="comprehension")
         observation = _comprehend(parsed, config, client)
+        if disconnected is not None and disconnected():
+            return
         executed.append("comprehension")
         auto_depth = choose_reply_depth and parsed.input_modalities == ("text", "audio")
         observation, live_route = _validated_live_observation(
@@ -2820,7 +2847,8 @@ def execute_stream(
 
     if fast_reply is not None:
         result = _direct_response(parsed.model, fast_reply.speech)
-        yield _stream_event("delta", message=result["message"])
+        if fast_reply.speech:
+            yield _stream_event("delta", message=result["message"])
     elif parsed.task in {"transcribe", "describe"}:
         result = _direct_response(parsed.model, observation or "")
         if observation:
@@ -2860,7 +2888,7 @@ def execute_stream(
         # over-long prompt rather than truncating it, so a conversation that
         with _stream_language_with_context_retries(
             client, language_request_url(config), payload, config
-        ) as response:
+        ) as response, abort_on_disconnect(disconnected, lambda: response):
             if response.status_code >= 400:
                 response.read()
                 raise AdapterStageError(
@@ -3031,7 +3059,7 @@ def execute_stream(
             "POST",
             config.tts_url.rstrip("/") + "/stream/batch",
             json=tts_payload,
-        ) as response:
+        ) as response, abort_on_disconnect(disconnected, lambda: response):
             if response.status_code >= 400:
                 response.read()
                 raise AdapterStageError(
@@ -3117,6 +3145,7 @@ def create_app(
     session = client or httpx.Client(timeout=runtime_config.timeout_s)
     recognizer = None
     if runtime_config.fast_voice_asr_model and runtime_config.inkling_native_reasoning and runtime_config.language_api == "openai":
+        runtime_config = replace(runtime_config, fast_voice_thinking_token=_fast_voice_thinking_token(runtime_config, session))
         try:
             recognizer = fast_voice_asr.FastVoiceRecognizer(
                 runtime_config.fast_voice_asr_python, runtime_config.fast_voice_asr_model,
@@ -3248,6 +3277,7 @@ def create_app(
             normalized["stream"] = False
             parsed = parse_adapter_request(normalized)
             voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
+            disconnected = request.environ.get("waitress.client_disconnected")
         except OmniAdapterError as exc:
             return jsonify({"error": str(exc), "schema": ADAPTER_SCHEMA}), 400
 
@@ -3260,9 +3290,11 @@ def create_app(
                     decision_observer=observe_input_routing,
                     choose_reply_depth=voice_routing == "auto",
                     fast_recognize=recognizer if voice_routing == "fast" else None,
+                    disconnected=disconnected,
                 )
             except (AdapterStageError, httpx.HTTPError) as exc:
-                yield _stream_event("error", error=str(exc), schema=ADAPTER_SCHEMA)
+                if disconnected is None or not disconnected():
+                    yield _stream_event("error", error=str(exc), schema=ADAPTER_SCHEMA)
 
         return Response(
             stream_with_context(generate()),
@@ -3279,5 +3311,6 @@ if __name__ == "__main__":
         host=os.environ.get("OMNI_ADAPTER_HOST", "127.0.0.1"),
         port=int(os.environ.get("OMNI_ADAPTER_PORT", "11435")),
         threads=int(os.environ.get("OMNI_ADAPTER_THREADS", "8")),
+        channel_request_lookahead=1,
         channel_timeout=int(os.environ.get("OMNI_TIMEOUT_S", "900")) + 60,
     )

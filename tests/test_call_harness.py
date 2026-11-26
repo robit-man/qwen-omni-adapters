@@ -452,6 +452,47 @@ def test_action_preface_receipt_follows_playback(monkeypatch) -> None:
         call.close()
 
 
+def test_confirmed_interruption_releases_a_stalled_http_stream() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Event, Thread
+
+    blocked = Event()
+    release = Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            self.send_response(200)
+            self.send_header("Content-Length", "100000")
+            self.end_headers()
+            self.wfile.write(b'{"type":"stage","stage":"language"}\n')
+            self.wfile.flush()
+            blocked.set()
+            release.wait(6)
+            self.close_connection = True
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        serving = Thread(target=server.serve_forever, daemon=True)
+        serving.start()
+        config = CallConfig(portal_url=f"http://127.0.0.1:{server.server_port}", token="t", model="m")
+        call = CallSession(config)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = executor.submit(call._run, {"omni": {"task": "chat"}})
+            try:
+                assert blocked.wait(2)
+                call.request_barge()
+                completed = result.result(timeout=2)
+                assert completed.interrupted and not completed.error
+            finally:
+                release.set()
+                call.close()
+                server.shutdown()
+        serving.join()
+
+
 def test_conversation_content_trace_is_injectable_and_end_to_end(monkeypatch) -> None:
     traced: list[tuple[str, str, dict]] = []
     call = CallSession(

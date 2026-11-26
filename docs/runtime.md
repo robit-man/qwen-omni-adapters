@@ -553,7 +553,9 @@ ambiguous addressee, but no ambient frame is attached eagerly.
 
 The local voice owner starts automatic replies with thinking disabled. A short
 answer can finish in that pass. When the turn needs further work, the harness
-plays one acknowledgment before the portal opens a reasoning-enabled follow-up.
+plays the model's request-specific acknowledgment before the portal opens a
+reasoning-enabled follow-up. A confirmed interruption closes the old live HTTP
+stream so the next local utterance can proceed.
 On Inkling, `OMNI_FAST_VOICE_ASR_MODEL` can point to an existing local
 faster-whisper snapshot and `OMNI_FAST_VOICE_ASR_PYTHON` to its interpreter.
 Clear short clips can use that CPU recognizer and a compact reply prompt.

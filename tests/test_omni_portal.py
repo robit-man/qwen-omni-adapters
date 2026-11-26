@@ -2146,9 +2146,9 @@ def test_voice_preface_precedes_dispatch_and_auto_thinks_afterward(tmp_path, mon
     try:
         first = json.loads(next(reply.response))
         assert not actions
-        if with_preface or auto:
+        if with_preface:
             assert first["type"] == "voice_preface"
-            assert first["text"] == ("I'll save that as a note." if with_preface else "I'll look into that.")
+            assert first["text"] == "I'll save that as a note."
             receipt = {"id": first["id"], "played": played}
             assert app.test_client().post("/api/voice/preface", headers=headers, json=receipt).status_code == 404
             assert voice.get("/api/activity", headers=headers).json["active"] == 0

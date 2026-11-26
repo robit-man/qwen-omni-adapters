@@ -3388,7 +3388,7 @@ def _live_spoken_request() -> object:
     )
 
 
-@pytest.mark.parametrize("mode", ["reply", "check"])
+@pytest.mark.parametrize("mode", ["reply", "check", "quiet"])
 def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
     requests = []
 
@@ -3399,18 +3399,20 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
             "message": {"content": json.dumps({"route": mode, "speech": "I hear you."})},
         }]})
 
-    config = _adapter_config(language_api="openai", inkling_native_reasoning=True)
+    config = _adapter_config(language_api="openai", inkling_native_reasoning=True, fast_voice_thinking_token=123)
+    turn = dataclasses.replace(_live_spoken_request(), live_engaged=False)
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         events = [json.loads(line) for line in execute_stream(
-            _live_spoken_request(), config, client,
+            turn, config, client,
             fast_recognize=lambda _: "Egg, can you hear me?",
         )]
 
     assert len(requests) == 1
     assert requests[0]["reasoning_effort"] == "none" and requests[0]["reasoning_budget_tokens"] == 0
+    assert requests[0]["logit_bias"] == [[123, False]]
     assert requests[0]["response_format"]["json_schema"]["strict"] is True
     assert requests[0]["messages"][-1]["content"] == "Egg, can you hear me?"
-    assert events[-1]["response"]["message"]["content"] == "I hear you."
+    assert events[-1]["response"]["message"]["content"] == ("" if mode == "quiet" else "I hear you.")
     assert events[-1]["response"]["adapter"].get("fast_voice_followup", False) is (mode == "check")
 
 

@@ -50,6 +50,7 @@ from harness.respeaker import (
 from harness.vad import Utterance, Vad, VadConfig
 from portal.background_tasks import BackgroundTaskStore
 from qwen_omni_adapters.context import live_call_system_prompt
+from qwen_omni_adapters.http_stream import abort_response
 from qwen_omni_adapters.memory import MemoryGovernor, MemoryPressure
 
 logger = logging.getLogger(__name__)
@@ -407,6 +408,7 @@ class CallSession:
         )
         self._barge = threading.Event()
         self._speaker_lock = threading.Lock()
+        self._active_responses: set[httpx.Response] = set()
         self._active_speaker: SpeakerStream | None = None
         self._active_reply_text = ""
         self._last_spoken_text = ""
@@ -508,6 +510,8 @@ class CallSession:
         self._barge.set()
         with self._speaker_lock:
             speaker = self._active_speaker
+            for response in self._active_responses:
+                abort_response(response)
         if speaker is not None:
             speaker.stop(fade_s=0.12)
 
@@ -743,21 +747,31 @@ class CallSession:
         with transport.stream(
             "POST", url, json=payload, headers=self._headers()
         ) as response:
-            if response.status_code >= 400:
-                response.read()
-                raise _PortalError(response.status_code, response.text[:300])
-            for line in response.iter_lines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(event, dict):
-                    if self.config.evidence_trace is not None and event.get("type") in {"observation", "tool", "error", "final"}:
-                        self.config.evidence_trace("stream_event", {"event": copy.deepcopy(event)})
-                    yield event
+            if transport is self._client:
+                with self._speaker_lock:
+                    if self._barge.is_set():
+                        abort_response(response)
+                        return
+                    self._active_responses.add(response)
+            try:
+                if response.status_code >= 400:
+                    response.read()
+                    raise _PortalError(response.status_code, response.text[:300])
+                for line in response.iter_lines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(event, dict):
+                        if self.config.evidence_trace is not None and event.get("type") in {"observation", "tool", "error", "final"}:
+                            self.config.evidence_trace("stream_event", {"event": copy.deepcopy(event)})
+                        yield event
+            finally:
+                with self._speaker_lock:
+                    self._active_responses.discard(response)
 
     def comprehend_interruption(self, samples: np.ndarray, *, checkpoint: bool = False) -> TurnResult:
         """Transcribe paused near-end audio without generating or speaking a reply."""
@@ -1218,9 +1232,11 @@ class CallSession:
                     result.error = str(event.get("error") or "stream error")
                     break
         except Exception as error:  # noqa: BLE001 - one bad turn is not fatal
-            result.error = f"{type(error).__name__}: {error}"
-            logger.warning("call turn failed: %s", result.error)
+            if not self._barge.is_set():
+                result.error = f"{type(error).__name__}: {error}"
+                logger.warning("call turn failed: %s", result.error)
         finally:
+            result.interrupted |= self._barge.is_set()
             if speaking:
                 if self._barge.is_set() or result.error:
                     speaker.stop(fade_s=0.12 if self._barge.is_set() else 0.0)
