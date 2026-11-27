@@ -3501,6 +3501,7 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
     assert events[-1]["response"]["adapter"].get("fast_voice_followup", False) is (mode == "check")
 
 
+@pytest.mark.parametrize("engaged", [False, True])
 @pytest.mark.parametrize(("route", "addressee", "text"), [
     ("reply", "SELF", "Six plus seven is thirteen."),
     ("clarify", "AMBIGUOUS", "Which case did you mean?"),
@@ -3508,7 +3509,7 @@ def test_fast_inkling_voice_uses_one_no_reasoning_request(mode):
     ("quiet", "OTHER", ""),
     ("invalid", "AMBIGUOUS", ""),
 ])
-def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addressee, text):
+def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addressee, text, engaged):
     transcript = "Could you check what we decided after dinner?"
     observation = f"<speech_transcript>{transcript}</speech_transcript><audio_observation>Keyboard.</audio_observation>"
     requests = []
@@ -3533,6 +3534,9 @@ def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addresse
         policy = payload["messages"][0]["content"]
         assert "complete answer in one sentence of at most 24 words" in policy
         assert "For a longer explanation, use check" in policy
+        assert ("a greeting or thanks can be directed to you" in policy) is engaged
+        if engaged:
+            assert "explicit other recipients and speech said only to oneself quiet" in policy
         assert "tools" not in payload and payload["cache_prompt"] is False
         return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
             "route": route, "addressee": addressee, "speech": text,
@@ -3545,7 +3549,8 @@ def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addresse
     )
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         events = [json.loads(line) for line in execute_stream(
-            _live_spoken_request(think=False), config, client, compact_native_voice=True,
+            dataclasses.replace(_live_spoken_request(think=False), live_engaged=engaged),
+            config, client, compact_native_voice=True,
             reuse_native_text_prefix=True,
         )]
 

@@ -2714,6 +2714,12 @@ _COMPACT_VOICE_POLICY = (
     "For a longer explanation, use check and briefly state what you will work out."
 )
 
+_ENGAGED_VOICE_ATTRIBUTION = (
+    " In an ongoing exchange, a greeting or thanks can be directed to you "
+    "without your name. Mark it SELF when it fits the conversation. Keep "
+    "explicit other recipients and speech said only to oneself quiet."
+)
+
 _COMPACT_VOICE_MAX_PROMPT = 500
 _COMPACT_VOICE_MAX_COMPLETION = 80
 _COMPACT_VOICE_TIMEOUT_S = 8.5
@@ -2771,6 +2777,8 @@ def _plan_fast_voice_reply(
             "or deeper analysis. For check, say what you will do without claiming success. "
             "Use quiet when someone else is addressed or the speaker is thinking aloud."
         )
+        if native and parsed.live_engaged:
+            system += _ENGAGED_VOICE_ATTRIBUTION
         payload = {
             "model": config.language_model or parsed.model,
             "messages": [
