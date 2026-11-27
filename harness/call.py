@@ -1625,8 +1625,12 @@ def run_call_loop(
                     except queue.Empty:
                         pass
                 if announcement is None:
-                    worker_stop.wait(0.1)
-                    continue
+                    try:
+                        pending = work.get(timeout=0.1)
+                    except queue.Empty:
+                        continue
+                    if stop.is_set() or worker_stop.is_set():
+                        return
             busy.set()
             foreground_active.set()
             if announcement is not None:

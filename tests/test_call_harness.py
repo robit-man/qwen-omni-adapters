@@ -11,7 +11,10 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from queue import Empty, Full, Queue
+from threading import Event
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import httpx
 import numpy as np
@@ -2068,6 +2071,33 @@ def test_foreground_lane_survives_only_accepted_or_queued_turns(
         )
         is expected
     )
+
+
+def test_idle_turn_worker_waits_for_foreground_queue_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from harness import call
+
+    waiting_for_work = Event()
+
+    class ObservedQueue(Queue):
+        def get(self, block=True, timeout=None):
+            if block and timeout is not None:
+                waiting_for_work.set()
+            return super().get(block, timeout)
+
+    microphone = MagicMock(frame_ms=FRAME_MS)
+
+    def frames():
+        assert waiting_for_work.wait(1), "idle worker never waited on its work queue"
+        return iter(())
+
+    microphone.frames.side_effect = frames
+    monkeypatch.setattr(call, "queue", SimpleNamespace(Queue=ObservedQueue, Empty=Empty, Full=Full))
+    monkeypatch.setattr(call, "ReSpeaker", lambda: MagicMock(present=False))
+    monkeypatch.setattr(call, "MicrophoneStream", lambda **_: microphone)
+
+    call.run_call_loop(CallConfig(tools_enabled=False, barge_in_enabled=False))
 
 
 def test_the_capture_loop_uses_a_two_stage_interruption() -> None:
