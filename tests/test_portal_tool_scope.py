@@ -215,6 +215,7 @@ def test_acknowledged_native_retrieval_keeps_its_concrete_schema_for_closed_answ
             return _answer(True, [("tool_search", {"family": "memory"})])
         if len(calls) == 3:
             assert body["tool_choice"] == "required"
+            assert body["think"] is True
             return _answer(True, [("conversation_search", {
                 "query": "", "period": "today", "view": "overview", "after_retrieval": "answer",
             })])
@@ -247,6 +248,69 @@ def test_acknowledged_native_retrieval_keeps_its_concrete_schema_for_closed_answ
     assert [tool["name"] for tool in events[-1]["response"]["portal"]["safe_tools_executed"]] == [
         "tool_search", "conversation_search",
     ]
+
+
+@pytest.mark.parametrize("plan", ["answer", "continue"])
+def test_native_snapshot_selection_uses_no_thinking_and_honors_continuation(tmp_path, monkeypatch, plan):
+    from harness.history import ConversationHistory
+
+    archive = tmp_path / "archive.sqlite3"
+    history = ConversationHistory(archive)
+    history.append("A fabricated preceding exchange.")
+    history.close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(archive))
+    receipt = {"captured_at": "2026-11-26T19:00:00-08:00", "memory": {"total_gib": 29.98}}
+    monkeypatch.setattr("portal.tools.runtime_environment_snapshot", lambda: receipt)
+    calls = []
+
+    def upstream(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        if len(calls) == 1:
+            assert request.headers["X-Omni-Voice-Reasoning"] == "native"
+            assert body["think"] is False
+            return _answer(True, message={"role": "assistant", "content": "I’ll check the memory."},
+                           adapter={"fast_voice_followup": True, "input_transcript": "How much RAM is installed?"})
+        assert request.headers["X-Omni-Native-Text-Prefix"] == "1"
+        assert not any(message.get("audios") for message in body["messages"])
+        if len(calls) == 2:
+            assert body["think"] is True
+            return _answer(True, [("tool_search", {"family": "system"})])
+        if len(calls) == 3:
+            assert body["tool_choice"] == "required" and body["think"] is False
+            assert [tool["function"]["name"] for tool in body["tools"]] == ["get_system_snapshot"]
+            return _answer(True, [("get_system_snapshot", {"after_snapshot": plan})])
+        if plan == "answer":
+            assert body["tool_choice"] == "none" and body["think"] is False
+            assert body["tools"] == calls[-2]["tools"]
+            assert body["messages"][:len(calls[-2]["messages"])] == calls[-2]["messages"]
+            assert "<runtime_reply_ready>" in body["messages"][-1]["content"]
+        else:
+            assert body.get("tool_choice") is None and body["think"] is True
+            assert "tool_search" in [tool["function"]["name"] for tool in body["tools"]]
+        return _answer(True)
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    identity = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
+    client.set_cookie("omni_portal_session", identity)
+    payload = _request(True, media=True, portal_voice_preface=True, portal_voice_auto_reasoning=True,
+                       portal_tool_allowlist=["get_system_snapshot"])
+    payload.pop("think")
+    payload["omni"]["require_speech"] = True
+    stream = client.post("/api/chat/stream", headers=HEADERS, json=payload, buffered=False)
+    try:
+        preface = json.loads(next(stream.response))
+        assert preface["type"] == "voice_preface"
+        assert client.post("/api/voice/preface", headers=HEADERS,
+                           json={"id": preface["id"], "played": True}).status_code == 204
+        events = [json.loads(line) for line in stream.response]
+    finally:
+        stream.close()
+    assert len(calls) == 4 and events[-1]["type"] == "final"
+    completed = events[-1]["response"]["portal"]["safe_tools_executed"]
+    assert [tool["name"] for tool in completed] == ["tool_search", "get_system_snapshot"]
+    assert json.loads(completed[-1]["result"]) == receipt
 
 
 @pytest.mark.parametrize("stream,detached", [(False, False), (True, False), (True, True)])

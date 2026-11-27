@@ -5207,9 +5207,18 @@ def create_app(
                     current_payload = _close_live_tool_budget(followup, round_index, live_turn=live_turn)
                     current_payload.pop("_omni_checkpoint_observation", None)
                     if voice_auto_reasoning and round_index:
-                        # Once a typed receipt closes the tool phase, spend the
-                        # remaining turn on a spoken answer from that evidence.
-                        current_payload["think"] = current_payload.get("tool_choice") != "none"
+                        choice = current_payload.get("tool_choice")
+                        tools = current_payload.get("tools") or []
+                        # Discovery has already chosen the sole read-only operation.
+                        # Keep the reasoning marker stable through its answer phase
+                        # so the worker can restore the matching text checkpoint.
+                        snapshot_selected = (
+                            "X-Omni-Native-Text-Prefix" in continuation_headers
+                            and choice == "required"
+                            and len(tools) == 1
+                            and tools[0]["function"]["name"] == "get_system_snapshot"
+                        )
+                        current_payload["think"] = choice != "none" and not snapshot_selected
                     _repacked, repack_summary = safe_repack_virtual_followup(
                         current_payload,
                         session_id,
