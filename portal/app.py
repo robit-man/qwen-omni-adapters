@@ -1816,6 +1816,7 @@ def _tool_followup(
     allowed_tools: frozenset[str] | None = None,
     ui_history: ServerUiHistory | None = None,
     memory_capture: MemoryCapture | None = None,
+    preserve_native_text_prefix: bool = False,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
     message = response.get("message")
     if not isinstance(message, Mapping):
@@ -2154,13 +2155,21 @@ def _tool_followup(
                 # Honor the model's explicit finite lookup -> answer plan.
                 # A comparison, pagination, or external action uses continue;
                 # failed/incomplete retrieval never closes its tool chain.
-                followup.pop("tools", None)
                 followup["tool_choice"] = "none"
                 directive = context_text("directives", "conversation_reply_ready")
-                if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
-                    messages[0]["content"] = directive + "\n\n" + str(messages[0].get("content") or "")
+                supplied_omni = payload.get("omni")
+                if (preserve_native_text_prefix and isinstance(supplied_omni, Mapping)
+                        and supplied_omni.get("tool_routing") == "client" and payload.get("tools")):
+                    # Keep the rendered prefix of the concrete call. The closed
+                    # tool choice still governs both generation and dispatch.
+                    followup["tools"] = copy.deepcopy(payload["tools"])
+                    messages.append({"role": "system", "content": directive})
                 else:
-                    messages.insert(0, {"role": "system", "content": directive})
+                    followup.pop("tools", None)
+                    if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
+                        messages[0]["content"] = directive + "\n\n" + str(messages[0].get("content") or "")
+                    else:
+                        messages.insert(0, {"role": "system", "content": directive})
     if len(executed) == 1 and executed[0]["name"] == "capture_view" and executed[0]["ok"] and executed[0]["arguments"].get("after_capture") == "answer":
         receipt = json.loads(executed[0]["result"])
         if receipt.get("staged_copy") is True and receipt.get("evidence_authority") == "captured_snapshot" and receipt.get("after_capture") == "answer":
@@ -4812,6 +4821,7 @@ def create_app(
             format_retries = 0
             audio_started = False
             fast_acknowledged = False
+            continuation_headers = speech_headers
             disconnect_watch = watch_for_disconnect(disconnected, lambda: current_upstream)
 
             def event_bytes(event: Mapping[str, Any]) -> bytes:
@@ -4995,7 +5005,7 @@ def create_app(
                                     runtime.adapter_url.rstrip("/") + "/stream",
                                     json=current_payload,
                                     headers=(initial_headers if accepted_checkpoint is not None
-                                             and round_index == 0 and not fast_acknowledged else speech_headers),
+                                             and round_index == 0 and not fast_acknowledged else continuation_headers),
                                 )
                                 current_upstream = session.send(
                                     retry_request, stream=True
@@ -5031,6 +5041,8 @@ def create_app(
                         if not (yield from play_preface(acknowledgement)):
                             return
                         fast_acknowledged = True
+                        if initial_headers.get("X-Omni-Voice-Reasoning") == "native":
+                            continuation_headers = {**speech_headers, "X-Omni-Native-Text-Prefix": "1"}
                         # Carry the accepted speech as dialogue. Re-sending the
                         # recording would run the media bridge a second time.
                         followup = {**current_payload, "think": True}
@@ -5114,6 +5126,7 @@ def create_app(
                                 allowed_tools=allowed_tools,
                                 ui_history=ui_history,
                                 memory_capture=memory_capture,
+                                preserve_native_text_prefix="X-Omni-Native-Text-Prefix" in continuation_headers,
                             )
                     recovery_transition = _tool_recovery_transition(round_tools)
                     if recovery_transition is not None:
@@ -5203,7 +5216,7 @@ def create_app(
                             "POST",
                             runtime.adapter_url.rstrip("/") + "/stream",
                             json=current_payload,
-                            headers=speech_headers,
+                            headers=continuation_headers,
                         )
                         current_upstream = session.send(next_request, stream=True)
                     except httpx.HTTPError as exc:

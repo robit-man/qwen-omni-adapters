@@ -188,6 +188,67 @@ def test_archive_reply_handoff_honors_typed_plan_and_preserves_chains(
         assert receipt["error"] == "ToolInputError" and "results" not in receipt
 
 
+def test_acknowledged_native_retrieval_keeps_its_concrete_schema_for_closed_answer(tmp_path, monkeypatch):
+    from harness.history import ConversationHistory
+
+    archive = tmp_path / "archive.sqlite3"
+    history = ConversationHistory(archive)
+    history.append("We chose The Listening Room.")
+    history.close()
+    monkeypatch.setenv("OMNI_CALL_MEMORY", str(archive))
+    calls = []
+
+    def upstream(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        if len(calls) == 1:
+            assert request.headers["X-Omni-Voice-Reasoning"] == "native"
+            assert "X-Omni-Native-Text-Prefix" not in request.headers
+            return _answer(
+                True,
+                message={"role": "assistant", "content": "I'll check our earlier conversation."},
+                adapter={"fast_voice_followup": True, "input_transcript": "Which book did we choose?"},
+            )
+        assert request.headers["X-Omni-Native-Text-Prefix"] == "1"
+        assert not any(message.get("audios") for message in body["messages"])
+        if len(calls) == 2:
+            return _answer(True, [("tool_search", {"family": "memory"})])
+        if len(calls) == 3:
+            assert body["tool_choice"] == "required"
+            return _answer(True, [("conversation_search", {
+                "query": "", "period": "today", "view": "overview", "after_retrieval": "answer",
+            })])
+        assert body["tool_choice"] == "none" and body["think"] is False
+        assert body["tools"] == calls[-2]["tools"]
+        assert body["messages"][:len(calls[-2]["messages"])] == calls[-2]["messages"]
+        assert body["messages"][-1]["role"] == "system"
+        assert "<conversation_reply_ready>" in body["messages"][-1]["content"]
+        return _answer(True)
+
+    app = create_app(_config(tmp_path), httpx.Client(transport=httpx.MockTransport(upstream)))
+    client = app.test_client()
+    identity = hashlib.sha256(b"omni-voice-session\0" + TOKEN.encode()).hexdigest()
+    client.set_cookie("omni_portal_session", identity)
+    payload = _request(True, media=True, portal_voice_preface=True, portal_voice_auto_reasoning=True,
+                       portal_tool_allowlist=["conversation_search"])
+    payload.pop("think")
+    payload["omni"]["require_speech"] = True
+    stream = client.post("/api/chat/stream", headers=HEADERS, json=payload, buffered=False)
+    try:
+        preface = json.loads(next(stream.response))
+        assert preface["type"] == "voice_preface"
+        assert client.post("/api/voice/preface", headers=HEADERS,
+                           json={"id": preface["id"], "played": True}).status_code == 204
+        events = [json.loads(line) for line in stream.response]
+    finally:
+        stream.close()
+    assert len(calls) == 4
+    assert events[-1]["response"]["message"]["content"] == "Complete."
+    assert [tool["name"] for tool in events[-1]["response"]["portal"]["safe_tools_executed"]] == [
+        "tool_search", "conversation_search",
+    ]
+
+
 @pytest.mark.parametrize("stream,detached", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("media", [False, True])
 def test_scope_survives_all_generations_and_filters_discovery_and_forged_calls(

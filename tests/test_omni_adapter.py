@@ -3503,6 +3503,7 @@ def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addresse
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         events = [json.loads(line) for line in execute_stream(
             _live_spoken_request(think=False), config, client, compact_native_voice=True,
+            reuse_native_text_prefix=True,
         )]
 
     assert [path for path, _ in requests] == [
@@ -3519,6 +3520,38 @@ def test_compact_native_reply_uses_the_bundled_audio_bridge_once(route, addresse
         assert response["adapter"]["speech_addressee"] == addressee.lower()
     if route in {"quiet", "invalid", "check"}:
         assert not any(event["type"] == "audio_delta" for event in events)
+
+
+def test_native_cached_closed_phase_cannot_speak_a_text_tool_proposal():
+    proposal = '<tool_call>{"name":"conversation_search","arguments":{}}</tool_call>'
+
+    def respond(request):
+        if request.url.path == "/apply-template":
+            return httpx.Response(200, json={"prompt": "rendered text continuation"})
+        if request.url.path == "/tokenize":
+            return httpx.Response(200, json={"tokens": [1, 2, 3]})
+        assert request.url.path == "/v1/chat/completions"
+        payload = json.loads(request.content)
+        assert payload["cache_prompt"] is True and payload["tool_choice"] == "none"
+        delta = {"choices": [{"delta": {"content": proposal}, "finish_reason": "stop"}]}
+        return httpx.Response(200, text=f"data: {json.dumps(delta)}\n\ndata: [DONE]\n\n")
+
+    turn = parse_adapter_request({
+        "model": "fixture", "messages": [{"role": "user", "content": "Summarize the lookup."}],
+        "omni": {"schema": ADAPTER_SCHEMA, "task": "chat"}, "speech_mode": "always",
+        "tool_choice": "none", "stream": False,
+    })
+    config = _adapter_config(
+        language_api="openai", language_url="http://127.0.0.1:8901/v1/chat/completions",
+        language_llama_context_probe=True, inkling_native_reasoning=True,
+    )
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        events = [json.loads(line) for line in execute_stream(
+            turn, config, client, reuse_native_text_prefix=True,
+        )]
+    assert not any(event["type"].startswith("audio") for event in events)
+    assert not any(event["type"] == "delta" and event["message"].get("content") for event in events)
+    assert events[-1]["response"]["message"]["content"] == proposal
 
 
 def test_compact_native_reply_falls_back_if_exact_rendered_prompt_exceeds_budget():

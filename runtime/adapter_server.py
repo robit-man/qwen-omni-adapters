@@ -2851,6 +2851,7 @@ def execute_stream(
     compact_native_voice: bool = False,
     accepted_voice: tuple[str, str] | None = None,
     stream_pcm_only: bool = False,
+    reuse_native_text_prefix: bool = False,
     disconnected: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
     """Stream language deltas, then emit one authoritative final response.
@@ -2865,6 +2866,7 @@ def execute_stream(
     speech_addressee: str | None = None
     live_route: _LiveTurnRoute | None = None
     fast_reply = None
+    closed_tool_proposal = False
     if fast_recognize is not None:
         yield _stream_event("stage", stage="comprehension")
         fast_result = _fast_voice_reply(parsed, config, client, fast_recognize)
@@ -3015,12 +3017,18 @@ def execute_stream(
             config,
             decision_tool_names,
         )
+        if (reuse_native_text_prefix and parsed.task == "chat" and parsed.input_modalities == ("text",)
+                and observation is None and config.inkling_native_reasoning
+                and _llama_context_probe_origin(config) is not None):
+            # The portal holds this turn's inference ticket. llama.cpp only
+            # reuses exact matching text tokens in the resident slot.
+            payload["cache_prompt"] = True
         payload["stream"] = True
         content = ""
         deferred_content = ""
         thinking = ""
         thinking_enabled = _thinking_requested(parsed)
-        defer_visible_content = not thinking_enabled or _is_live_spoken_turn(parsed)
+        defer_visible_content = not thinking_enabled or _is_live_spoken_turn(parsed) or payload.get("tool_choice") == "none"
         tag_stream = _ThinkingTagStream(enabled=thinking_enabled)
         tool_calls: Any = None
         openai_tool_calls: dict[int, dict[str, Any]] = {}
@@ -3143,7 +3151,14 @@ def execute_stream(
             content = ""
             tool_calls = retry_message.get("tool_calls")
             thinking = str(retry_message.get("thinking") or "")
-        if defer_visible_content:
+        closed_tool_proposal = payload.get("tool_choice") == "none" and bool(
+            tool_calls or "<tool_call" in (deferred_content or content).lower()
+        )
+        if closed_tool_proposal:
+            # Deliver the rejected proposal to the portal's format recovery
+            # without presenting it as speech or a finished answer.
+            content = deferred_content or content
+        elif defer_visible_content:
             sanitized = {"content": deferred_content}
             _normalize_reasoning(sanitized, enabled=False)
             content = str(sanitized.get("content") or "")
@@ -3179,6 +3194,7 @@ def execute_stream(
         raise AdapterStageError("result contains no Ollama message object")
     if (
         parsed.synthesize
+        and not closed_tool_proposal
         and not message.get("tool_calls")
         and str(message.get("content") or "").strip()
     ):
@@ -3275,6 +3291,7 @@ def execute_stream(
         executed=executed,
         text_streamed=True,
         audio_streamed=audio_streamed,
+        suppress_tts_reason="unresolved_tool_calls" if closed_tool_proposal else None,
         speech_addressee=speech_addressee,
         checkpoint_audio=accepted_voice is not None,
     )
@@ -3438,6 +3455,7 @@ def create_app(
             voice_routing = request.headers.get("X-Omni-Voice-Reasoning")
             compact_voice = voice_routing == "native" and runtime_config.compact_native_voice
             stream_pcm_only = request.headers.get("X-Omni-Live-PCM-Only") == "1"
+            reuse_native_text_prefix = request.headers.get("X-Omni-Native-Text-Prefix") == "1"
             disconnected = request.environ.get("waitress.client_disconnected")
         except OmniAdapterError as exc:
             return jsonify({"error": str(exc), "schema": ADAPTER_SCHEMA}), 400
@@ -3454,6 +3472,7 @@ def create_app(
                     compact_native_voice=compact_voice,
                     accepted_voice=accepted_voice,
                     stream_pcm_only=stream_pcm_only,
+                    reuse_native_text_prefix=reuse_native_text_prefix,
                     disconnected=disconnected,
                 )
             except (AdapterStageError, httpx.HTTPError) as exc:
