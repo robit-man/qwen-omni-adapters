@@ -579,6 +579,11 @@ requiring further work uses the existing playback receipt before continuing
 with the full context and tools. The option defaults to off.
 `OMNI_TTS_KEEP_WARM=1` allows prewarming at speech onset and retaining the
 streaming graph while memory permits. Long follow-up work can release it.
+Set `OMNI_TTS_PREWARM_RESERVE_GIB` only after measuring the clone's startup
+memory on the target. Cold prewarm then requires this much memory above the
+hard floor and at least the soft floor. If omitted, admission uses the model
+and projector sizes plus the default startup cushion. The memory governor
+cancels prewarm if available memory falls below its hard floor during startup.
 
 The Inkling portal uses the Omni package's Qwen3-TTS with a cloned speaker
 reference for spoken output. The selected preset or uploaded reference supplies

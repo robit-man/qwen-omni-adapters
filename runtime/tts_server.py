@@ -12,6 +12,7 @@ from __future__ import annotations
 import atexit
 import base64
 import io
+import math
 import os
 import queue
 import select
@@ -69,6 +70,12 @@ class Config:
     warm_speaker_file: str = ""
     context_tokens: int = 0
     keep_warm: bool = False
+    prewarm_reserve_gib: float | None = None
+
+    def __post_init__(self) -> None:
+        reserve = self.prewarm_reserve_gib
+        if reserve is not None and (not math.isfinite(reserve) or reserve <= 0):
+            raise ValueError("OMNI_TTS_PREWARM_RESERVE_GIB must be positive and finite")
 
     @classmethod
     def from_environment(cls) -> Config:
@@ -112,6 +119,7 @@ class Config:
                 "set OMNI_OLLAMA_MODEL, OMNI_BUNDLE_GGUF, or both "
                 "OMNI_TTS_MODEL_GGUF and OMNI_TTS_PROJECTOR_GGUF"
             )
+        prewarm_reserve = os.environ.get("OMNI_TTS_PREWARM_RESERVE_GIB")
         return cls(
             binary=binary,
             model=model,
@@ -142,6 +150,7 @@ class Config:
                 "OMNI_TTS_WARM_SPEAKER_FILE", ""
             ).strip(),
             keep_warm=os.environ.get("OMNI_TTS_KEEP_WARM", "0") == "1",
+            prewarm_reserve_gib=float(prewarm_reserve) if prewarm_reserve else None,
         )
 
 
@@ -715,7 +724,7 @@ class PersistentTTSWorker:
         if self.config.active_pid_file:
             self.config.active_pid_file.unlink(missing_ok=True)
 
-    def ensure(self, spec: SynthesisSpec) -> None:
+    def ensure(self, spec: SynthesisSpec, *, governor: MemoryGovernor | None = None) -> None:
         wanted = self._profile(spec)
         if self.ready and self.profile == wanted:
             return
@@ -767,23 +776,37 @@ class PersistentTTSWorker:
             self.config.active_pid_file.parent.mkdir(parents=True, exist_ok=True)
             self.config.active_pid_file.write_text(f"{process.pid}\n")
         broker_ready = False
+        done = threading.Event()
+        watcher, tripped = (
+            governor.watch("speech prewarm", process.kill, done)
+            if governor is not None else (None, threading.Event())
+        )
         try:
-            if self.config.lease_token or self.config.require_gpu:
-                _wait_for_cuda_residency(
-                    process, self.config.gpu_uuid, self.config.residency_timeout_s
+            try:
+                if self.config.lease_token or self.config.require_gpu:
+                    _wait_for_cuda_residency(
+                        process, self.config.gpu_uuid, self.config.residency_timeout_s
+                    )
+                frame_type, payload = self._read_frame(
+                    process, time.monotonic() + self.config.timeout_s
                 )
-            frame_type, payload = self._read_frame(
-                process, time.monotonic() + self.config.timeout_s
-            )
-            if frame_type != "R" or payload:
-                raise TTSError("persistent llama-tts returned an invalid ready frame")
-            if self.config.lease_token:
-                _broker_transition(
-                    "ready",
-                    self.config.lease_token,
-                    self.config.broker_transition_timeout_s,
-                )
-                broker_ready = True
+                if frame_type != "R" or payload:
+                    raise TTSError("persistent llama-tts returned an invalid ready frame")
+                if self.config.lease_token:
+                    _broker_transition(
+                        "ready",
+                        self.config.lease_token,
+                        self.config.broker_transition_timeout_s,
+                    )
+                    broker_ready = True
+            finally:
+                done.set()
+                if watcher is not None:
+                    watcher.join()
+                if tripped.is_set():
+                    raise TTSError("speech prewarm cancelled at the hard memory floor")
+            if governor is not None:
+                governor.require_hard_floor("warm speech graph")
             self.profile = wanted
         except Exception:
             diagnostic = self._diagnostic()
@@ -986,11 +1009,15 @@ def create_app(config: Config | None = None) -> Flask:
                 else:
                     if warm_spec is None:
                         raise TTSError("no warm speaker reference is configured")
-                    if runtime.keep_warm and governor.enabled and not persistent.ready:
-                        weights_gib = (runtime.model.stat().st_size + runtime.projector.stat().st_size) / 1024**3
-                        safety_band_gib = governor.policy.soft_floor_gib - governor.policy.hard_floor_gib
-                        governor.require_capacity("warm speech graph", weights_gib + 0.75 + safety_band_gib)
-                    persistent.ensure(warm_spec)
+                    warm_governor = governor if runtime.keep_warm and governor.enabled else None
+                    if warm_governor is not None and not persistent.ready:
+                        if runtime.prewarm_reserve_gib is None:
+                            weights_gib = (runtime.model.stat().st_size + runtime.projector.stat().st_size) / 1024**3
+                            safety_band_gib = governor.policy.soft_floor_gib - governor.policy.hard_floor_gib
+                            governor.require_capacity("warm speech graph", weights_gib + 0.75 + safety_band_gib)
+                        else:
+                            governor.require("warm speech graph", reserve_gib=runtime.prewarm_reserve_gib)
+                    persistent.ensure(warm_spec, governor=warm_governor)
                 return jsonify(
                     {
                         "ok": True,

@@ -393,7 +393,7 @@ def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
         def speaker_reference_active(self) -> bool:
             return self.ready
 
-        def ensure(self, _spec) -> None:
+        def ensure(self, _spec, *, governor=None) -> None:
             self.ready = True
 
         def close(self) -> None:
@@ -423,6 +423,49 @@ def test_tts_residency_endpoint_sheds_and_rewarms_the_separate_graph(
     assert shed.status_code == 200
     assert shed.json["persistent_ready"] is False
     assert shed.json["speaker_reference_active"] is False
+
+
+def test_tts_prewarm_uses_calibrated_reserve_and_cancels_on_hard_pressure(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    from qwen_omni_adapters.memory import MemoryGovernor, MemoryPolicy
+
+    binary = tmp_path / "slow-llama-tts"
+    binary.write_text("#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n")
+    binary.chmod(0o755)
+    reference = tmp_path / "reference.wav"
+    reference.write_bytes(_wav(16000))
+    active_pid_file = tmp_path / "active.pid"
+    available_gib = 3.8
+    started_pid = None
+
+    def sample():
+        nonlocal started_pid
+        if active_pid_file.exists():
+            started_pid = int(active_pid_file.read_text())
+            return 1.8
+        return available_gib
+
+    governor = MemoryGovernor(
+        MemoryPolicy(enabled=True, poll_interval_s=0.02), sampler=sample,
+    )
+    monkeypatch.setattr("runtime.tts_server.MemoryGovernor", lambda: governor)
+    config = _tts_config(
+        tmp_path, binary=binary, active_pid_file=active_pid_file, timeout_s=3,
+        persistent=True, warm_speaker_file=str(reference), keep_warm=True,
+        prewarm_reserve_gib=1.9,
+    )
+    with create_tts_app(config).test_client() as client:
+        denied = client.post("/residency", json={"action": "warm"})
+        assert denied.status_code == 422 and "3.90 GiB required" in denied.json["error"]
+        assert not active_pid_file.exists() and started_pid is None
+
+        available_gib = 4.0
+        cancelled = client.post("/residency", json={"action": "warm"})
+        assert cancelled.status_code == 422
+        assert "cancelled at the hard memory floor" in cancelled.json["error"]
+        assert started_pid is not None and not active_pid_file.exists()
+        assert client.get("/healthz").json["persistent_pid"] is None
 
 
 def test_tts_starts_cold_and_sheds_after_each_completed_synthesis(
