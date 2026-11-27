@@ -16,6 +16,7 @@ import io
 import json
 import logging
 import math
+import os
 import queue
 import shutil
 import signal
@@ -250,6 +251,12 @@ class SpeakerStream:
         ]
         if self.device:
             command.append(f"--device={self.device}")
+        try:
+            latency_ms = int(os.environ.get("OMNI_CALL_PLAYBACK_LATENCY_MS", "0"))
+        except ValueError:
+            latency_ms = 0
+        if latency_ms > 0:
+            command.append(f"--latency-msec={latency_ms}")
         return command
 
     def start(self) -> None:

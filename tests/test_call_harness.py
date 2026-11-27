@@ -1811,7 +1811,12 @@ def test_background_speech_never_reads_internal_worker_reports_verbatim() -> Non
     assert internal not in {completed, blocked, progress}
 
 
-def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> None:
+@pytest.mark.parametrize("latency", [None, "80", "invalid"])
+def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch, latency) -> None:
+    if latency is None:
+        monkeypatch.delenv("OMNI_CALL_PLAYBACK_LATENCY_MS", raising=False)
+    else:
+        monkeypatch.setenv("OMNI_CALL_PLAYBACK_LATENCY_MS", latency)
     """Two decoder packets pre-roll one continuous Pulse stream."""
 
     import io
@@ -1860,7 +1865,7 @@ def test_speaker_lets_pulse_keep_one_continuous_adaptive_stream(monkeypatch) -> 
     assert speaker.write(second)
     speaker.finish()
 
-    assert not any(argument.startswith("--latency-msec=") for argument in command)
+    assert [arg for arg in command if arg.startswith("--latency-msec=")] == (["--latency-msec=80"] if latency == "80" else [])
     assert not any(argument.startswith("--process-time-msec=") for argument in command)
     assert "--volume=65536" in command
     assert "--stream-name=Omni conversational voice" in command
