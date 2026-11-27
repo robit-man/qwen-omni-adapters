@@ -7676,6 +7676,49 @@ def test_capture_completion_plan_closes_only_the_declared_answer_phase(plan):
         assert followup.get("tool_choice") != "none" and followup["tools"]
 
 
+@pytest.mark.parametrize(("plan", "receipt", "closes"), [
+    ("answer", {"captured_at": "2026-11-26T19:00:00-08:00", "memory": {"total_gib": 29.98}}, True),
+    ("continue", {"captured_at": "2026-11-26T19:00:00-08:00"}, False),
+    (None, {"captured_at": "2026-11-26T19:00:00-08:00"}, False),
+    ("answer", {"error": "snapshot unavailable"}, False),
+    ("answer", {}, False),
+])
+def test_native_system_snapshot_answer_phase_preserves_the_call_prefix(plan, receipt, closes):
+    from portal.app import _tool_followup
+    from portal.tools import tool_schemas
+
+    schema = tool_schemas(["get_system_snapshot"])
+    messages = [
+        {"role": "system", "content": "Use the fresh runtime result."},
+        {"role": "user", "content": "How much total memory does this device have?"},
+    ]
+    payload = {
+        "messages": messages, "tools": schema, "tool_choice": "required",
+        "omni": {"task": "chat", "tool_routing": "client"},
+    }
+    arguments = {"after_snapshot": plan} if plan is not None else {}
+    call = {"id": "snapshot-1", "function": {"name": "get_system_snapshot", "arguments": arguments}}
+    response = {"message": {"role": "assistant", "content": "", "tool_calls": [call]}}
+    dispatch = []
+
+    def execute(session_id, name, supplied):
+        dispatch.append((session_id, name, supplied))
+        return receipt
+
+    followup, executed, _ = _tool_followup(
+        payload, response, SimpleNamespace(execute=execute), "owner", preserve_native_text_prefix=True,
+    )
+
+    assert dispatch == [("owner", "get_system_snapshot", arguments)]
+    assert len(executed) == 1
+    assert (followup.get("tool_choice") == "none") is closes
+    if closes:
+        assert followup["tools"] == schema
+        assert followup["messages"][:len(messages)] == messages
+        assert followup["messages"][-2]["role"] == "tool"
+        assert "<runtime_reply_ready>" in followup["messages"][-1]["content"]
+
+
 def test_mcp_resource_image_blobs_use_actual_image_channel():
     data = base64.b64encode(b"synthetic resource image").decode()
     text, images = _model_tool_result({"result": {"contents": [{"uri": "fixture://image", "mimeType": "image/png", "blob": data}]}}, tool_name="mcp_resource")

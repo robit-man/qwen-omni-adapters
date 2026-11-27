@@ -2143,6 +2143,7 @@ def _tool_followup(
         # adapter owns the standard one-retry enforcement when a backend
         # ignores a required tool choice.
         followup["tool_choice"] = "required"
+    answer_phase = None
     if len(executed) == 1:
         completed = executed[0]
         if (completed["name"] in {"conversation_search", "episodic_search"} and completed["ok"]
@@ -2152,24 +2153,28 @@ def _tool_followup(
                     and receipt.get("schema") in {"robit.omni.conversation-history.v1", "robit.omni.episodic-memory.v1"}
                     and receipt.get("retrieval_complete") is True
                     and receipt.get("after_retrieval") == "answer"):
-                # Honor the model's explicit finite lookup -> answer plan.
-                # A comparison, pagination, or external action uses continue;
-                # failed/incomplete retrieval never closes its tool chain.
-                followup["tool_choice"] = "none"
-                directive = context_text("directives", "conversation_reply_ready")
-                supplied_omni = payload.get("omni")
-                if (preserve_native_text_prefix and isinstance(supplied_omni, Mapping)
-                        and supplied_omni.get("tool_routing") == "client" and payload.get("tools")):
-                    # Keep the rendered prefix of the concrete call. The closed
-                    # tool choice still governs both generation and dispatch.
-                    followup["tools"] = copy.deepcopy(payload["tools"])
-                    messages.append({"role": "system", "content": directive})
-                else:
-                    followup.pop("tools", None)
-                    if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
-                        messages[0]["content"] = directive + "\n\n" + str(messages[0].get("content") or "")
-                    else:
-                        messages.insert(0, {"role": "system", "content": directive})
+                answer_phase = "conversation_reply_ready"
+        elif (completed["name"] == "get_system_snapshot" and completed["ok"]
+                and completed["arguments"].get("after_snapshot") == "answer"):
+            receipt = json.loads(completed["result"])
+            if isinstance(receipt, Mapping) and isinstance(receipt.get("captured_at"), str) and receipt["captured_at"]:
+                answer_phase = "runtime_reply_ready"
+    if answer_phase:
+        followup["tool_choice"] = "none"
+        directive = context_text("directives", answer_phase)
+        supplied_omni = payload.get("omni")
+        if (preserve_native_text_prefix and isinstance(supplied_omni, Mapping)
+                and supplied_omni.get("tool_routing") == "client" and payload.get("tools")):
+            # Keep the rendered prefix of the concrete call. The closed
+            # tool choice still governs both generation and dispatch.
+            followup["tools"] = copy.deepcopy(payload["tools"])
+            messages.append({"role": "system", "content": directive})
+        else:
+            followup.pop("tools", None)
+            if messages and isinstance(messages[0], dict) and messages[0].get("role") == "system":
+                messages[0]["content"] = directive + "\n\n" + str(messages[0].get("content") or "")
+            else:
+                messages.insert(0, {"role": "system", "content": directive})
     if len(executed) == 1 and executed[0]["name"] == "capture_view" and executed[0]["ok"] and executed[0]["arguments"].get("after_capture") == "answer":
         receipt = json.loads(executed[0]["result"])
         if receipt.get("staged_copy") is True and receipt.get("evidence_authority") == "captured_snapshot" and receipt.get("after_capture") == "answer":
@@ -3503,10 +3508,15 @@ def create_app(
         if not virtual_context.enabled or not query or not system_contract:
             return None, {}
         if not internal_background and payload.get("tool_choice") == "none":
-            # _tool_followup sets this standard field only after the model's
-            # completed archive -> answer handoff. Repacking starts from the
-            # admission contract and would otherwise erase the new phase.
-            phase = "capture_reply_ready" if any(isinstance(item, Mapping) and item.get("role") == "system" and "<capture_reply_ready>" in str(item.get("content") or "") for item in payload.get("messages", [])) else "conversation_reply_ready"
+            # Repacking starts from the admission contract. Preserve the
+            # completed tool's reply directive through that transition.
+            system_contents = [str(item.get("content") or "") for item in payload.get("messages", [])
+                               if isinstance(item, Mapping) and item.get("role") == "system"]
+            phase = next(
+                (name for name in ("capture_reply_ready", "runtime_reply_ready")
+                 if any(f"<{name}>" in content for content in system_contents)),
+                "conversation_reply_ready",
+            )
             system_contract = context_text("directives", phase) + "\n\n" + system_contract
         try:
             prepared = virtual_context.repack_followup(
