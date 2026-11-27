@@ -131,6 +131,8 @@ patch_set_applied() {
 
 if [[ -n "$INKLING_PATCH_FILE" ]]; then
   apply_patch_file "$INKLING_PATCH_FILE" "Inkling Omni and Qwen3-TTS"
+  apply_patch_file "$REPO_ROOT/patches/llama.cpp-inkling-qwen3tts-embedding-rows.patch" \
+    "Qwen3-TTS prompt embedding rows"
 elif patch_set_applied; then
   printf 'Qwen3-TTS patch set is already applied\n'
 else

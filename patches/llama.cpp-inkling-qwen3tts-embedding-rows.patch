@@ -1,0 +1,70 @@
+diff --git a/tools/mtmd/mtmd-helper-gen.cpp b/tools/mtmd/mtmd-helper-gen.cpp
+--- a/tools/mtmd/mtmd-helper-gen.cpp
++++ b/tools/mtmd/mtmd-helper-gen.cpp
+@@ -250,9 +250,15 @@
+         if (has_ref_text && !icl) {
+             LOG_WRN("mtmd_helper_gen_audio: no reference codes (mmproj without reference encoder, or clip too long), cloning from the speaker embedding only\n");
+         }
++        // Keep the fresh generation helper. Read only the embedding rows
++        // referenced by this utterance instead of expanding the vocabulary.
++        bool rows_ok = true;
+         auto row = [&](llama_token t) {
+-            return std::vector<float>(tok_embd.begin() + (size_t) t * n_e,
+-                                       tok_embd.begin() + (size_t) (t + 1) * n_e);
++            std::vector<float> values(n_e);
++            if (llama_model_get_tok_embd_rows(model, &t, 1, values.data()) != (uint32_t) n_e) {
++                rows_ok = false;
++            }
++            return values;
+         };
+         auto sum_row = [&](llama_token a, llama_token b) {
+             std::vector<float> va = row(a), vb = row(b);
+@@ -314,6 +320,12 @@
+             }
+         }
+ 
++        // Generated frames reuse this same padding row.
++        overlay = row(tts_pad);
++        if (!rows_ok) {
++            LOG_ERR("mtmd_helper_gen_audio: token embedding row copy failed\n");
++            return 1;
++        }
+         n_prompt = (int) prompt.size();
+ 
+         // the talker uses the qwen3vl interleaved mrope, all sections are equal for a text/codec stream
+@@ -347,10 +359,6 @@
+             }
+             next_window_frames = window_frames - std::min(n_ref_frames, window_frames - 1);
+         }
+-
+-        // the prompt above holds the whole text stream up to tts_eos, so every generated
+-        // frame adds tts_pad on top of the codes embedding
+-        overlay = row(tts_pad);
+ 
+         return 0;
+     }
+@@ -516,16 +524,6 @@
+                 return false;
+             }
+         }
+-        const uint32_t n_tok_embd = llama_model_get_tok_embd(model, nullptr);
+-        if (n_tok_embd == 0) {
+-            LOG_ERR("mtmd_helper_gen_audio: model has no token embeddings\n");
+-            return false;
+-        }
+-        tok_embd.resize(n_tok_embd);
+-        if (llama_model_get_tok_embd(model, tok_embd.data()) != n_tok_embd) {
+-            LOG_ERR("mtmd_helper_gen_audio: token embedding copy failed\n");
+-            return false;
+-        }
+         specials_ok = true;
+         return true;
+     }
+@@ -562,7 +560,6 @@
+     llama_token tts_pad    = LLAMA_TOKEN_NULL;
+     llama_token tts_bos    = LLAMA_TOKEN_NULL;
+     llama_token tts_eos    = LLAMA_TOKEN_NULL;
+-    std::vector<float> tok_embd; // whole token embedding matrix, n_vocab * n_embd
+ 
+     // must match hparams.wav_tfm_swa hardcoded in mtmd-model.cpp
+     size_t window_frames = 72;
