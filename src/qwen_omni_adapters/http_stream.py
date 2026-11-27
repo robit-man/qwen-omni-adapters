@@ -2,12 +2,42 @@
 
 from __future__ import annotations
 
+import asyncio
 import socket
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+from typing import Any
 
 import httpx
+
+
+def post_until_disconnect(
+    url: str,
+    payload: Mapping[str, Any],
+    timeout: httpx.Timeout,
+    disconnected: Callable[[], bool],
+) -> httpx.Response | None:
+    """Cancel a local, non-streaming request before its response headers arrive."""
+
+    async def post() -> httpx.Response | None:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            request = asyncio.create_task(client.post(url, json=payload))
+            try:
+                while not disconnected():
+                    done, _ = await asyncio.wait({request}, timeout=0.05)
+                    if request in done:
+                        return request.result()
+                return None
+            finally:
+                if not request.done():
+                    request.cancel()
+                # Wait for HTTPX to close the connection on cancellation.
+                await asyncio.gather(request, return_exceptions=True)
+
+    if disconnected():
+        return None
+    return asyncio.run(post())
 
 
 def abort_response(response: httpx.Response) -> None:

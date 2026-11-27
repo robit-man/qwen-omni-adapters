@@ -60,7 +60,7 @@ from qwen_omni_adapters.contract import (
     parse_adapter_request,
 )
 from qwen_omni_adapters.decision_plane import DecisionPlane, DecisionState
-from qwen_omni_adapters.http_stream import abort_on_disconnect
+from qwen_omni_adapters.http_stream import abort_on_disconnect, post_until_disconnect
 
 
 @dataclass(frozen=True)
@@ -1771,9 +1771,17 @@ def _comprehend(
     parsed: ParsedAdapterRequest,
     config: Config,
     client: httpx.Client,
+    *,
+    disconnected: Callable[[], bool] | None = None,
 ) -> str:
-    inkling_audio_image = config.inkling_native_reasoning and (
-        set(parsed.input_modalities) - {"text"} == {"audio", "image"}
+    media_modalities = set(parsed.input_modalities) - {"text"}
+    inkling_audio_image = config.inkling_native_reasoning and media_modalities == {"audio", "image"}
+    cancel_audio = (
+        disconnected
+        if (disconnected is not None and media_modalities == {"audio"} and config.inkling_native_reasoning
+            and config.comprehension_url.rstrip("/") == config.language_url.rstrip("/")
+            and _llama_context_probe_origin(config) is not None)
+        else None
     )
     videos = [video for message in parsed.messages for video in message.videos]
     requested_cap = min(
@@ -1795,7 +1803,12 @@ def _comprehend(
             continue
         attempted.add(frame_cap)
         payload = build_comprehension_payload(parsed, config, max_video_frames=frame_cap)
-        response = client.post(config.comprehension_url, json=payload)
+        if cancel_audio is not None:
+            response = post_until_disconnect(config.comprehension_url, payload, client.timeout, cancel_audio)
+            if response is None:
+                return ""
+        else:
+            response = client.post(config.comprehension_url, json=payload)
         last_response = response
         if _context_overflow(response) and frame_cap > 1:
             continue
@@ -2895,7 +2908,7 @@ def execute_stream(
         if observation is None and needs_media:
             _require_comprehension(config)
             yield _stream_event("stage", stage="comprehension")
-            observation = _comprehend(parsed, config, client)
+            observation = _comprehend(parsed, config, client, disconnected=disconnected)
             if disconnected is not None and disconnected():
                 return
         if needs_media:

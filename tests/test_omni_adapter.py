@@ -6,7 +6,9 @@ import io
 import json
 import os
 import subprocess
+import threading
 import wave
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import httpx
@@ -89,6 +91,66 @@ def _base_request(**overrides):
     }
     request.update(overrides)
     return request
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+def test_native_audio_stream_cancels_worker_before_response_headers(cancel) -> None:
+    disconnected = threading.Event()
+    worker_closed = threading.Event()
+    requests = []
+
+    class Worker(BaseHTTPRequestHandler):
+        def do_POST(self):
+            requests.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            if cancel:
+                disconnected.set()
+                self.connection.settimeout(2)
+                try:
+                    if self.rfile.read(1) == b"":
+                        worker_closed.set()
+                except TimeoutError:
+                    pass
+                return
+            body = json.dumps({"choices": [{"message": {"content": (
+                "<speech_transcript>It is raining.</speech_transcript>\n"
+                "<audio_observation>Rain.</audio_observation>"
+            )}}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), Worker) as worker:
+        server = threading.Thread(target=worker.serve_forever, args=(0.02,), daemon=True)
+        server.start()
+        endpoint = f"http://127.0.0.1:{worker.server_port}/v1/chat/completions"
+        config = Config(
+            endpoint, "test-backend", endpoint, "", 4, language_api="openai",
+            inkling_native_reasoning=True, comprehension_disable_thinking=True,
+            language_llama_context_probe=True, inkling_thinking_token=123,
+        )
+        request = parse_adapter_request(_base_request(
+            messages=[{"role": "user", "audios": [{"mime_type": "audio/wav", "encoding": "base64",
+                                                    "data": _encoded(_wav(16000))}]}],
+            omni={"schema": ADAPTER_SCHEMA, "task": "transcribe"},
+            think=False,
+        ))
+        try:
+            with httpx.Client(timeout=4, trust_env=False) as client:
+                events = [json.loads(event) for event in execute_stream(
+                    request, config, client, disconnected=disconnected.is_set,
+                )]
+            assert requests == [build_comprehension_payload(request, config)]
+            assert requests[0]["stream"] is False and requests[0]["cache_prompt"] is False
+            if cancel:
+                assert worker_closed.wait(2)
+                assert [event["type"] for event in events] == ["stage"]
+            else:
+                assert events[-1]["response"]["adapter"]["input_transcript"] == "It is raining."
+        finally:
+            worker.shutdown()
+            server.join(2)
 
 
 def test_adapter_contract_separates_wire_schema_from_bundle_schema() -> None:
