@@ -1990,8 +1990,11 @@ def run_call_loop(
                     # the room has changed, so the floor is learned again.
                     vad.reset(now_ms, calibrate=True)
 
-                if (vad.speaking and checkpoint_deadline is not None
-                        and now_ms >= checkpoint_deadline and not checkpoint_pending and not busy.is_set()):
+                # Wait through a quiet interval so a terminal pause can submit
+                # the whole utterance without a separate tail recognition pass.
+                if (vad.speaking and verdict.level >= verdict.threshold
+                        and checkpoint_deadline is not None and now_ms >= checkpoint_deadline
+                        and not checkpoint_pending and not busy.is_set()):
                     checkpoint_pending = True
                     checkpoint_deadline = now_ms + SPEECH_CHECKPOINT_MS
                     if config.reuse_speech_checkpoints and checkpoint_group is None:

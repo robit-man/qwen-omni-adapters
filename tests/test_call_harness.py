@@ -2100,6 +2100,43 @@ def test_idle_turn_worker_waits_for_foreground_queue_notification(
     call.run_call_loop(CallConfig(tools_enabled=False, barge_in_enabled=False))
 
 
+@pytest.mark.parametrize(("voice_frames", "expects_checkpoint"), [(10, False), (24, True)])
+def test_call_starts_checkpoints_only_during_active_audio(
+    monkeypatch: pytest.MonkeyPatch, voice_frames: int, expects_checkpoint: bool,
+) -> None:
+    from harness import call
+
+    complete = Event()
+    microphone = MagicMock(frame_ms=FRAME_MS)
+    checkpoints = MagicMock(return_value=TurnResult(transcript="hello", checkpoint_receipt="receipt"))
+    turns = MagicMock(return_value=TurnResult(transcript="hello"))
+
+    def frames():
+        yield from (tone(0.08) for _ in range(voice_frames))
+        for _ in range(100):
+            if complete.wait(0.01):
+                return
+            yield tone(0.0)
+        pytest.fail("The utterance never reached the turn worker")
+
+    microphone.frames.side_effect = frames
+    monkeypatch.setattr(call, "SPEECH_CHECKPOINT_MS", 200)
+    monkeypatch.setattr(call, "ReSpeaker", lambda: MagicMock(present=False, direction=0))
+    monkeypatch.setattr(call, "MicrophoneStream", lambda **_: microphone)
+    monkeypatch.setattr(CallSession, "comprehend_interruption", checkpoints)
+    monkeypatch.setattr(CallSession, "take_turn", turns)
+    config = CallConfig(
+        tools_enabled=False, barge_in_enabled=False, reuse_speech_checkpoints=True,
+        utterance_settle_s=0,
+        vad=VadConfig(calibration_ms=0, start_confirm_ms=60, min_active_ms=100, silence_ms=200),
+    )
+
+    call.run_call_loop(config, on_turn=lambda _result: complete.set())
+
+    turns.assert_called_once()
+    assert checkpoints.called is expects_checkpoint
+
+
 def test_the_capture_loop_uses_a_two_stage_interruption() -> None:
     import inspect
 
