@@ -123,6 +123,13 @@ if ((HARNESS)); then
       systemctl --user import-environment "${desktop_variables[@]}"
     fi
   fi
+  # The Jetson appliance needs a real desktop for audio and the tray even
+  # when nobody is present at boot. .env is read as data, without executing it.
+  appliance_preference=$(awk -F= '$1=="OMNI_UNATTENDED_DESKTOP" {print $2; exit}' "$REPO_ROOT/.env" 2>/dev/null || true)
+  if [[ ${OMNI_UNATTENDED_DESKTOP:-$appliance_preference} != 0     && -r /proc/device-tree/model && -f /etc/gdm3/custom.conf ]]     && grep -aq '^NVIDIA Jetson ' /proc/device-tree/model; then
+    sudo /usr/bin/python3 "$REPO_ROOT/src/qwen_omni_adapters/appliance_login.py" "$SERVICE_USER"
+  fi
+
   systemctl --user daemon-reload
   if ((ENABLE)); then
     systemctl --user enable --now omni-call-harness.service

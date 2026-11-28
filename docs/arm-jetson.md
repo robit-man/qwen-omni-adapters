@@ -112,6 +112,15 @@ FLAC, OGG, or AAC input into a clean 16 kHz mono WAV between 0.5 and 30 seconds.
 The portal hot-reloads the atomically written runtime profile. On the next
 spoken response Qwen3-TTS reloads only its speaker-specific worker if needed;
 the language and comprehension workers are not restarted or evicted.
+On Jetson appliances with GDM, the harness installer configures automatic
+desktop login for the deploying account. The desktop session starts the native
+voice service and persistent cameras at boot. The installer preserves an
+existing matching login and flags a conflicting account for the operator.
+It saves the previous GDM configuration as
+`/etc/gdm3/custom.conf.before-omni-autologin` when it changes the file. Set
+`OMNI_UNATTENDED_DESKTOP=0` in `.env` to skip this step on install and upgrade.
+The Omni-owned Chromium profiles start without needing the desktop login keyring.
+
 On Ubuntu appliance desktops, the harness install also adds one narrow polkit
 rule for the distro-owned, read-only `package-system-locked` query. This stops
 update-notifier from opening an administrator-password dialog during the
