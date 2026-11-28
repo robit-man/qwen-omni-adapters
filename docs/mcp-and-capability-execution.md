@@ -57,6 +57,74 @@ and [server tools contract](https://modelcontextprotocol.io/specification/latest
 The intake and private-reference patterns were also reviewed against
 `robit-man/open-agents` main at `1c1a1504`; its working checkout was left untouched.
 
+## Camera QR intake on the Egg
+
+Set `OMNI_CALL_SCAN_QR=1` in the Egg checkout's `.env` and reload its native
+call harness. The scan follows the tray's camera control and the native mute
+and service-pause state. It samples individual cameras at up to 640 px every
+1.5 s when quiet and up to 1280 px every 300 ms for five seconds after motion
+or a new QR result. These are application sampling targets. Camera-native
+timing depends on the capture driver. Existing requested stills and clips
+use their normal capture path.
+
+The scanner keeps frames in memory or a short-lived RAM-backed workspace.
+It decodes QR codes locally on the CPU and reports each held code once across
+the array. The native voice uses the configured cloned TTS after the
+conversation yields. Ordinary links are recognized by hostname and recent
+short text is available through `camera_qr` for ten minutes. The tool labels
+the payload as untrusted historical camera data. Private code formats only
+produce a type and a short spoken notice.
+
+Remote MCP QR codes can carry a plain URL ending in `/mcp` or `/sse`, an
+explicit `mcp+https://` URL, or one structured endpoint. Example payloads
+with optional credentials are shown below.
+
+```json
+{"type":"mcp","endpoint":"https://example.org/mcp","key":"optional API key"}
+```
+
+```json
+{"mcpServers":{"archive":{"url":"https://example.org/mcp","headers":{"Authorization":"Bearer optional-key"}}}}
+```
+
+An explicitly marked scan initializes the remote server and lists its tools.
+An authenticated native owner can then use those tools by voice through the
+ordinary MCP discovery and call path. The connection persists across daemon
+token changes with native-owner scope. The separate owner-only credential file
+is written after successful discovery. Repeated scans of the same connection
+reuse the registration. The owner can remove a registration through
+`mcp_connections` before replacing its key.
+
+Automatic registration accepts public HTTPS endpoints. Configure an exact
+comma-separated set of trusted LAN origins through
+`OMNI_CALL_QR_TRUSTED_MCP_ORIGINS` in the portal's environment when needed.
+For example, `http://192.168.1.80:8080` authorizes that origin. Public host
+resolution is checked on each transport request and the connection uses a
+checked address with the original TLS hostname. The scanned payload cannot
+add an origin exception. Discovery executes no remote tools. Omnius's
+`packages/execution/src/mcp/intake.ts` and `secret-store.ts` informed the
+configuration shape and credential separation. The Egg uses its existing
+Python MCP registry and transport negotiation.
+
+## Camera tuning and roll correction
+
+The scanner discovers supported V4L2 controls separately on each camera.
+It enables supported automatic exposure, focus, gain, and white balance.
+It trims brightness and contrast within bounds after repeated poor readings
+and restores edited controls when tuning stops. Set
+`OMNI_CALL_CAMERA_AUTO_TUNE=0` to keep the current hardware controls. The QR
+decoder still retries missed frames with local contrast enhancement.
+
+Run `bash scripts/install-camera-orientation.sh` on the Egg to install the
+checksum-pinned RightWayUp Pico INT8 model and its CPU ONNX Runtime. The
+native harness automatically uses that installed model while camera scanning
+is active. A custom local Pico model path can be set with
+`OMNI_CALL_CAMERA_ROLL_MODEL`. Each camera needs three confident, consistent
+readings before native stills, motion clips, or the local camera view are
+rotated. Ambiguous scenes retain the last confirmed roll for up to two
+minutes. The estimator measures in-plane roll. Pitch, relative rig pose, and
+IMU fusion require their own calibration. [RightWayUp model contract](https://github.com/ortusaitech/rightwayup) · [V4L2 user controls](https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/control.html)
+
 ## Tool selection and current visual evidence
 
 The capability catalog describes typed families and their discovery and

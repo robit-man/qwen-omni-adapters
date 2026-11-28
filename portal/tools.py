@@ -2419,6 +2419,7 @@ class PortalToolHarness:
         self.conversation_history_owner = conversation_history_owner
         self.episodic_memory = None
         self.remote_mcp = None
+        self.camera_qr_recent = None
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
         self.web = WebToolSuite(
             ttl_s=ttl_s,
@@ -2457,10 +2458,13 @@ class PortalToolHarness:
 
     def can_read_conversation_history(self, session_id: str) -> bool:
         """Use the same owner boundary for schema exposure and execution."""
-        return bool(self.conversation_history_owner
-                    and hmac.compare_digest(session_id, self.conversation_history_owner)
+        return bool(self.is_native_voice_owner(session_id)
                     and self.conversation_history_path is not None
                     and self.conversation_history_path.is_file())
+
+    def is_native_voice_owner(self, session_id: str) -> bool:
+        return bool(self.conversation_history_owner
+                    and hmac.compare_digest(session_id, self.conversation_history_owner))
 
     def clear(self, session_id: str) -> None:
         if self.remote_mcp is not None:
@@ -2611,6 +2615,10 @@ class PortalToolHarness:
                         result = {"servers": self.remote_mcp.list(session_id)}
                 except (MCPBridgeError, TypeError, ValueError) as error:
                     raise ToolInputError(str(error)) from None
+            elif name == "camera_qr":
+                if self.camera_qr_recent is None or not self.is_native_voice_owner(session_id):
+                    raise ToolInputError("Camera scans are available in the native voice session")
+                result = self.camera_qr_recent()
             elif name == "request_camera_view":
                 mode = str(arguments.get("mode") or "still").strip()
                 if mode not in {"still", "motion"}:

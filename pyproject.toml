@@ -21,10 +21,13 @@ dependencies = [
   "Pillow>=10,<13",
   "PyYAML>=6.0,<7",
   "waitress>=3.0,<4",
+  "zxing-cpp>=3,<3.2; platform_system == 'Linux' and python_version < '3.11'",
+  "zxing-cpp>=3,<4; platform_system == 'Linux' and python_version >= '3.11'",
   "pywin32>=308; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]
+camera-orientation = ["onnxruntime>=1.18,<2"]
 pdf = ["pdfplumber>=0.11.5,<0.12"]
 dev = [
   "jsonschema>=4,<5",

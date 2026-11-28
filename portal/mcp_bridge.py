@@ -4,10 +4,12 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import hashlib
+import ipaddress
 import json
 import os
 import queue
 import secrets
+import socket
 import threading
 import time
 from collections.abc import Mapping
@@ -22,6 +24,7 @@ from referencing import Registry
 
 MAX_RESPONSE = 8 * 1024 * 1024
 MAX_TOOLS = 1024
+CAMERA_OWNER = "native-camera"
 
 
 class MCPBridgeError(ValueError):
@@ -45,13 +48,30 @@ class _BoundedStream(httpx.AsyncByteStream):
 
 
 class _BoundedTransport(httpx.AsyncBaseTransport):
-    def __init__(self, endpoint):
+    def __init__(self, endpoint, *, public_only=False):
         self.origin = httpx.URL(endpoint).copy_with(path="/", query=None, fragment=None)
+        self.public_only = public_only
         self.wrapped = httpx.AsyncHTTPTransport(retries=0)
 
     async def handle_async_request(self, request):
         if request.url.copy_with(path="/", query=None, fragment=None) != self.origin:
             raise MCPBridgeError("MCP transport cannot send credentials to a different origin")
+        if self.public_only:
+            hostname = request.url.raw_host.decode("ascii")
+            port = request.url.port or (443 if request.url.scheme == "https" else 80)
+            try:
+                records = await asyncio.wait_for(asyncio.get_running_loop().getaddrinfo(
+                    hostname, port, type=socket.SOCK_STREAM), 3)
+                addresses = [ipaddress.ip_address(record[4][0]) for record in records]
+            except (OSError, ValueError, TimeoutError):
+                raise MCPBridgeError("MCP camera endpoint could not be resolved") from None
+            if not addresses or any(not address.is_global or address.is_multicast for address in addresses):
+                raise MCPBridgeError("Private camera MCP origins require local configuration")
+            # Connect to exactly the address just checked. Preserve the original
+            # HTTP Host and TLS certificate identity through httpcore's SNI hook.
+            request = httpx.Request(request.method, request.url.copy_with(host=str(addresses[0])),
+                headers=request.headers, stream=request.stream,
+                extensions={**request.extensions, "sni_hostname": hostname})
         response = await self.wrapped.handle_async_request(request)
         return httpx.Response(response.status_code, headers=response.headers,
             stream=_BoundedStream(response.stream), extensions=response.extensions)
@@ -100,10 +120,13 @@ class _Peer:
         if self.key:
             headers = {"Authorization": f"Bearer {self.key}"} if self.config["auth"] == "bearer" else {"x-api-key": self.key}
         timeout = httpx.Timeout(self.timeout, connect=min(5, self.timeout))
-        async with httpx.AsyncClient(headers=headers, timeout=timeout, follow_redirects=False,
-                transport=_BoundedTransport(self.config["endpoint"]), trust_env=False) as client:
+        def client_for_endpoint(**_kwargs):
+            return httpx.AsyncClient(headers=headers, timeout=timeout, follow_redirects=False,
+                transport=_BoundedTransport(self.config["endpoint"], public_only=self.config.get("public_only", False)), trust_env=False)
+
+        async with client_for_endpoint() as client:
             transport = (sse_client(self.config["endpoint"], headers=headers, timeout=min(5, self.timeout),
-                sse_read_timeout=self.timeout, httpx_client_factory=lambda **_kwargs: httpx.AsyncClient(headers=headers, timeout=timeout, follow_redirects=False, transport=_BoundedTransport(self.config["endpoint"]), trust_env=False))
+                sse_read_timeout=self.timeout, httpx_client_factory=client_for_endpoint)
                 if self.config["transport"] == "sse" else streamable_http_client(self.config["endpoint"], http_client=client))
             async with transport as streams:
                 async def notification(message):
@@ -195,12 +218,14 @@ class _Peer:
 
 
 class RemoteMCPRegistry:
-    def __init__(self, root: Path, *, peer_factory=_Peer, idle_ttl: float = 300):
+    def __init__(self, root: Path, *, peer_factory=_Peer, idle_ttl: float = 300, native_session: str = ""):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root.chmod(0o700)
         self.peer_factory, self.idle_ttl = peer_factory, idle_ttl
         self._lock = threading.RLock()
+        self._camera_lock = threading.Lock()
+        self.native_session = native_session
         self._peers: dict[tuple[str, str], _Peer] = {}
         self._seen: dict[tuple[str, str], dict[str, str]] = {}
         self._config = self._load("servers.json", {"servers": []})
@@ -247,20 +272,75 @@ class RemoteMCPRegistry:
     def _owner(session):
         return hashlib.sha256(session.encode()).hexdigest()
 
+    def _visible_owners(self, session):
+        owners = {"device", self._owner(session)}
+        if self.native_session and secrets.compare_digest(session, self.native_session):
+            owners.add(CAMERA_OWNER)
+        return owners
+
     def _server(self, session, identity):
+        owners = self._visible_owners(session)
         with self._lock:
-            current = next((item for item in self._config["servers"] if item["id"] == identity and item["owner"] in {"device", self._owner(session)}), None)
+            current = next((item for item in self._config["servers"] if item["id"] == identity and item["owner"] in owners), None)
         if current is None:
             raise MCPBridgeError("MCP connection is not registered in this scope")
         return dict(current)
 
-    def register(self, session: str, endpoint: str, *, key: str = "", name: str = "", scope: str = "session"):
-        if not isinstance(endpoint, str) or not 1 <= len(endpoint) <= 2048 or any(ord(char) < 32 for char in endpoint):
+    @staticmethod
+    def _endpoint(endpoint):
+        if not isinstance(endpoint, str) or not 1 <= len(endpoint) <= 2048 or any(char.isspace() or ord(char) < 32 for char in endpoint):
             raise MCPBridgeError("Provide an HTTP or HTTPS MCP endpoint")
-        parts = urlsplit(endpoint)
-        if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username or parts.password or parts.query or parts.fragment:
+        try:
+            parts = urlsplit(endpoint)
+            _port = parts.port
+        except ValueError:
+            raise MCPBridgeError("Provide a valid HTTP or HTTPS MCP endpoint") from None
+        if (parts.scheme not in {"http", "https"} or not parts.hostname or parts.username is not None
+                or parts.password is not None or parts.query or parts.fragment):
             raise MCPBridgeError("Endpoint must be HTTP(S), without userinfo, query credentials or fragments; provide the key separately")
-        if scope not in {"session", "device"} or not isinstance(key, str) or len(key) > 8192 or any(c in key for c in "\r\n"):
+        return parts
+
+    def register_camera(self, session: str, endpoint: str, *, key: str = "", trusted_origins=()):
+        if CAMERA_OWNER not in self._visible_owners(session):
+            raise MCPBridgeError("Camera registration belongs to the native voice owner")
+        parts = self._endpoint(endpoint)
+        try:
+            endpoint = str(httpx.URL(endpoint))
+            origin = str(httpx.URL(endpoint).copy_with(path="/"))
+        except httpx.InvalidURL:
+            raise MCPBridgeError("Provide a valid HTTP or HTTPS MCP endpoint") from None
+        trusted = origin in trusted_origins
+        if not trusted and (parts.scheme != "https" or parts.hostname == "localhost" or parts.hostname.endswith((".local", ".localhost"))):
+            raise MCPBridgeError("Camera MCP requires public HTTPS or a configured trusted origin")
+        try:
+            address = ipaddress.ip_address(parts.hostname)
+        except ValueError:
+            address = None
+        if not trusted and address is not None and (not address.is_global or address.is_multicast):
+            raise MCPBridgeError("Private camera MCP origins require local configuration")
+        if not self._camera_lock.acquire(blocking=False):
+            raise MCPBridgeError("A camera MCP registration is already in progress")
+        try:
+            with self._lock:
+                previous = next((s for s in self._config["servers"] if s["owner"] == CAMERA_OWNER and s["endpoint"] == endpoint), None)
+                if previous is not None:
+                    if key and not secrets.compare_digest(key.encode(), self._secrets.get(previous["secret_ref"], "").encode()):
+                        raise MCPBridgeError("An existing camera connection has different authentication; remove it to replace the key")
+                    return {"registered": True, "existing": True, "server": self._redact(self._public(previous))}
+            return self._register(session, endpoint, key=key, name=parts.hostname,
+                                  owner=CAMERA_OWNER, public_only=not trusted, timeout=8)
+        finally:
+            self._camera_lock.release()
+
+    def register(self, session: str, endpoint: str, *, key: str = "", name: str = "", scope: str = "session"):
+        if scope not in {"session", "device"}:
+            raise MCPBridgeError("Invalid connection scope or API key")
+        owner = "device" if scope == "device" else self._owner(session)
+        return self._register(session, endpoint, key=key, name=name, owner=owner)
+
+    def _register(self, session, endpoint, *, key, name, owner, public_only=False, timeout=60):
+        parts = self._endpoint(endpoint)
+        if not isinstance(key, str) or len(key) > 8192 or any(c in key for c in "\r\n"):
             raise MCPBridgeError("Invalid connection scope or API key")
         key = key.removeprefix("Bearer ").strip()
         name = str(name or parts.hostname)[:100]
@@ -268,16 +348,15 @@ class RemoteMCPRegistry:
         with self._lock:
             if len(self._config["servers"]) >= 32:
                 raise MCPBridgeError("At most 32 MCP connections may be registered")
-            if secret_ref:
-                self._secrets[secret_ref] = key
-                self._write("credentials.json", self._secrets)
         candidate, peer, catalog = None, None, None
         try:
             for transport in ("http", "sse"):
                 for auth in (("bearer", "api_key") if key else ("none",)):
                     candidate = {"id": identity, "name": name, "endpoint": endpoint, "transport": transport,
-                        "auth": auth, "secret_ref": secret_ref, "owner": "device" if scope == "device" else self._owner(session)}
-                    peer = self.peer_factory(candidate, key, timeout=60)
+                        "auth": auth, "secret_ref": secret_ref, "owner": owner}
+                    if public_only:
+                        candidate["public_only"] = True
+                    peer = self.peer_factory(candidate, key, timeout=timeout)
                     try:
                         catalog = peer.request("tools")
                         break
@@ -292,6 +371,9 @@ class RemoteMCPRegistry:
             with self._lock:
                 if len(self._config["servers"]) >= 32:
                     raise MCPBridgeError("MCP registration capacity reached")
+                if secret_ref:
+                    self._secrets[secret_ref] = key
+                    self._write("credentials.json", self._secrets)
                 replacement = {"servers": [*self._config["servers"], candidate]}
                 self._write("servers.json", replacement)
                 self._config = replacement
@@ -301,8 +383,7 @@ class RemoteMCPRegistry:
             if peer:
                 peer.close()
             with self._lock:
-                if secret_ref:
-                    self._secrets.pop(secret_ref, None)
+                if secret_ref and self._secrets.pop(secret_ref, None) is not None:
                     self._write("credentials.json", self._secrets)
             raise MCPBridgeError("MCP registration failed; no usable connection was installed") from None
 
@@ -324,11 +405,12 @@ class RemoteMCPRegistry:
     @staticmethod
     def _public(server):
         return {"id": server["id"], "name": server["name"], "transport": server["transport"],
-            "authenticated": server["auth"] != "none", "scope": "device" if server["owner"] == "device" else "session"}
+            "authenticated": server["auth"] != "none", "scope": {"device": "device", CAMERA_OWNER: "camera"}.get(server["owner"], "session")}
 
     def list(self, session):
+        owners = self._visible_owners(session)
         with self._lock:
-            return self._redact([self._public(item) for item in self._config["servers"] if item["owner"] in {"device", self._owner(session)}])
+            return self._redact([self._public(item) for item in self._config["servers"] if item["owner"] in owners])
 
     def _peer(self, session, identity):
         current = self._server(session, identity)

@@ -25,6 +25,8 @@ import httpx
 from harness.audio import probe_audio_server, require_tools
 from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
+from harness.camera_orientation import CameraOrientation
+from harness.camera_scan import CameraScanner
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
 from harness.location import BrowserLocationProvider
 from harness.models import IndicatorModelManager
@@ -256,6 +258,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input-channel", type=int, default=int(os.environ.get("OMNI_CALL_INPUT_CHANNEL", "0")))
     parser.add_argument("--camera-device", default=os.environ.get("OMNI_CALL_CAMERA", "/dev/video0"))
     parser.add_argument("--no-camera", action="store_true")
+    parser.add_argument("--scan-qr", action=argparse.BooleanOptionalAction,
+        default=os.environ.get("OMNI_CALL_SCAN_QR") == "1", help="scan native cameras for QR codes between and during turns")
+    parser.add_argument("--camera-auto-tune", action=argparse.BooleanOptionalAction,
+        default=os.environ.get("OMNI_CALL_CAMERA_AUTO_TUNE", "1") == "1", help="automatically tune supported camera controls during scanning")
+    parser.add_argument("--camera-roll-model", default=os.environ.get("OMNI_CALL_CAMERA_ROLL_MODEL", ""),
+        help="local RightWayUp Pico INT8 ONNX model for automatic roll correction")
     parser.add_argument(
         "--camera-device-only",
         action="store_true",
@@ -471,6 +479,12 @@ def main(argv: list[str] | None = None) -> int:
     model_switch_requested = threading.Event()
     muted = threading.Event()
     cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
+    roll_model = Path(args.camera_roll_model) if args.camera_roll_model else (
+        repo_root / "runtime-data/components/camera-orientation/pico-s70-int8.onnx")
+    orient = CameraOrientation(roll_model) if roll_model.is_file() else None
+    if orient is not None:
+        cameras.frame_correction = orient.correct
+        cameras.roll_correction = orient.roll
     indicator_holder: dict[str, Any] = {}
 
     def request_shutdown(*_args: object) -> None:
@@ -692,6 +706,13 @@ def main(argv: list[str] | None = None) -> int:
             return None
         return cameras.clip() if motion else cameras.snapshot()
 
+    def camera_scan_enabled() -> bool:
+        return config.camera_enabled and not muted.is_set() and not service_control.paused()
+
+    def camera_scan(submit):
+        return CameraScanner(cameras, enabled=camera_scan_enabled, submit=submit,
+                             auto_tune=args.camera_auto_tune, orient=orient)
+
     def worker() -> None:
         while not stop.is_set():
             if service_control.paused():
@@ -709,6 +730,7 @@ def main(argv: list[str] | None = None) -> int:
                     on_capture=on_capture,
                     frame_grabber=guarded_frame,
                     stop=call_stop,
+                    **({"camera_scan": camera_scan, "camera_scan_enabled": camera_scan_enabled} if args.scan_qr else {}),
                 )
             except Exception as error:  # noqa: BLE001 - keep listening
                 logger.warning("call loop restarting after: %s", error)

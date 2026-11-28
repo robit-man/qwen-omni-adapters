@@ -26,6 +26,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,6 +51,8 @@ class CameraSet:
     _candidates: list[str] = field(default_factory=list)
     _capture_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _last_discovery_at: float = 0.0
+    frame_correction: Callable[[str, bytes], bytes] | None = field(default=None, repr=False)
+    roll_correction: Callable[[str], float] | None = field(default=None, repr=False)
 
     @classmethod
     def discover(cls, explicit: str | None = None) -> CameraSet:
@@ -153,7 +156,7 @@ class CameraSet:
                     "id": _camera_identifier(device),
                     "mime_type": "image/jpeg",
                     "encoding": "base64",
-                    "data": base64.b64encode(frame).decode("ascii"),
+                    "data": base64.b64encode(self._correct(device, frame)).decode("ascii"),
                 }
                 for device, frame in zip(selected, frames, strict=True)
                 if frame is not None
@@ -167,8 +170,8 @@ class CameraSet:
                 return None
             with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
                 frames = [
-                    frame
-                    for frame in pool.map(_grab_frame, self.devices)
+                    self._correct(device, frame)
+                    for device, frame in zip(self.devices, pool.map(_grab_frame, self.devices), strict=True)
                     if frame is not None
                 ]
             if not frames:
@@ -198,7 +201,7 @@ class CameraSet:
                     paths = [
                         path
                         for path in pool.map(
-                            lambda item: _grab_clip(
+                            lambda item: self._corrected_clip(
                                 item[1], root / f"{item[0]}.mp4", seconds
                             ),
                             enumerate(self.devices),
@@ -219,6 +222,33 @@ class CameraSet:
             "encoding": "base64",
             "data": base64.b64encode(data).decode("ascii"),
         }
+
+    def _correct(self, device: str, frame: bytes) -> bytes:
+        return self.frame_correction(device, frame) if self.frame_correction else frame
+
+    def _corrected_clip(self, device: str, path: Path, seconds: float) -> Path | None:
+        roll = self.roll_correction(device) if self.roll_correction else 0.0
+        return _grab_clip(device, path, seconds, roll=roll) if roll else _grab_clip(device, path, seconds)
+
+    def scan_frames(self, width_for: Callable[[str], int | None]) -> list[tuple[str, str, bytes]]:
+        """Sample due cameras individually, yielding to an explicit view in progress."""
+        if not self._capture_lock.acquire(blocking=False):
+            return []
+        try:
+            if shutil.which("ffmpeg") is None:
+                return []
+            candidates = [self._explicit] if self._explicit else [str(p) for p in sorted(Path("/dev").glob("video*"))]
+            # The scan also acts as the probe. Keep frames out of the normal
+            # disk-backed fallback workspace because a frame can contain keys.
+            due = [(device, width) for device in candidates if (width := width_for(device)) is not None][:16]
+            if not due:
+                return []
+            with ThreadPoolExecutor(max_workers=min(8, len(due))) as pool:
+                frames = list(pool.map(lambda item: _grab_frame(*item, scan=True), due))
+            return [(device, _camera_identifier(device), frame)
+                    for (device, _), frame in zip(due, frames, strict=True) if frame]
+        finally:
+            self._capture_lock.release()
 
 
 def _can_capture(device: str) -> bool:
@@ -336,7 +366,8 @@ def _raw_format(device: str) -> _RawFormat | None:
 
 
 def _raw_capture(
-    device: str, frames: int, ffmpeg_output: list[str], output: Path, timeout: float
+    device: str, frames: int, ffmpeg_output: list[str], output: Path, timeout: float,
+    *, scratch: Path | None = None,
 ) -> bool:
     """Stream raw frames from v4l2-ctl into ffmpeg and write ``output``.
 
@@ -348,7 +379,7 @@ def _raw_capture(
     fmt = _raw_format(device)
     if fmt is None:
         return False
-    with tempfile.TemporaryDirectory(prefix="omni-v4l2-") as workspace:
+    with tempfile.TemporaryDirectory(prefix="omni-v4l2-", dir=scratch) as workspace:
         fifo = Path(workspace) / "frames.raw"
         os.mkfifo(fifo)
         capture = [
@@ -399,18 +430,21 @@ def _raw_capture(
         return True
 
 
-def _grab_frame(device: str, width: int = 640) -> bytes | None:
+def _grab_frame(device: str, width: int = 640, *, scan: bool = False) -> bytes | None:
     if not _ffmpeg_reads_v4l2():
         if shutil.which("v4l2-ctl") is None:
             logger.warning("ffmpeg lacks V4L2 input and v4l2-ctl is missing; cannot capture %s", device)
             return None
-        with tempfile.TemporaryDirectory(prefix="omni-frame-") as workspace:
+        scratch = Path("/dev/shm") if scan else None
+        if scan and not os.path.ismount(scratch):
+            return None
+        with tempfile.TemporaryDirectory(prefix="omni-frame-", dir=scratch) as workspace:
             output = Path(workspace) / "frame.jpg"
             if not _raw_capture(
                 device, 1,
                 ["-frames:v", "1", "-vf", f"{{crop}},scale={width}:-2",
                  "-f", "image2", "-c:v", "mjpeg"],
-                output, timeout=8,
+                output, timeout=3 if scan else 8, **({"scratch": scratch} if scan else {}),
             ):
                 return None
             try:
@@ -426,7 +460,7 @@ def _grab_frame(device: str, width: int = 640) -> bytes | None:
                 "-f", "image2", "-c:v", "mjpeg", "-",
             ],
             capture_output=True,
-            timeout=8,
+            timeout=3 if scan else 8,
         )
     except (subprocess.TimeoutExpired, OSError):
         return None
@@ -435,8 +469,12 @@ def _grab_frame(device: str, width: int = 640) -> bytes | None:
     return completed.stdout
 
 
-def _grab_clip(device: str, target: Path, seconds: float) -> Path | None:
+def _grab_clip(device: str, target: Path, seconds: float, *, roll: float = 0.0) -> Path | None:
     duration = max(0.5, seconds)
+    scale = f"scale={CLIP_WIDTH}:-2"
+    if roll:
+        angle = f"-{roll:.3f}*PI/180" if roll > 0 else f"{abs(roll):.3f}*PI/180"
+        scale += f",rotate={angle}:ow=ceil(rotw({angle})/2)*2:oh=ceil(roth({angle})/2)*2"
     encode = [
         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
         # The model reads this through a pipe, which cannot seek back
@@ -449,7 +487,7 @@ def _grab_clip(device: str, target: Path, seconds: float) -> Path | None:
             return None
         captured = _raw_capture(
             device, max(1, round(fmt.fps * duration)),
-            ["-vf", f"{{crop}},scale={CLIP_WIDTH}:-2", *encode],
+            ["-vf", f"{{crop}},{scale}", *encode],
             target, timeout=duration + 25,
         )
         return target if captured else None
@@ -459,7 +497,7 @@ def _grab_clip(device: str, target: Path, seconds: float) -> Path | None:
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                 "-f", "v4l2", "-i", device,
                 "-t", f"{max(0.5, seconds):.1f}",
-                "-vf", f"scale={CLIP_WIDTH}:-2",
+                "-vf", scale,
                 "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
                 # The model reads this through a pipe, which cannot seek back
                 # to a trailing index.

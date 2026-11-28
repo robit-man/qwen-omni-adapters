@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -215,6 +216,96 @@ def test_transport_rejects_cross_origin_before_forwarding_authentication():
         finally:
             await transport.aclose()
     asyncio.run(check())
+
+
+def test_camera_transport_pins_checked_address_and_rejects_private_dns(monkeypatch):
+    import asyncio
+    import socket
+
+    import httpx
+
+    from portal.mcp_bridge import _BoundedTransport
+
+    async def check():
+        origin = "https://camera-connector.example/mcp"
+        transport = _BoundedTransport(origin, public_only=True)
+        observed = []
+        address = "1.1.1.1"
+
+        async def addresses(host, port, *, type):
+            assert (host, port, type) == ("camera-connector.example", 443, socket.SOCK_STREAM)
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port))]
+
+        async def send(request):
+            observed.append((str(request.url), request.headers["host"], request.extensions["sni_hostname"]))
+            return httpx.Response(200, stream=httpx.ByteStream(b""))
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", addresses)
+        monkeypatch.setattr(transport.wrapped, "handle_async_request", send)
+        try:
+            await transport.handle_async_request(httpx.Request("POST", origin))
+            assert observed == [("https://1.1.1.1/mcp", "camera-connector.example", "camera-connector.example")]
+            address = "127.0.0.1"
+            with pytest.raises(MCPBridgeError, match="Private camera"):
+                await transport.handle_async_request(httpx.Request("POST", origin))
+            assert len(observed) == 1
+        finally:
+            await transport.aclose()
+
+    asyncio.run(check())
+
+
+def test_camera_registration_is_private_persistent_and_only_discovers(tmp_path, endpoint, monkeypatch):
+    import httpx
+
+    from portal.app import PortalConfig, create_app
+
+    server, url = endpoint
+    server.expected_auth = ("x-api-key", "fixture-key")
+    token = "fixture-portal-token-long-enough-for-camera"
+    config = PortalConfig(adapter_url="http://adapter/api/chat", adapter_health_url="http://adapter/healthz",
+        comprehension_health_url="", tts_health_url="http://tts/healthz", ollama_health_url="http://ollama/api/tags",
+        model="fixture", access_token=token, remote_camera_enabled=False, mcp_enabled=True, mcp_root=tmp_path / "mcp",
+        background_task_path=tmp_path / "state" / "background.json", virtual_context_root=tmp_path / "virtual")
+    app = create_app(config, httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(200, json={"ok": True}))))
+    registry = app.extensions["remote_mcp"]
+    owner = hashlib.sha256(b"omni-voice-session\0" + token.encode()).hexdigest()
+    headers = {"Authorization": "Bearer " + token}
+    client = app.test_client()
+    camera = "camera-0123456789abcdef"
+    payload = {"camera_id": camera, "payload": json.dumps({"endpoint": url, "key": "fixture-key"})}
+    try:
+        response = client.post("/api/voice/camera-qr", json=payload, headers=headers)
+        assert response.status_code == 403
+        client.set_cookie("omni_portal_session", owner)
+        assert client.post("/api/voice/camera-qr", json=payload, headers=headers).json["kind"] == "mcp_failed"
+        assert registry.list(owner) == []
+        assert not (tmp_path / "mcp" / "credentials.json").exists()
+        monkeypatch.setenv("OMNI_CALL_QR_TRUSTED_MCP_ORIGINS", url.removesuffix("/mcp"))
+        response = client.post("/api/voice/camera-qr", json=payload, headers=headers)
+        assert response.json["kind"] == "mcp_ready" and "fixture-key" not in response.text
+        assert server.effects == []
+        assert client.post("/api/voice/camera-qr", json=payload, headers=headers).json["kind"] == "mcp_known"
+        assert client.post("/api/voice/camera-qr", json={"camera_id": camera, "payload": "A hello from the camera"}, headers=headers).json["kind"] == "text"
+        receipt = client.post("/api/tools/camera_qr/call", json={"arguments": {}}, headers=headers)
+        assert receipt.status_code == 200 and "A hello from the camera" in receipt.text
+        assert "fixture-key" not in receipt.text
+        server_id = registry.list(owner)[0]["id"]
+        assert registry.list("another-browser") == []
+        assert registry.catalog(owner, server_id)["total"] == 2
+        assert registry.call(owner, server_id, "actual-name/with punctuation", {"label": "requested"})["ok"]
+        assert server.effects == [{"label": "requested"}]
+        assert (tmp_path / "mcp" / "credentials.json").stat().st_mode & 0o777 == 0o600
+        assert "fixture-key" not in (tmp_path / "mcp" / "servers.json").read_text()
+    finally:
+        registry.close()
+    restored = RemoteMCPRegistry(tmp_path / "mcp", native_session="rotated-owner")
+    try:
+        assert restored.list(owner) == []
+        assert restored.list("rotated-owner")[0]["id"] == server_id
+        assert restored.catalog("rotated-owner", server_id)["total"] == 2
+    finally:
+        restored.close()
 
 
 def test_legacy_sse_transport_is_real_get_endpoint_and_preserves_resource_text(tmp_path):

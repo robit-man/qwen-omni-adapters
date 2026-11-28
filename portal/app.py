@@ -52,6 +52,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(repository_path / "src"))
 
 from harness.camera import CameraSet
+from portal.qr_intake import MAX_CODE, CameraQRInbox, classify_camera_code
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 from qwen_omni_adapters.context import (
     context_text,
@@ -3147,8 +3148,11 @@ def create_app(
         episodic_root=episodic_memory.root if episodic_memory else None)
     if episodic_memory is not None:
         episodic_memory.behaviors = behaviors
-    remote_mcp = RemoteMCPRegistry(runtime.mcp_root or state_root / "mcp") if runtime.mcp_enabled else None
+    remote_mcp = RemoteMCPRegistry(runtime.mcp_root or state_root / "mcp",
+        native_session=tool_harness.conversation_history_owner) if runtime.mcp_enabled else None
     tool_harness.remote_mcp = remote_mcp
+    camera_qr = CameraQRInbox()
+    tool_harness.camera_qr_recent = camera_qr.recent
     app.extensions["remote_mcp"] = remote_mcp
     if remote_mcp is not None:
         import atexit
@@ -4075,6 +4079,36 @@ def create_app(
         response = jsonify(result)
         response.set_cookie(SESSION_COOKIE_NAME, identity, max_age=BROWSER_SESSION_COOKIE_MAX_AGE_SECONDS, secure=request.is_secure or request.host.split(":", 1)[0] not in {"127.0.0.1", "localhost"}, httponly=True, samesite="Lax", path="/")
         return response, 201
+
+    @app.post("/api/voice/camera-qr")
+    def native_camera_qr():
+        identity = request_session_id()
+        if (not authorized() or not tool_harness.is_native_voice_owner(identity)
+                or request.remote_addr not in {"127.0.0.1", "::1"}
+                or urlsplit(request.host_url).hostname not in {"127.0.0.1", "::1", "localhost"}
+                or request.headers.get("CF-Connecting-IP")):
+            return jsonify({"error": "Camera intake requires the local voice owner"}), 403
+        if request.content_length is None or request.content_length > 7 * MAX_CODE:
+            return jsonify({"error": "Invalid camera observation size"}), 400
+        value = request.get_json(silent=True)
+        camera = value.get("camera_id") if isinstance(value, dict) else None
+        if not isinstance(camera, str) or not re.fullmatch(r"camera-[0-9a-f]{16}", camera):
+            return jsonify({"error": "Invalid camera identifier"}), 400
+        observation = classify_camera_code(value.get("payload"))
+        if observation.kind != "mcp":
+            return jsonify(camera_qr.append(observation.kind, camera, observation.text))
+        try:
+            if remote_mcp is None:
+                raise MCPBridgeError("MCP connections are disabled")
+            # Allow explicitly provisioned LAN services by exact origin. The
+            # scanned payload cannot grant this exception to itself.
+            trusted = tuple(origin.strip().rstrip("/") + "/" for origin in
+                os.environ.get("OMNI_CALL_QR_TRUSTED_MCP_ORIGINS", "").split(",") if origin.strip())
+            result = remote_mcp.register_camera(identity, observation.endpoint, key=observation.key, trusted_origins=trusted)
+        except MCPBridgeError:
+            return jsonify(camera_qr.append("mcp_failed", camera))
+        status = "mcp_known" if result.get("existing") else "mcp_ready"
+        return jsonify(camera_qr.append(status, camera, connection=result["server"], tools=result.get("tools")))
 
     @app.route("/api/mcp/servers/<server_id>", methods=["DELETE", "POST"])
     def mcp_server_control(server_id):
