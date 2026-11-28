@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import logging
-import os
 import shutil
 import subprocess
 import threading
@@ -218,10 +217,3 @@ class CameraEncoder:
 
     def close(self):
         self.pipeline.set_state(self.gst.State.NULL)
-
-
-def private_socket_root() -> Path:
-    root = Path(os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")) / f"omni-camera-{os.getuid()}"
-    root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    root.chmod(0o700)
-    return root

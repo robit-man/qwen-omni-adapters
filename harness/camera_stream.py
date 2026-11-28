@@ -25,7 +25,10 @@ logger = logging.getLogger(__name__)
 
 
 def camera_socket() -> Path:
-    return Path(os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")) / f"omni-camera-{os.getuid()}" / "control.sock"
+    # The system portal and desktop harness may have different environments.
+    uid = os.getuid()
+    runtime = Path(f"/run/user/{uid}")
+    return (runtime if runtime.is_dir() else Path("/dev/shm")) / f"omni-camera-{uid}" / "control.sock"
 
 
 def persistent_camera_enabled(repo: Path) -> bool:
@@ -48,21 +51,30 @@ def gmsl_devices() -> list[str]:
 class CameraStreamClient:
     """A same-user Unix socket connects the portal to the native capture owner."""
 
+    def __init__(self, socket_path: Path | None = None):
+        self.socket_path = socket_path
+
     def request(self, action: str, **args):
         try:
-            with httpx.Client(transport=httpx.HTTPTransport(uds=str(camera_socket())), timeout=12) as client:
+            path = self.socket_path or camera_socket()
+            with httpx.Client(transport=httpx.HTTPTransport(uds=str(path)), timeout=12) as client:
                 return client.post(f"http://camera.local/{action}", json=args).json()
         except (httpx.HTTPError, ValueError):
             return {"error": "Persistent camera service is unavailable"}
 
 
-class _Server(socketserver.ThreadingUnixStreamServer):
-    daemon_threads = True
-    request_queue_size = 8
+def _local_server(address, hub):
+    class Server(socketserver.ThreadingUnixStreamServer):
+        daemon_threads = True
+        request_queue_size = 8
 
-    def server_bind(self):
-        super().server_bind()
-        Path(self.server_address).chmod(0o600)
+        def server_bind(self):
+            super().server_bind()
+            Path(self.server_address).chmod(0o600)
+
+    server = Server(str(address), _Request)
+    server.hub = hub
+    return server
 
 
 class _Request(BaseHTTPRequestHandler):
@@ -93,10 +105,21 @@ class _Request(BaseHTTPRequestHandler):
 
 
 class CameraStreamHub:
-    def __init__(self, devices, *, test_source=False):
-        from harness.camera_capture import private_socket_root
+    def __init__(self, devices, *, test_source=False, socket_path: Path | None = None):
+        import fcntl
 
-        self.root = private_socket_root()
+        self.address = socket_path or camera_socket()
+        self.root = self.address.parent
+        self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self.root.chmod(0o700)
+        self.owner_file = (self.root / "owner.lock").open("a")
+        try:
+            fcntl.flock(self.owner_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.address.unlink(missing_ok=True)
+            self.server = _local_server(self.address, self)
+        except OSError:
+            self.owner_file.close()
+            raise
         self.devices = devices
         self.test_source = test_source
         self.feeds = {}
@@ -105,15 +128,16 @@ class CameraStreamHub:
         self.loop = asyncio.new_event_loop()
         self.loop_thread = threading.Thread(target=self._run, name="camera-webrtc", daemon=True)
         self.loop_thread.start()
-        address = camera_socket()
-        address.unlink(missing_ok=True)
-        self.server = _Server(str(address), _Request)
-        self.server.hub = self
         self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.server_thread.start()
 
     def _run(self):
         self.loop.run_forever()
+        pending = asyncio.all_tasks(self.loop)
+        for task in pending:
+            task.cancel()
+        if pending:
+            self.loop.run_until_complete(asyncio.wait(pending))
         self.loop.run_until_complete(self.loop.shutdown_default_executor())
         self.loop.close()
 
@@ -264,9 +288,10 @@ class CameraStreamHub:
         self.set_enabled(False)
         self.server.shutdown()
         self.server.server_close()
-        camera_socket().unlink(missing_ok=True)
+        self.address.unlink(missing_ok=True)
         self.loop.call_soon_threadsafe(self.loop.stop)
         self.loop_thread.join(timeout=2)
+        self.owner_file.close()
 
 
 def _video_track(feed):
