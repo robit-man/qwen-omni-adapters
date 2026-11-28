@@ -27,6 +27,7 @@ from harness.call import CallConfig, TurnResult, run_call_loop
 from harness.camera import CameraSet
 from harness.camera_orientation import CameraOrientation
 from harness.camera_scan import CameraScanner
+from harness.camera_stream import CameraStreamHub, gmsl_devices, persistent_camera_enabled
 from harness.indicator import ThreadedIndicator, build_indicator, probe_indicator
 from harness.location import BrowserLocationProvider
 from harness.models import IndicatorModelManager
@@ -479,6 +480,14 @@ def main(argv: list[str] | None = None) -> int:
     model_switch_requested = threading.Event()
     muted = threading.Event()
     cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
+    persistent_camera = persistent_camera_enabled(repo_root)
+    camera_stream = None
+    if persistent_camera:
+        devices = gmsl_devices()
+        if args.camera_device_only:
+            devices = [device for device in devices if device == args.camera_device]
+        camera_stream = CameraStreamHub(devices)
+        cameras.stream = camera_stream
     roll_model = Path(args.camera_roll_model) if args.camera_roll_model else (
         repo_root / "runtime-data/components/camera-orientation/pico-s70-int8.onnx")
     orient = CameraOrientation(roll_model) if roll_model.is_file() else None
@@ -508,6 +517,8 @@ def main(argv: list[str] | None = None) -> int:
 
     def set_camera(value: bool) -> None:
         config.camera_enabled = value
+        if camera_stream is not None:
+            camera_stream.set_enabled(value)
         logger.info("cameras %s", "enabled" if value else "disabled")
 
     def public_link() -> str:
@@ -730,7 +741,7 @@ def main(argv: list[str] | None = None) -> int:
                     on_capture=on_capture,
                     frame_grabber=guarded_frame,
                     stop=call_stop,
-                    **({"camera_scan": camera_scan, "camera_scan_enabled": camera_scan_enabled} if args.scan_qr else {}),
+                    **({"camera_scan": camera_scan} if (args.scan_qr or persistent_camera) else {}),
                 )
             except Exception as error:  # noqa: BLE001 - keep listening
                 logger.warning("call loop restarting after: %s", error)
@@ -746,8 +757,15 @@ def main(argv: list[str] | None = None) -> int:
 
     threading.Thread(target=watch_service_pause, name="voice-pause-watch", daemon=True).start()
 
+    if camera_stream is not None:
+        camera_stream.set_enabled(config.camera_enabled)
+
     if indicator is None:
-        worker()
+        try:
+            worker()
+        finally:
+            if camera_stream is not None:
+                camera_stream.close()
         return 0
 
     runner = ThreadedIndicator(indicator, worker)
@@ -759,6 +777,8 @@ def main(argv: list[str] | None = None) -> int:
         stop.set()
         call_stop.set()
         runner.join()
+        if camera_stream is not None:
+            camera_stream.close()
         if update_manager is not None:
             update_manager.close()
         _write_harness_status(

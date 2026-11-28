@@ -3161,6 +3161,7 @@
     if (!response.ok) throw new Error(data.error || `Camera discovery returned HTTP ${response.status}`);
     if (state.cameraPicker.source !== "remote") return;
     state.cameraPicker.remoteCameras = Array.isArray(data.cameras) ? data.cameras : [];
+    state.cameraPicker.webrtc = data.capture?.preview === "webrtc";
     renderCameraCards(state.cameraPicker.remoteCameras, "remote");
     if (!data.enabled) {
       setCameraSourceStatus("Remote cameras are disabled on this Omni device", true);
@@ -3171,7 +3172,7 @@
       return;
     }
     const count = state.cameraPicker.remoteCameras.length;
-    setCameraSourceStatus(`${count} remote camera${count === 1 ? "" : "s"} · live polling`);
+    setCameraSourceStatus(`${count} remote camera${count === 1 ? "" : "s"}`);
     pollRemoteCameraFrames("grid").catch(showError);
   }
 
@@ -3225,18 +3226,99 @@
       closing: null,
     };
     elements.cameraDialogTitle.textContent = camera.label;
-    elements.cameraDialogSource.textContent = kind === "remote" ? "Omni device · live polling" : `${camera.facing || "Local"} camera · this device`;
+    elements.cameraDialogSource.textContent = kind === "remote" ? "Omni device" : `${camera.facing || "Local"} camera · this device`;
     elements.cameraLiveBadge.textContent = "OPENING";
     elements.cameraLiveBadge.classList.remove("recording");
     elements.cameraRecord.setAttribute("aria-pressed", "false");
     elements.cameraRecord.setAttribute("aria-label", "Hold to record video");
     elements.cameraRecord.querySelector("span:last-child").textContent = "Hold to record";
     elements.cameraDialog.showModal();
-    if (kind === "remote") pollRemoteCameraFrames("modal").catch(showError);
+  }
+
+  function closeRemoteCamera(modal) {
+    modal.peer?.close();
+    modal.video?.pause();
+    if (modal.video) modal.video.srcObject = null;
+    if (modal.peerId) {
+      const body = JSON.stringify({ peer: modal.peerId });
+      modal.peerId = null;
+      fetch("/api/cameras/webrtc", {
+        method: "DELETE", headers: authHeaders({ "Content-Type": "application/json" }),
+        body, keepalive: true,
+      }).catch(() => {});
+    }
+  }
+
+  async function startRemoteCameraStream(modal) {
+    const peer = new RTCPeerConnection({ iceServers: [] });
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    modal.peer = peer;
+    modal.video = video;
+    peer.addTransceiver("video", { direction: "recvonly" });
+    let negotiationTimer;
+    let playbackTimer;
+    const ice = new Promise(resolve => {
+      negotiationTimer = window.setTimeout(resolve, 1800);
+      peer.addEventListener("icegatheringstatechange", () => {
+        if (peer.iceGatheringState === "complete") resolve();
+      });
+    });
+    const playing = new Promise(resolve => {
+      peer.addEventListener("track", event => {
+        video.srcObject = new MediaStream([event.track]);
+        video.play().catch(() => {});
+      });
+      video.addEventListener("loadeddata", () => resolve(true), { once: true });
+      playbackTimer = window.setTimeout(() => resolve(false), 6500);
+    });
+    try {
+      await peer.setLocalDescription(await peer.createOffer());
+      if (peer.iceGatheringState !== "complete") await ice;
+      if (state.cameraModal !== modal || modal.closing) return false;
+      const response = await fetch("/api/cameras/webrtc", {
+        method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ camera: modal.camera.id, sdp: peer.localDescription.sdp }),
+      });
+      if (!response.ok) return false;
+      const answer = await response.json();
+      modal.peerId = answer.peer;
+      if (state.cameraModal !== modal || modal.closing) return false;
+      await peer.setRemoteDescription({ type: answer.type, sdp: answer.sdp });
+      if (!await playing || state.cameraModal !== modal || modal.closing) return false;
+      function draw() {
+        if (state.cameraModal !== modal || modal.closing) return;
+        drawRotatedSource(elements.cameraCanvas, video, video.videoWidth, video.videoHeight, modal.rotation);
+        if (!modal.recording) elements.cameraLiveBadge.textContent = "LIVE";
+        modal.animationFrame = requestAnimationFrame(draw);
+      }
+      draw();
+      peer.addEventListener("connectionstatechange", () => {
+        if (peer.connectionState !== "failed" || state.cameraModal !== modal || modal.closing) return;
+        cancelAnimationFrame(modal.animationFrame);
+        closeRemoteCamera(modal);
+        pollRemoteCameraFrames("modal").catch(showError);
+      });
+      return true;
+    } finally {
+      window.clearTimeout(negotiationTimer);
+      window.clearTimeout(playbackTimer);
+    }
   }
 
   async function openRemoteCamera(camera, returnFocus) {
     openCameraDialog({ kind: "remote", camera, returnFocus });
+    const modal = state.cameraModal;
+    if (state.cameraPicker.webrtc && typeof RTCPeerConnection === "function") {
+      try {
+        if (await startRemoteCameraStream(modal)) return;
+      } catch (_) {
+        // The authenticated JPEG endpoint serves clients without a direct ICE path.
+      }
+      closeRemoteCamera(modal);
+    }
+    if (state.cameraModal === modal && !modal.closing) await pollRemoteCameraFrames("modal");
   }
 
   function drawLocalCameraFrame() {
@@ -3440,6 +3522,7 @@
       stopCameraPolling();
       cancelAnimationFrame(modal.animationFrame);
       if (modal.kind === "local") await stopCameraCapture();
+      else closeRemoteCamera(modal);
       if (elements.cameraDialog.open) elements.cameraDialog.close();
       state.cameraModal = null;
       modal.returnFocus?.focus?.();

@@ -14,6 +14,7 @@ PREPARE_COMPONENTS=0
 INSTALL_LAYA=1
 INSTALL_POINTING=1
 INSTALL_HARNESS=0
+INSTALL_CAMERA_STREAM=1
 
 usage() {
   cat <<'EOF'
@@ -26,6 +27,7 @@ Usage: ./scripts/bootstrap.sh [options]
   --skip-laya        Do not install the isolated resident Laya runtime
   --skip-pointing    Do not install the isolated Tegra visual point head
   --with-harness     Install Linux desktop indicator/audio prerequisites
+  --no-camera-stream Keep persistent Jetson camera streaming disabled
   --help             Show this help
 
 Environment: OMNI_MODEL, OMNI_LANGUAGE_MODEL, OMNI_VENV, PYTHON,
@@ -42,6 +44,7 @@ while (($#)); do
     --skip-laya) INSTALL_LAYA=0 ;;
     --skip-pointing) INSTALL_POINTING=0 ;;
     --with-harness) INSTALL_HARNESS=1 ;;
+    --no-camera-stream) INSTALL_CAMERA_STREAM=0 ;;
     --help|-h) usage; exit 0 ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
@@ -124,6 +127,12 @@ fi
 "$VENV/bin/python" -m pip install -e "${REPO_ROOT}[dev]"
 if ! "$VENV/bin/python" -m pip install -e "${REPO_ROOT}[pdf]"; then
   printf 'Optional PDF layout parser could not be installed. Continuing bootstrap.\n' >&2
+fi
+
+if ((INSTALL_HARNESS && INSTALL_CAMERA_STREAM)); then
+  OMNI_VENV="$VENV" "$SCRIPT_DIR/install-camera-stream.sh"
+elif ((!INSTALL_CAMERA_STREAM)); then
+  "$SCRIPT_DIR/install-camera-stream.sh" --disable
 fi
 
 # Media capture and conversion need an ffmpeg with V4L2 input and swscale.

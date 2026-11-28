@@ -2420,6 +2420,7 @@ class PortalToolHarness:
         self.episodic_memory = None
         self.remote_mcp = None
         self.camera_qr_recent = None
+        self.camera_qr_register = None
         self.memory = SessionMemoryStore(ttl_s=ttl_s)
         self.web = WebToolSuite(
             ttl_s=ttl_s,
@@ -2618,7 +2619,16 @@ class PortalToolHarness:
             elif name == "camera_qr":
                 if self.camera_qr_recent is None or not self.is_native_voice_owner(session_id):
                     raise ToolInputError("Camera scans are available in the native voice session")
-                result = self.camera_qr_recent()
+                action = arguments.get("action", "recent")
+                if action == "recent":
+                    result = self.camera_qr_recent()
+                elif action == "register" and self.camera_qr_register is not None and _TOOL_USER_CONTEXT.get().strip():
+                    identity = arguments.get("observation_id")
+                    if identity is not None and (not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{16}", identity)):
+                        raise ToolInputError("Invalid camera observation ID")
+                    result = self.camera_qr_register(session_id, identity)
+                else:
+                    raise ToolInputError("Ask the Egg directly to register a visible connector")
             elif name == "request_camera_view":
                 mode = str(arguments.get("mode") or "still").strip()
                 if mode not in {"still", "motion"}:

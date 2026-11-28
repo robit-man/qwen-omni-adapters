@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 import threading
 import time
 from collections import deque
@@ -14,19 +15,8 @@ MAX_CODE = 4096
 SECRET_TEXT = re.compile(r"(?:\b(?:api[_ -]?key|password|secret|access[_ -]?token|authorization)\b|\bbearer\s|-----BEGIN|\b(?:sk|ghp|gho|xoxb|xoxp)[_-][a-z0-9_-]+)", re.I)
 OPAQUE_TOKEN = re.compile(r"[A-Za-z0-9_./+=-]{16,}\Z")
 MCP_PATH = re.compile(r"/(?:mcp|sse)(?:/sse)?/?\Z", re.I)
-ANNOUNCEMENTS = {
-    "text": "I scanned a text QR code.",
-    "link": "I scanned a website QR code.",
-    "contact": "I scanned a contact QR code.",
-    "private": "I scanned a private code. I kept its contents private.",
-    "structured": "I scanned a QR code containing structured data.",
-    "unsupported": "I scanned a code that I couldn't interpret.",
-    "invalid_mcp": "I scanned an MCP code with an invalid connection format.",
-    "unsupported_mcp": "I scanned an MCP format that this camera connection doesn't support.",
-    "mcp_ready": "I connected the MCP server from the QR code. Its tools are available on request.",
-    "mcp_known": "That MCP connection is already registered.",
-    "mcp_failed": "I scanned the MCP connection, but discovery did not complete. It may need a key or an allowed origin.",
-}
+PRINTED_ENDPOINT = re.compile(r"(?:\bmcp(?:\s+(?:endpoint|server|url))?\s*:?\s*)?(https?://[^\s<>]+)", re.I)
+PRINTED_KEY = re.compile(r"(?mi)^[ \t]*(?:api[-_ ]?key|x-api-key|token|authorization)\s*[:=]\s*(?:bearer\s+)?([!-~]+)\s*$")
 
 
 @dataclass(frozen=True)
@@ -63,7 +53,7 @@ def _mcp(value: dict) -> CameraCode:
     return CameraCode("mcp", endpoint=endpoint, key=key)
 
 
-def classify_camera_code(raw: str) -> CameraCode:
+def classify_camera_code(raw: str, *, source: str = "qr") -> CameraCode:
     if not isinstance(raw, str) or not 0 < len(raw.encode("utf-8", "replace")) <= MAX_CODE:
         return CameraCode("unsupported")
     value = raw.strip()
@@ -86,6 +76,18 @@ def classify_camera_code(raw: str) -> CameraCode:
                     and ("headers" in decoded or decoded.get("type") in ("http", "sse", "streamable-http", "streamableHttp"))):
                 return _mcp(decoded)
         return CameraCode("structured")
+    if source == "ocr" and (printed := PRINTED_ENDPOINT.search(value)):
+        endpoint = printed[1].rstrip(".,;")
+        try:
+            is_mcp = bool(MCP_PATH.search(urlsplit(endpoint).path) or re.search(r"\bmcp\b", printed[0], re.I))
+        except ValueError:
+            return CameraCode("unsupported")
+        if is_mcp:
+            keys = PRINTED_KEY.findall(value)
+            # An unreadable credential label is insufficient for registration.
+            if len(keys) > 1 or (SECRET_TEXT.search(value) and not keys):
+                return CameraCode("invalid_mcp")
+            return _mcp({"endpoint": endpoint, "key": keys[0] if keys else ""})
     if value[:6].lower() in {"mcp+ht", "mcp://"}:
         endpoint = value[4:] if value.lower().startswith("mcp+") else "https://" + value[6:]
         return _mcp({"endpoint": endpoint})
@@ -117,16 +119,55 @@ class CameraQRInbox:
         self._items = deque(maxlen=16)
         self._lock = threading.Lock()
 
-    def append(self, kind: str, camera: str, observed_text: str = "", **fields):
-        public = {"kind": kind, "camera_id": camera, "captured_at": time.time(), **fields}
-        if observed_text:
-            public["observed_text"] = observed_text
+    def observe(self, code: CameraCode, camera: str, *, source: str, confidence: float | None = None):
+        now = time.time()
+        public = {"id": secrets.token_hex(8), "kind": code.kind, "source": source,
+                  "camera_id": camera, "captured_at": now}
+        if code.text:
+            public["observed_text"] = code.text
+        if confidence is not None:
+            public["confidence"] = round(confidence, 1)
+        if code.kind == "mcp":
+            try:
+                public["host"] = (urlsplit(code.endpoint).hostname or "")[:160]
+            except ValueError:
+                public["host"] = ""
+            public["credential_present"] = bool(code.key)
         with self._lock:
-            self._items.append(public)
-        return {"kind": kind, "spoken": ANNOUNCEMENTS[kind]}
+            self._expire(now)
+            for prior, value in reversed(self._items):
+                if value == code and prior["camera_id"] == camera and prior["source"] == source:
+                    prior["captured_at"] = now
+                    return dict(prior)
+            self._items.append((public, code))
+        return dict(public)
+
+    def _expire(self, now):
+        for item in list(self._items):
+            if item[0]["captured_at"] < now - 600:
+                self._items.remove(item)
+
+    def connector(self, identity: str | None) -> CameraCode | None:
+        with self._lock:
+            self._expire(time.time())
+            rows = [(entry, code) for entry, code in self._items if code.kind == "mcp"]
+            if identity:
+                return next((code for entry, code in rows if entry["id"] == identity), None)
+            if len({(code.endpoint, code.key) for _, code in rows}) == 1:
+                return rows[-1][1]
+            return None
 
     def recent(self):
-        cutoff = time.time() - 600
         with self._lock:
-            return {"observations": [dict(item) for item in reversed(self._items) if item["captured_at"] >= cutoff],
-                    "trust": "untrusted_qr_observation", "current_visual_input": False}
+            self._expire(time.time())
+            items = [dict(entry) for entry, _ in sorted(self._items, key=lambda row: row[0]["captured_at"], reverse=True)]
+            return {"observations": items, "trust": "untrusted_camera_observation", "current_visual_input": False}
+
+    def prompt(self) -> str:
+        rows = self.recent()["observations"][:2]
+        if not rows:
+            return ""
+        data = [{key: value[:100] if isinstance(value, str) else value
+                 for key, value in row.items() if key in {"id", "kind", "source", "host", "credential_present", "observed_text"}}
+                for row in rows]
+        return json.dumps(data, ensure_ascii=True, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e")

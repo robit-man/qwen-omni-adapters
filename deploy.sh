@@ -1454,6 +1454,7 @@ fi
 
 bootstrap=("$REPO_ROOT/scripts/bootstrap.sh" --refresh-models)
 ((WITH_HARNESS)) && bootstrap+=(--with-harness)
+((WITH_CAMERA)) || bootstrap+=(--no-camera-stream)
 
 if ((DRY_RUN)); then
   run "${bootstrap[@]}"

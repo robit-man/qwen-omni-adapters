@@ -450,23 +450,23 @@ class CallSession:
             return {"Authorization": f"Bearer {self.config.token}"}
         return {}
 
-    def submit_camera_code(self, code: str, camera_id: str) -> str:
-        """Send untrusted camera input back through the private owner channel."""
+    def submit_camera_code(self, code: str, camera_id: str, *, source: str = "qr",
+                           confidence: float | None = None) -> None:
+        """Record visual evidence over the private owner channel."""
+        if urlsplit(self.config.portal_url).hostname not in {"127.0.0.1", "::1", "localhost"}:
+            return
+        url = f"{self.config.portal_url.rstrip('/')}/api/voice/camera-qr"
+        payload = {"payload": code, "camera_id": camera_id, "source": source, "confidence": confidence}
         try:
-            if urlsplit(self.config.portal_url).hostname not in {"127.0.0.1", "::1", "localhost"}:
-                return "I scanned a code, but camera intake requires the local portal."
-            url = f"{self.config.portal_url.rstrip('/')}/api/voice/camera-qr"
-            payload = {"payload": code, "camera_id": camera_id}
-            response = self._client.post(url, json=payload, headers=self._headers(), timeout=40)
+            response = self._client.post(url, json=payload, headers=self._headers(), timeout=4)
             if response.status_code in {401, 403} and self._refresh_token():
-                response = self._client.post(url, json=payload, headers=self._headers(), timeout=40)
+                response = self._client.post(url, json=payload, headers=self._headers(), timeout=4)
             if response.is_success:
-                value = response.json().get("spoken")
-                if isinstance(value, str) and 0 < len(value) <= 200:
-                    return value
-        except (httpx.HTTPError, ValueError, AttributeError):
-            pass
-        return "I scanned a code, but camera intake is unavailable."
+                logger.info("Camera %s observation recorded from %s", source, camera_id)
+            else:
+                logger.warning("Camera intake returned HTTP %d", response.status_code)
+        except httpx.HTTPError:
+            logger.warning("Could not deliver a camera observation")
 
     def _refresh_token(self) -> bool:
         """Re-read the portal token, which changes on every daemon start.
@@ -1469,8 +1469,7 @@ def run_call_loop(
     on_turn: Callable[[TurnResult], None] | None = None,
     on_capture: Callable[[], None] | None = None,
     frame_grabber: Callable[[], dict[str, Any] | None] | None = None,
-    camera_scan: Callable[[Callable[[str, str], None]], Any] | None = None,
-    camera_scan_enabled: Callable[[], bool] | None = None,
+    camera_scan: Callable[[Callable[..., None]], Any] | None = None,
     stop: threading.Event | None = None,
 ) -> None:
     """Listen until told to stop, answering when the speaker is actually done.
@@ -1540,16 +1539,7 @@ def run_call_loop(
     lock = threading.Lock()
     work: queue.Queue[Pending] = queue.Queue(maxsize=1)
     background_announcements: queue.Queue[dict[str, Any]] = queue.Queue()
-    camera_announcements: queue.Queue[tuple[float, str]] = queue.Queue(maxsize=8)
     background_store: BackgroundTaskStore | None = None
-
-    def intake_camera_code(code: str, camera_id: str) -> None:
-        spoken = session.submit_camera_code(code, camera_id)
-        if not worker_stop.is_set():
-            try:
-                camera_announcements.put_nowait((time.monotonic(), spoken))
-            except queue.Full:
-                pass
 
     if config.background_task_path and config.tools_enabled:
         background_store = BackgroundTaskStore(config.background_task_path)
@@ -1653,12 +1643,7 @@ def run_call_loop(
                     try:
                         announcement = background_announcements.get_nowait()
                     except queue.Empty:
-                        try:
-                            arrived, speech = camera_announcements.get_nowait()
-                            if time.monotonic() - arrived < 25 and camera_scan_enabled and camera_scan_enabled():
-                                announcement = {"_kind": "camera_qr", "text": speech}
-                        except queue.Empty:
-                            pass
+                        pass
                 if announcement is None:
                     try:
                         pending = work.get(timeout=0.1)
@@ -1690,7 +1675,7 @@ def run_call_loop(
                 elif announcement is not None:
                     task_id = str(announcement.get("task_id") or "")
                     kind = str(announcement.get("_kind") or "terminal")
-                    report = announcement["text"] if kind == "camera_qr" else _background_announcement_text(announcement)
+                    report = _background_announcement_text(announcement)
                     if report:
                         logger.info("announcing %s background task %s", kind, task_id)
                         result = session.announce(report)
@@ -1728,7 +1713,7 @@ def run_call_loop(
 
     turns = threading.Thread(target=worker, name="omni-call-turn", daemon=True)
     turns.start()
-    scanner = camera_scan(intake_camera_code) if camera_scan is not None else None
+    scanner = camera_scan(session.submit_camera_code) if camera_scan is not None else None
     if scanner is not None:
         scanner.start()
 

@@ -278,18 +278,29 @@ def test_camera_registration_is_private_persistent_and_only_discovers(tmp_path, 
         response = client.post("/api/voice/camera-qr", json=payload, headers=headers)
         assert response.status_code == 403
         client.set_cookie("omni_portal_session", owner)
-        assert client.post("/api/voice/camera-qr", json=payload, headers=headers).json["kind"] == "mcp_failed"
+        from portal.tools import scoped_tool_user_context
+
+        response = client.post("/api/voice/camera-qr", json=payload, headers=headers)
+        assert response.json["kind"] == "mcp" and "fixture-key" not in response.text
+        identity = response.json["id"]
         assert registry.list(owner) == []
         assert not (tmp_path / "mcp" / "credentials.json").exists()
+        assert client.post("/api/voice/camera-qr", json=payload, headers=headers).json["id"] == identity
+        registration = {"arguments": {"action": "register", "observation_id": identity}}
+        denied = client.post("/api/tools/camera_qr/call", json=registration, headers=headers)
+        assert "Ask the Egg directly" in denied.text
+        assert registry.list(owner) == []
         monkeypatch.setenv("OMNI_CALL_QR_TRUSTED_MCP_ORIGINS", url.removesuffix("/mcp"))
-        response = client.post("/api/voice/camera-qr", json=payload, headers=headers)
-        assert response.json["kind"] == "mcp_ready" and "fixture-key" not in response.text
-        assert server.effects == []
-        assert client.post("/api/voice/camera-qr", json=payload, headers=headers).json["kind"] == "mcp_known"
-        assert client.post("/api/voice/camera-qr", json={"camera_id": camera, "payload": "A hello from the camera"}, headers=headers).json["kind"] == "text"
+        assert client.post("/api/voice/camera-qr", json={"camera_id": camera, "source": "ocr", "confidence": 94,
+            "payload": "A hello from the camera"}, headers=headers).json["kind"] == "text"
         receipt = client.post("/api/tools/camera_qr/call", json={"arguments": {}}, headers=headers)
         assert receipt.status_code == 200 and "A hello from the camera" in receipt.text
+        assert "fixture-key" not in receipt.text and '"source":"ocr"' in receipt.text
+        with scoped_tool_user_context("Register the MCP endpoint I just showed you."):
+            receipt = client.post("/api/tools/camera_qr/call", json=registration, headers=headers)
+        assert receipt.status_code == 200 and registry.list(owner)
         assert "fixture-key" not in receipt.text
+        assert server.effects == []
         server_id = registry.list(owner)[0]["id"]
         assert registry.list("another-browser") == []
         assert registry.catalog(owner, server_id)["total"] == 2

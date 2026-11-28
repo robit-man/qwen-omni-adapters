@@ -18,6 +18,7 @@ import numpy as np
 from PIL import Image, ImageOps
 
 from harness.camera import CameraSet
+from harness.camera_ocr import RollingOCR
 
 logger = logging.getLogger(__name__)
 IDLE_PERIOD, ACTIVE_PERIOD = 1.5, 0.30
@@ -159,18 +160,24 @@ class CameraTuner:
 
 class CameraScanner:
     def __init__(self, cameras: CameraSet, *, enabled: Callable[[], bool],
-                 submit: Callable[[str, str], None], auto_tune: bool = True, orient=None):
+                 submit: Callable[..., None], auto_tune: bool = True, orient=None):
         self.cameras = cameras
         self.enabled = enabled
         self.submit = submit
         self.tuner = CameraTuner() if auto_tune else None
         self.orient = orient
+        self.ocr = RollingOCR()
+        self.ocr_candidates = queue.Queue(maxsize=1)
+        self.last_ocr = {}
+        self.ocr_seen = {}
+        self.next_ocr = 0.
         self.activity = {}
         self.seen = {}
         self.pending = queue.Queue(maxsize=8)
         self.stop = threading.Event()
         self.threads = [threading.Thread(target=target, name=name, daemon=True) for target, name in (
-            (self._scan, "omni-camera-scan"), (self._deliver, "omni-camera-intake"))]
+            (self._scan, "omni-camera-scan"), (self._deliver, "omni-camera-intake"),
+            (self._read_text, "omni-camera-ocr"))]
 
     def start(self) -> None:
         for thread in self.threads:
@@ -195,7 +202,8 @@ class CameraScanner:
                     continue
                 capture_at = time.monotonic()
                 def width_for(device, capture_at=capture_at):
-                    return self.activity.setdefault(device, CameraActivity()).due(capture_at)
+                    width = self.activity.setdefault(device, CameraActivity()).due(capture_at)
+                    return max(1280, width) if width and self.cameras.stream is not None else width
 
                 for device, camera_id, frame in self.cameras.scan_frames(width_for):
                     if self.stop.is_set() or not self.enabled():
@@ -213,6 +221,13 @@ class CameraScanner:
                             self.tuner.observe(device, gray, now)
                         if self.orient is not None:
                             self.orient.observe(device, frame, now)
+                        if self.ocr.binary and not codes and now >= self.next_ocr and now - self.last_ocr.get(device, -20) > 7:
+                            try:
+                                self.ocr_candidates.put_nowait((camera_id, frame))
+                                self.next_ocr = now + 1.5
+                                self.last_ocr[device] = now
+                            except queue.Full:
+                                pass
                     except (OSError, ValueError):
                         logger.debug("Camera scan could not decode an image")
         finally:
@@ -234,6 +249,21 @@ class CameraScanner:
             except queue.Full:
                 self.seen.pop(identity, None)
         return False
+
+    def _read_text(self) -> None:
+        while not self.stop.is_set():
+            try:
+                camera, frame = self.ocr_candidates.get(timeout=.2)
+            except queue.Empty:
+                continue
+            result = self.ocr.recognize(frame) if self.enabled() else None
+            if result and self.enabled() and not self.stop.is_set():
+                now = time.monotonic()
+                self.ocr_seen = {key: at for key, at in self.ocr_seen.items() if now - at < 30}
+                identity = hashlib.sha256(" ".join(result.text.lower().split()).encode()).digest()
+                if identity not in self.ocr_seen:
+                    self.submit(result.text, camera, source="ocr", confidence=result.confidence)
+                self.ocr_seen[identity] = now
 
     def _deliver(self) -> None:
         while not self.stop.is_set():

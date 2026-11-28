@@ -46,6 +46,7 @@ class CameraSet:
 
     devices: list[str] = field(default_factory=list)
     stitch_width: int = STITCH_WIDTH
+    stream: Any = field(default=None, repr=False)
     # Remembered so a later look can repeat the same search.
     _explicit: str | None = None
     _candidates: list[str] = field(default_factory=list)
@@ -86,6 +87,9 @@ class CameraSet:
         Vision is asked for rarely, so it costs nothing to look again.
         """
 
+        if self.stream is not None:
+            self.devices = self.stream.available()
+            return bool(self.devices)
         now = time.monotonic()
         if self.devices and now - self._last_discovery_at < 10.0:
             return True
@@ -140,7 +144,7 @@ class CameraSet:
         """Capture selected cameras concurrently as independent JPEG frames."""
 
         with self._capture_lock:
-            if shutil.which("ffmpeg") is None or not self.ensure_devices():
+            if (self.stream is None and shutil.which("ffmpeg") is None) or not self.ensure_devices():
                 return []
             selected = [
                 device
@@ -150,7 +154,7 @@ class CameraSet:
             if not selected:
                 return []
             with ThreadPoolExecutor(max_workers=max(1, len(selected))) as pool:
-                frames = list(pool.map(lambda device: _grab_frame(device, width), selected))
+                frames = list(pool.map(lambda device: self._frame(device, width), selected))
             return [
                 {
                     "id": _camera_identifier(device),
@@ -166,12 +170,12 @@ class CameraSet:
         """One image of everything the machine can see, right now."""
 
         with self._capture_lock:
-            if shutil.which("ffmpeg") is None or not self.ensure_devices():
+            if (self.stream is None and shutil.which("ffmpeg") is None) or not self.ensure_devices():
                 return None
             with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
                 frames = [
                     self._correct(device, frame)
-                    for device, frame in zip(self.devices, pool.map(_grab_frame, self.devices), strict=True)
+                    for device, frame in zip(self.devices, pool.map(self._frame, self.devices), strict=True)
                     if frame is not None
                 ]
             if not frames:
@@ -193,7 +197,7 @@ class CameraSet:
         """A few seconds from every camera, stitched into one clip."""
 
         with self._capture_lock:
-            if shutil.which("ffmpeg") is None or not self.ensure_devices():
+            if (self.stream is None and shutil.which("ffmpeg") is None) or not self.ensure_devices():
                 return None
             with tempfile.TemporaryDirectory(prefix="omni-clip-") as workspace:
                 root = Path(workspace)
@@ -223,15 +227,29 @@ class CameraSet:
             "data": base64.b64encode(data).decode("ascii"),
         }
 
+    def _frame(self, device: str, width: int | None = None) -> bytes | None:
+        if self.stream is not None:
+            return self.stream.jpeg(device, width or 960)
+        return _grab_frame(device) if width is None else _grab_frame(device, width)
+
     def _correct(self, device: str, frame: bytes) -> bytes:
         return self.frame_correction(device, frame) if self.frame_correction else frame
 
     def _corrected_clip(self, device: str, path: Path, seconds: float) -> Path | None:
         roll = self.roll_correction(device) if self.roll_correction else 0.0
+        if self.stream is not None:
+            return self.stream.clip(device, path, seconds, roll=roll)
         return _grab_clip(device, path, seconds, roll=roll) if roll else _grab_clip(device, path, seconds)
 
     def scan_frames(self, width_for: Callable[[str], int | None]) -> list[tuple[str, str, bytes]]:
         """Sample due cameras individually, yielding to an explicit view in progress."""
+        if self.stream is not None:
+            return [
+                (device, _camera_identifier(device), frame)
+                for device in self.stream.available()
+                if (width := width_for(device)) is not None
+                and (frame := self.stream.jpeg(device, width, grayscale=True))
+            ]
         if not self._capture_lock.acquire(blocking=False):
             return []
         try:

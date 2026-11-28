@@ -52,6 +52,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(repository_path / "src"))
 
 from harness.camera import CameraSet
+from harness.camera_stream import CameraStreamClient, persistent_camera_enabled
 from portal.qr_intake import MAX_CODE, CameraQRInbox, classify_camera_code
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
 from qwen_omni_adapters.context import (
@@ -2419,6 +2420,12 @@ def create_app(
     )
     runtime = config or PortalConfig.from_environment()
     clone_required = runtime.model.startswith("robit/inkling-2-mini-omni:")
+    stream_repo = root.parent
+    stream_client = CameraStreamClient()
+
+    def stream_enabled() -> bool:
+        return runtime.remote_camera_enabled and persistent_camera_enabled(stream_repo)
+
     if host_cameras is None and runtime.remote_camera_enabled:
         host_cameras = (
             CameraSet(_candidates=list(runtime.remote_camera_devices))
@@ -3153,6 +3160,21 @@ def create_app(
     tool_harness.remote_mcp = remote_mcp
     camera_qr = CameraQRInbox()
     tool_harness.camera_qr_recent = camera_qr.recent
+
+    def register_seen_connector(identity: str, observation_id: str | None):
+        code = camera_qr.connector(observation_id)
+        if code is None:
+            raise ToolInputError("Choose one recent MCP observation, or show the connector again")
+        if remote_mcp is None:
+            raise ToolInputError("MCP connections are disabled")
+        trusted = tuple(origin.strip().rstrip("/") + "/" for origin in
+            os.environ.get("OMNI_CALL_QR_TRUSTED_MCP_ORIGINS", "").split(",") if origin.strip())
+        try:
+            return remote_mcp.register_camera(identity, code.endpoint, key=code.key, trusted_origins=trusted)
+        except MCPBridgeError:
+            raise ToolInputError("MCP discovery failed. Check the visible endpoint, key, or trusted origin") from None
+
+    tool_harness.camera_qr_register = register_seen_connector
     app.extensions["remote_mcp"] = remote_mcp
     if remote_mcp is not None:
         import atexit
@@ -3915,8 +3937,10 @@ def create_app(
             return jsonify({"error": "unauthorized"}), 401
         if not runtime.remote_camera_enabled or host_cameras is None:
             return jsonify({"enabled": False, "cameras": []})
+        use_stream = stream_enabled()
         try:
-            cameras = host_cameras.describe(probe=True)
+            cameras = (stream_client.request("list").get("cameras", [])
+                       if use_stream else host_cameras.describe(probe=True))
         except Exception as exc:  # noqa: BLE001 - keep device details private
             logger.warning("host camera discovery failed: %s", type(exc).__name__)
             return jsonify({"error": "Host cameras could not be opened"}), 503
@@ -3925,7 +3949,7 @@ def create_app(
                 "enabled": True,
                 "cameras": cameras,
                 "capture": {
-                    "preview": "rolling JPEG polling",
+                    "preview": "webrtc" if use_stream else "rolling JPEG polling",
                     "video_audio": False,
                     "max_record_seconds": 30,
                 },
@@ -3947,16 +3971,43 @@ def create_app(
         ):
             return jsonify({"error": "Invalid camera selection"}), 400
         try:
-            known = {item["id"] for item in host_cameras.describe(probe=True)}
-            if requested and not set(requested).issubset(known):
-                return jsonify({"error": "Camera was not found"}), 404
-            frames = host_cameras.snapshot_devices(requested or None, width=960)
+            if stream_enabled():
+                capture = stream_client.request("frames", camera_ids=requested or None)
+                if "error" in capture:
+                    return jsonify(capture), 503
+                frames = capture.get("frames", [])
+            else:
+                known = {item["id"] for item in host_cameras.describe(probe=True)}
+                if requested and not set(requested).issubset(known):
+                    return jsonify({"error": "Camera was not found"}), 404
+                frames = host_cameras.snapshot_devices(requested or None, width=960)
         except Exception as exc:  # noqa: BLE001 - keep device details private
             logger.warning("host camera frame capture failed: %s", type(exc).__name__)
             return jsonify({"error": "Host camera frame capture failed"}), 503
         if requested and not frames:
             return jsonify({"error": "The selected camera is unavailable"}), 503
         return jsonify({"captured_at": time.time(), "frames": frames})
+
+    @app.route("/api/cameras/webrtc", methods=["POST", "DELETE"])
+    def host_camera_webrtc():
+        if not authorized():
+            return jsonify({"error": "unauthorized"}), 401
+        if not stream_enabled():
+            return jsonify({"error": "WebRTC camera streaming is unavailable"}), 404
+        if not request.content_length or request.content_length > 32768:
+            return jsonify({"error": "Invalid camera offer size"}), 400
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "Invalid camera signaling request"}), 400
+        owner = request_session_id()
+        if request.method == "DELETE":
+            result = stream_client.request("close", peer=payload.get("peer"), owner=owner)
+        else:
+            camera = payload.get("camera")
+            if not isinstance(camera, str) or not re.fullmatch(r"camera-[0-9a-f]{16}", camera):
+                return jsonify({"error": "Invalid camera identifier"}), 400
+            result = stream_client.request("offer", sdp=payload.get("sdp"), camera=camera, owner=owner)
+        return jsonify(result), 503 if "error" in result else 200
 
     @app.get("/api/session-state")
     def session_state():
@@ -4094,21 +4145,14 @@ def create_app(
         camera = value.get("camera_id") if isinstance(value, dict) else None
         if not isinstance(camera, str) or not re.fullmatch(r"camera-[0-9a-f]{16}", camera):
             return jsonify({"error": "Invalid camera identifier"}), 400
-        observation = classify_camera_code(value.get("payload"))
-        if observation.kind != "mcp":
-            return jsonify(camera_qr.append(observation.kind, camera, observation.text))
-        try:
-            if remote_mcp is None:
-                raise MCPBridgeError("MCP connections are disabled")
-            # Allow explicitly provisioned LAN services by exact origin. The
-            # scanned payload cannot grant this exception to itself.
-            trusted = tuple(origin.strip().rstrip("/") + "/" for origin in
-                os.environ.get("OMNI_CALL_QR_TRUSTED_MCP_ORIGINS", "").split(",") if origin.strip())
-            result = remote_mcp.register_camera(identity, observation.endpoint, key=observation.key, trusted_origins=trusted)
-        except MCPBridgeError:
-            return jsonify(camera_qr.append("mcp_failed", camera))
-        status = "mcp_known" if result.get("existing") else "mcp_ready"
-        return jsonify(camera_qr.append(status, camera, connection=result["server"], tools=result.get("tools")))
+        source = value.get("source", "qr")
+        confidence = value.get("confidence")
+        if not isinstance(source, str) or source not in {"qr", "ocr"} or (source == "ocr" and
+                (type(confidence) not in {int, float} or not 50 <= confidence <= 100)):
+            return jsonify({"error": "Invalid camera source or recognition confidence"}), 400
+        observation = classify_camera_code(value.get("payload"), source=source)
+        return jsonify(camera_qr.observe(observation, camera, source=source,
+                                        confidence=confidence if source == "ocr" else None))
 
     @app.route("/api/mcp/servers/<server_id>", methods=["DELETE", "POST"])
     def mcp_server_control(server_id):
@@ -4519,6 +4563,7 @@ def create_app(
         checkpoint_group = payload.pop("portal_voice_checkpoint_group", None)
         requested_checkpoints = payload.pop("portal_voice_checkpoints", None)
         payload.pop("_omni_checkpoint_observation", None)
+        payload.pop("_omni_rolling_visual", None)
         requested_preface = payload.pop("portal_voice_preface", False) is True
         requested_auto_reasoning = payload.pop("portal_voice_auto_reasoning", False) is True
         requested_live_synthesis = payload.pop("portal_live_synthesis", False) is True
@@ -4602,6 +4647,11 @@ def create_app(
             and (live_turn or (requested_live_synthesis and synthesis_only(payload)))
             else {}
         )
+        if live_turn and tool_harness.is_native_voice_owner(session_id) and not internal_background:
+            visual_context = camera_qr.prompt()
+            if visual_context:
+                payload["_omni_rolling_visual"] = visual_context
+                speech_headers["X-Omni-Rolling-Visual"] = "1"
         initial_headers = dict(speech_headers)
         if accepted_checkpoint is not None:
             payload["_omni_checkpoint_observation"] = list(accepted_checkpoint)

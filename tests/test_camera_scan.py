@@ -106,3 +106,25 @@ def test_orientation_waits_for_consensus_and_rotates_the_original_pixels(tmp_pat
     bins = np.zeros(360, dtype=np.float32)
     bins[359], bins[0] = .5, .5
     assert _roll(bins) == pytest.approx((-.5, 1))
+
+
+def test_rolling_ocr_recognizes_printed_text_without_opening_a_camera():
+    import io
+    import shutil
+
+    import pytest
+    from PIL import Image, ImageDraw, ImageFont
+
+    from harness.camera_ocr import RollingOCR
+
+    if not shutil.which("tesseract"):
+        pytest.skip("Tesseract is unavailable")
+    image = Image.new("L", (950, 240), color=255)
+    font = ImageFont.load_default(size=52)
+    ImageDraw.Draw(image).text((35, 90), "CAMERA TEST 4817", fill=0, font=font)
+    frame = io.BytesIO()
+    image.save(frame, "PNG")
+    reading = RollingOCR().recognize(frame.getvalue())
+    assert reading is not None
+    assert "CAMERA TEST 4817" in reading.text.upper()
+    assert reading.confidence >= 50
