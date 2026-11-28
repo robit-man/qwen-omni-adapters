@@ -1044,6 +1044,8 @@ class BrowserAutomationStore:
         command = [
             self.chromium_bin,
             "--no-sandbox",
+            # The browser is owned by this run and uses a disposable profile.
+            "--password-store=basic",
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-session-crashed-bubble",

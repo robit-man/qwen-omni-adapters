@@ -203,7 +203,7 @@ class CameraScanner:
                 capture_at = time.monotonic()
                 def width_for(device, capture_at=capture_at):
                     width = self.activity.setdefault(device, CameraActivity()).due(capture_at)
-                    return max(1280, width) if width and self.cameras.stream is not None else width
+                    return 1920 if width and self.cameras.stream is not None else width
 
                 for device, camera_id, frame in self.cameras.scan_frames(width_for):
                     if self.stop.is_set() or not self.enabled():

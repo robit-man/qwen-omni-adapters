@@ -76,6 +76,8 @@ def _run_location_browser(url: str, timeout_s: float) -> str:
             "--disable-default-apps",
             "--disable-sync",
             "--metrics-recording-only",
+            # This disposable profile must work before the login keyring is unlocked.
+            "--password-store=basic",
             "--no-first-run",
             "--no-default-browser-check",
             "--virtual-time-budget=3000",

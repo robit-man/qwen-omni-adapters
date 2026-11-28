@@ -140,6 +140,7 @@ def test_location_browser_is_isolated_from_web_search(monkeypatch) -> None:
 
     assert "{}" in location_module._run_location_browser("https://example.test", 5)
     assert "--headless=new" in captured["command"]
+    assert "--password-store=basic" in captured["command"]
     assert captured["env"] == {
         "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus"
     }

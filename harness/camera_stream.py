@@ -254,7 +254,8 @@ class CameraStreamHub:
             transceiver.sender.replaceTrack(track)
             transceiver.direction = "sendonly"
             transceiver.setCodecPreferences([codec for codec in RTCRtpSender.getCapabilities("video").codecs
-                                            if codec.mimeType == "video/H264"])
+                                            if codec.mimeType == "video/H264"
+                                            and codec.parameters.get("profile-level-id", "").lower() == "42e01f"])
             await peer.setLocalDescription(await peer.createAnswer())
         except (ValueError, StopIteration, RuntimeError):
             await self._close_peer(identity, owner)

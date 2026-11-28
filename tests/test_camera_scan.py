@@ -128,3 +128,20 @@ def test_rolling_ocr_recognizes_printed_text_without_opening_a_camera():
     assert reading is not None
     assert "CAMERA TEST 4817" in reading.text.upper()
     assert reading.confidence >= 50
+
+
+def test_ocr_activity_keeps_a_recent_qr_in_native_context():
+    from portal.qr_intake import CameraQRInbox, classify_camera_code
+
+    inbox = CameraQRInbox()
+    camera = "camera-0123456789abcdef"
+    code = '{"endpoint":"https://example.test/mcp","key":"some-private-key"}'
+    observed = inbox.observe(classify_camera_code(code), camera, source="qr")
+    for i in range(20):
+        text = classify_camera_code(f"Visible text sample {i}", source="ocr")
+        inbox.observe(text, camera, source="ocr", confidence=80)
+    assert inbox.connector(observed["id"]) is not None
+    assert len(inbox.recent()["observations"]) == 9
+    assert "some-private-key" not in inbox.prompt()
+    assert observed["id"] in inbox.prompt()
+    assert "Visible text sample 19" in inbox.prompt()

@@ -51,7 +51,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(repository_path))
     sys.path.insert(0, str(repository_path / "src"))
 
-from harness.camera import CameraSet
+from harness.camera import CameraSet, _camera_identifier
 from harness.camera_stream import CameraStreamClient, persistent_camera_enabled
 from portal.qr_intake import MAX_CODE, CameraQRInbox, classify_camera_code
 from qwen_omni_adapters.audio import AudioContractError, decode_wav_payload
@@ -2422,6 +2422,7 @@ def create_app(
     clone_required = runtime.model.startswith("robit/inkling-2-mini-omni:")
     stream_repo = root.parent
     stream_client = CameraStreamClient()
+    allowed_stream_cameras = {_camera_identifier(device) for device in runtime.remote_camera_devices}
 
     def stream_enabled() -> bool:
         return runtime.remote_camera_enabled and persistent_camera_enabled(stream_repo)
@@ -3941,6 +3942,8 @@ def create_app(
         try:
             cameras = (stream_client.request("list").get("cameras", [])
                        if use_stream else host_cameras.describe(probe=True))
+            if use_stream and allowed_stream_cameras:
+                cameras = [camera for camera in cameras if camera["id"] in allowed_stream_cameras]
         except Exception as exc:  # noqa: BLE001 - keep device details private
             logger.warning("host camera discovery failed: %s", type(exc).__name__)
             return jsonify({"error": "Host cameras could not be opened"}), 503
@@ -3972,7 +3975,10 @@ def create_app(
             return jsonify({"error": "Invalid camera selection"}), 400
         try:
             if stream_enabled():
-                capture = stream_client.request("frames", camera_ids=requested or None)
+                if allowed_stream_cameras and not set(requested).issubset(allowed_stream_cameras):
+                    return jsonify({"error": "Camera was not found"}), 404
+                selected = requested or sorted(allowed_stream_cameras) or None
+                capture = stream_client.request("frames", camera_ids=selected)
                 if "error" in capture:
                     return jsonify(capture), 503
                 frames = capture.get("frames", [])
@@ -4006,6 +4012,8 @@ def create_app(
             camera = payload.get("camera")
             if not isinstance(camera, str) or not re.fullmatch(r"camera-[0-9a-f]{16}", camera):
                 return jsonify({"error": "Invalid camera identifier"}), 400
+            if allowed_stream_cameras and camera not in allowed_stream_cameras:
+                return jsonify({"error": "Camera was not found"}), 404
             result = stream_client.request("offer", sdp=payload.get("sdp"), camera=camera, owner=owner)
         return jsonify(result), 503 if "error" in result else 200
 

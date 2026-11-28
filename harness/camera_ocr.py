@@ -39,7 +39,7 @@ def _text_rows(tsv: str) -> PrintedText | None:
     if len(text) < 3 or letters < 3 or letters < .45 * len(text) or not confidence:
         return None
     mean = sum(confidence) / len(confidence)
-    return PrintedText(text, mean) if mean >= 50 else None
+    return PrintedText(text, mean) if mean >= 65 else None
 
 
 class RollingOCR:

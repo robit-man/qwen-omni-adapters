@@ -116,7 +116,7 @@ class CameraQRInbox:
     """A short-lived inbox for observations derived from a physical camera."""
 
     def __init__(self):
-        self._items = deque(maxlen=16)
+        self._items = {"qr": deque(maxlen=8), "ocr": deque(maxlen=8)}
         self._lock = threading.Lock()
 
     def observe(self, code: CameraCode, camera: str, *, source: str, confidence: float | None = None):
@@ -135,22 +135,27 @@ class CameraQRInbox:
             public["credential_present"] = bool(code.key)
         with self._lock:
             self._expire(now)
-            for prior, value in reversed(self._items):
+            history = self._items[source]
+            for prior, value in reversed(history):
                 if value == code and prior["camera_id"] == camera and prior["source"] == source:
                     prior["captured_at"] = now
                     return dict(prior)
-            self._items.append((public, code))
+            history.append((public, code))
         return dict(public)
 
     def _expire(self, now):
-        for item in list(self._items):
-            if item[0]["captured_at"] < now - 600:
-                self._items.remove(item)
+        for history in self._items.values():
+            for item in list(history):
+                if item[0]["captured_at"] < now - 600:
+                    history.remove(item)
+
+    def _entries(self):
+        return [row for history in self._items.values() for row in history]
 
     def connector(self, identity: str | None) -> CameraCode | None:
         with self._lock:
             self._expire(time.time())
-            rows = [(entry, code) for entry, code in self._items if code.kind == "mcp"]
+            rows = [(entry, code) for entry, code in self._entries() if code.kind == "mcp"]
             if identity:
                 return next((code for entry, code in rows if entry["id"] == identity), None)
             if len({(code.endpoint, code.key) for _, code in rows}) == 1:
@@ -160,14 +165,23 @@ class CameraQRInbox:
     def recent(self):
         with self._lock:
             self._expire(time.time())
-            items = [dict(entry) for entry, _ in sorted(self._items, key=lambda row: row[0]["captured_at"], reverse=True)]
+            items = [dict(entry) for entry, _ in sorted(self._entries(), key=lambda row: row[0]["captured_at"], reverse=True)]
             return {"observations": items, "trust": "untrusted_camera_observation", "current_visual_input": False}
 
     def prompt(self) -> str:
-        rows = self.recent()["observations"][:2]
+        candidates = self.recent()["observations"]
+        rows = candidates[:1]
+        if rows:
+            # The newest observation and the newest evidence of the other
+            # type keep a busy OCR scene from burying a presented code.
+            other = next((row for row in candidates if row["source"] != rows[0]["source"]), None)
+            if other:
+                rows.append(other)
+            elif len(candidates) > 1:
+                rows.append(candidates[1])
         if not rows:
             return ""
         data = [{key: value[:100] if isinstance(value, str) else value
-                 for key, value in row.items() if key in {"id", "kind", "source", "host", "credential_present", "observed_text"}}
+                 for key, value in row.items() if key in {"id", "kind", "source", "host", "credential_present", "observed_text", "confidence"}}
                 for row in rows]
         return json.dumps(data, ensure_ascii=True, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e")

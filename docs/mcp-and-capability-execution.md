@@ -101,9 +101,10 @@ and secret-store modules informed this design.
 Rolling OCR uses bounded Tesseract passes with Omnius's confidence and
 preprocessing approach. The full Omnius advanced image and batch worker is
 available at `scripts/omnius-ocr-advanced.py` for explicit OCR jobs. It
-requires Tesseract, NumPy, OpenCV, and pytesseract. Run
-`python scripts/omnius-ocr-advanced.py --help` in an environment with those
-dependencies for regions, batch, language, and output options.
+uses Tesseract, NumPy, OpenCV, and pytesseract. The Jetson camera installer
+provisions an isolated environment for it. Run
+`runtime-data/components/ocr-venv/bin/python scripts/omnius-ocr-advanced.py --help`
+for regions, batch, language, and output options.
 
 ## Camera tuning and roll correction
 

@@ -3237,8 +3237,10 @@
 
   function closeRemoteCamera(modal) {
     modal.peer?.close();
-    modal.video?.pause();
-    if (modal.video) modal.video.srcObject = null;
+    if (modal.video && state.cameraModal === modal) {
+      modal.video.pause();
+      modal.video.srcObject = null;
+    }
     if (modal.peerId) {
       const body = JSON.stringify({ peer: modal.peerId });
       modal.peerId = null;
@@ -3251,12 +3253,19 @@
 
   async function startRemoteCameraStream(modal) {
     const peer = new RTCPeerConnection({ iceServers: [] });
-    const video = document.createElement("video");
+    const video = elements.cameraVideo;
     video.muted = true;
     video.playsInline = true;
     modal.peer = peer;
     modal.video = video;
-    peer.addTransceiver("video", { direction: "recvonly" });
+    const receiver = peer.addTransceiver("video", { direction: "recvonly" });
+    const codecs = window.RTCRtpReceiver?.getCapabilities?.("video")?.codecs || [];
+    const constrainedBaseline = codecs.filter(codec => codec.mimeType === "video/H264"
+      && /(?:^|;)\s*profile-level-id=42e01f(?:;|$)/i.test(codec.sdpFmtpLine || "")
+      && /(?:^|;)\s*packetization-mode=1(?:;|$)/.test(codec.sdpFmtpLine || ""));
+    if (constrainedBaseline.length && receiver.setCodecPreferences) {
+      receiver.setCodecPreferences(constrainedBaseline);
+    }
     let negotiationTimer;
     let playbackTimer;
     const ice = new Promise(resolve => {
