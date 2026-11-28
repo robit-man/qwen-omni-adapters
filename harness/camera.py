@@ -32,6 +32,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from harness.camera_orientation import CameraOrientation, rotate_image
+
 logger = logging.getLogger(__name__)
 
 # Wide enough for detail, small enough that the encoder is not the turn's cost.
@@ -52,8 +54,7 @@ class CameraSet:
     _candidates: list[str] = field(default_factory=list)
     _capture_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _last_discovery_at: float = 0.0
-    frame_correction: Callable[[str, bytes], bytes] | None = field(default=None, repr=False)
-    roll_correction: Callable[[str], float] | None = field(default=None, repr=False)
+    orientation: CameraOrientation | None = field(default=None, repr=False)
 
     @classmethod
     def discover(cls, explicit: str | None = None) -> CameraSet:
@@ -160,7 +161,7 @@ class CameraSet:
                     "id": _camera_identifier(device),
                     "mime_type": "image/jpeg",
                     "encoding": "base64",
-                    "data": base64.b64encode(self._correct(device, frame)).decode("ascii"),
+                    "data": base64.b64encode(self.correct_orientation(device, frame)).decode("ascii"),
                 }
                 for device, frame in zip(selected, frames, strict=True)
                 if frame is not None
@@ -173,24 +174,24 @@ class CameraSet:
             if (self.stream is None and shutil.which("ffmpeg") is None) or not self.ensure_devices():
                 return None
             with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
-                frames = [
-                    self._correct(device, frame)
+                captures = [
+                    (frame, self._orientation(device))
                     for device, frame in zip(self.devices, pool.map(self._frame, self.devices), strict=True)
                     if frame is not None
                 ]
-            if not frames:
+            if not captures:
                 return None
-            stitched = (
-                frames[0]
-                if len(frames) == 1
-                else _stitch(frames, self.stitch_width)
-            )
+            frames = [rotate_image(frame, orientation.get("correction_degrees") or 0.)
+                      for frame, orientation in captures]
+            stitched = _stitch(frames, self.stitch_width) if len(frames) > 1 else None
             if stitched is None:
-                return None
+                stitched = frames[0]
+                captures = captures[:1]
             return {
                 "mime_type": "image/jpeg",
                 "encoding": "base64",
                 "data": base64.b64encode(stitched).decode("ascii"),
+                "camera_orientation": [status for _, status in captures],
             }
 
     def clip(self, seconds: float = CLIP_SECONDS) -> dict[str, Any] | None:
@@ -201,21 +202,20 @@ class CameraSet:
                 return None
             with tempfile.TemporaryDirectory(prefix="omni-clip-") as workspace:
                 root = Path(workspace)
+                orientations = [self._orientation(device) for device in self.devices]
                 with ThreadPoolExecutor(max_workers=max(1, len(self.devices))) as pool:
-                    paths = [
-                        path
-                        for path in pool.map(
-                            lambda item: self._corrected_clip(
-                                item[1], root / f"{item[0]}.mp4", seconds
-                            ),
-                            enumerate(self.devices),
-                        )
-                        if path is not None
-                    ]
-                if not paths:
+                    paths = list(pool.map(
+                        lambda item: self._corrected_clip(
+                            item[1], root / f"{item[0]}.mp4", seconds,
+                            orientations[item[0]].get("correction_degrees") or 0.,
+                        ),
+                        enumerate(self.devices),
+                    ))
+                successful = [(path, status) for path, status in zip(paths, orientations, strict=True) if path is not None]
+                if not successful:
                     return None
                 merged = root / "stitched.mp4"
-                if not _stitch_clips(paths, merged):
+                if not _stitch_clips([path for path, _ in successful], merged):
                     return None
                 try:
                     data = merged.read_bytes()
@@ -225,6 +225,7 @@ class CameraSet:
             "mime_type": "video/mp4",
             "encoding": "base64",
             "data": base64.b64encode(data).decode("ascii"),
+            "camera_orientation": [status for _, status in successful],
         }
 
     def _frame(self, device: str, width: int | None = None) -> bytes | None:
@@ -232,11 +233,13 @@ class CameraSet:
             return self.stream.jpeg(device, width or 960)
         return _grab_frame(device) if width is None else _grab_frame(device, width)
 
-    def _correct(self, device: str, frame: bytes) -> bytes:
-        return self.frame_correction(device, frame) if self.frame_correction else frame
+    def _orientation(self, device: str) -> dict:
+        return self.orientation.status(device) if self.orientation is not None else {"state": "unavailable"}
 
-    def _corrected_clip(self, device: str, path: Path, seconds: float) -> Path | None:
-        roll = self.roll_correction(device) if self.roll_correction else 0.0
+    def correct_orientation(self, device: str, frame: bytes) -> bytes:
+        return self.orientation.correct(device, frame) if self.orientation is not None else frame
+
+    def _corrected_clip(self, device: str, path: Path, seconds: float, roll: float) -> Path | None:
         if self.stream is not None:
             return self.stream.clip(device, path, seconds, roll=roll)
         return _grab_clip(device, path, seconds, roll=roll) if roll else _grab_clip(device, path, seconds)
@@ -565,15 +568,14 @@ def _stitch(frames: list[bytes], width: int) -> bytes | None:
                 timeout=25,
             )
         except (subprocess.TimeoutExpired, OSError):
-            return frames[0]
+            return None
         if completed.returncode != 0 or not output.exists():
             logger.debug("stitch failed: %s", completed.stderr[:160])
-            # One camera's view is better than none.
-            return frames[0]
+            return None
         try:
             return output.read_bytes()
         except OSError:
-            return frames[0]
+            return None
 
 
 def _stitch_clips(paths: list[Path], target: Path) -> bool:

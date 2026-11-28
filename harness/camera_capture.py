@@ -58,6 +58,8 @@ class CameraSample:
         frame = Image.fromarray(luma if grayscale else np.stack((luma, pairs[..., 0], pairs[..., 2]), axis=2),
                                 mode="L" if grayscale else "YCbCr")
         if roll:
+            if not grayscale:
+                frame = frame.convert("RGB")
             frame = frame.rotate(roll, Image.Resampling.BICUBIC, expand=True)
         output = io.BytesIO()
         frame.save(output, format="JPEG", quality=88)

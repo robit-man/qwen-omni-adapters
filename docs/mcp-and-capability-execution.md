@@ -115,15 +115,20 @@ and restores edited controls when tuning stops. Set
 `OMNI_CALL_CAMERA_AUTO_TUNE=0` to keep the current hardware controls. The QR
 decoder still retries missed frames with local contrast enhancement.
 
-Run `bash scripts/install-camera-orientation.sh` on the Egg to install the
-checksum-pinned RightWayUp Pico INT8 model and its CPU ONNX Runtime. The
-native harness automatically uses that installed model while camera scanning
-is active. A custom local Pico model path can be set with
-`OMNI_CALL_CAMERA_ROLL_MODEL`. Each camera needs three confident, consistent
-readings before native stills, motion clips, or the local camera view are
-rotated. Ambiguous scenes retain the last confirmed roll for up to two
-minutes. The estimator measures in-plane roll. Pitch, relative rig pose, and
-IMU fusion require their own calibration. [RightWayUp model contract](https://github.com/ortusaitech/rightwayup) · [V4L2 user controls](https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/control.html)
+The Jetson camera installer provisions the checksum-pinned RightWayUp Pico
+INT8 model and its CPU ONNX Runtime. The native harness estimates in-plane
+roll from a sparse sample of each camera alongside continuous activity
+analysis. A custom local model path can be set with
+`OMNI_CALL_CAMERA_ROLL_MODEL`.
+
+Three consistent readings at or above the strict model threshold are needed
+to confirm a correction. The native harness rotates each camera's pixels
+before assembling the still or clip that goes to comprehension. It applies
+the correction before OCR as well. The agent receives the upright confidence,
+estimate confidence, and applied correction for each attached view. Upright
+confidence is the model probability mass within ten degrees of zero roll.
+An uncertain scene can retain the last confirmed correction for two minutes.
+Pitch and rig pose are separate calibration problems. [RightWayUp model contract](https://github.com/ortusaitech/rightwayup)
 
 ## Tool selection and current visual evidence
 

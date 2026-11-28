@@ -105,7 +105,7 @@ class _Request(BaseHTTPRequestHandler):
 
 
 class CameraStreamHub:
-    def __init__(self, devices, *, test_source=False, socket_path: Path | None = None):
+    def __init__(self, devices, *, orientation=None, test_source=False, socket_path: Path | None = None):
         import fcntl
 
         self.address = socket_path or camera_socket()
@@ -129,7 +129,28 @@ class CameraStreamHub:
         self.loop_thread = threading.Thread(target=self._run, name="camera-webrtc", daemon=True)
         self.loop_thread.start()
         self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.orientation = orientation
+        self.stop_orientation = threading.Event()
+        self.orientation_thread = None
+        if self.orientation is not None:
+            self.orientation_thread = threading.Thread(target=self._observe_orientation, name="camera-roll", daemon=True)
+            self.orientation_thread.start()
         self.server_thread.start()
+
+    def _observe_orientation(self):
+        while not self.stop_orientation.wait(.4):
+            for device in self.available():
+                now = time.monotonic()
+                if not self.orientation.due(device, now):
+                    continue
+                try:
+                    if frame := self.jpeg(device, 640):
+                        self.orientation.observe(device, frame, now)
+                except (ValueError, OSError):
+                    logger.debug("Camera orientation could not read a frame")
+
+    def _orientation_status(self, device):
+        return self.orientation.status(device) if self.orientation is not None else {"state": "unavailable"}
 
     def _run(self):
         self.loop.run_forever()
@@ -206,7 +227,8 @@ class CameraStreamHub:
         if action == "/status":
             return {"feeds": [{"id": _camera_identifier(device), "available": feed.available,
                                "analysis_frames": feed.analysed, "width": feed.quality.width,
-                               "fps": feed.quality.fps, "bitrate_kbps": feed.quality.bitrate_kbps}
+                               "fps": feed.quality.fps, "bitrate_kbps": feed.quality.bitrate_kbps,
+                               "orientation": self._orientation_status(device)}
                               for device, feed in list(self.feeds.items())]}
         owner = args.get("owner")
         if action == "/close" and isinstance(owner, str):
@@ -286,6 +308,9 @@ class CameraStreamHub:
             await self._close_peer(identity, owner)
 
     def close(self):
+        self.stop_orientation.set()
+        if self.orientation_thread is not None:
+            self.orientation_thread.join(timeout=2)
         self.set_enabled(False)
         self.server.shutdown()
         self.server.server_close()

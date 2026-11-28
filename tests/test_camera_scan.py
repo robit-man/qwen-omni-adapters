@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from harness.camera import CameraSet
-from harness.camera_orientation import CameraOrientation, _roll
+from harness.camera_orientation import CameraOrientation, RollReading, _roll
 from harness.camera_scan import (
     ACTIVE_WIDTH,
     IDLE_WIDTH,
@@ -89,7 +89,8 @@ def test_auto_tuning_discovers_controls_trims_contrast_and_restores(monkeypatch)
 
 def test_orientation_waits_for_consensus_and_rotates_the_original_pixels(tmp_path, monkeypatch):
     reader = CameraOrientation(tmp_path / "roll.onnx")
-    estimate = iter([(90, .95), (90, .25), (90, .98), (91, .96), (89, .99)])
+    estimate = iter(RollReading(angle, confidence, .01) for angle, confidence in
+                    [(90, .95), (90, .25), (90, .98), (91, .96), (89, .99), (48, .4)])
     monkeypatch.setattr(reader, "_predict", lambda _: next(estimate))
     source = io.BytesIO()
     Image.new("RGB", (40, 20), color="green").save(source, "JPEG")
@@ -103,6 +104,15 @@ def test_orientation_waits_for_consensus_and_rotates_the_original_pixels(tmp_pat
     result = Image.open(io.BytesIO(reader.correct("left", frame)))
     assert result.size == (20, 40)
     assert reader.correct("right", frame) == frame
+    reading = reader.status("left", now=now + 20)
+    assert reading == {"state": "tilted", "confidence": .99, "upright_confidence": .01,
+                       "correction_degrees": 90., "held": False}
+    reader.observe("left", frame, now + 25)
+    uncertain = reader.status("left", now=now + 25)
+    assert uncertain["state"] == "uncertain" and uncertain["held"]
+    assert uncertain["correction_degrees"] == 90.
+    expired = reader.status("left", now=now + 150)
+    assert expired["correction_degrees"] is None and expired["upright_confidence"] is None
     bins = np.zeros(360, dtype=np.float32)
     bins[359], bins[0] = .5, .5
     assert _roll(bins) == pytest.approx((-.5, 1))

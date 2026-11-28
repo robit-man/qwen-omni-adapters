@@ -223,7 +223,7 @@ class CameraScanner:
                             self.orient.observe(device, frame, now)
                         if self.ocr.binary and not codes and now >= self.next_ocr and now - self.last_ocr.get(device, -20) > 7:
                             try:
-                                self.ocr_candidates.put_nowait((camera_id, frame))
+                                self.ocr_candidates.put_nowait((device, camera_id, frame))
                                 self.next_ocr = now + 1.5
                                 self.last_ocr[device] = now
                             except queue.Full:
@@ -253,10 +253,16 @@ class CameraScanner:
     def _read_text(self) -> None:
         while not self.stop.is_set():
             try:
-                camera, frame = self.ocr_candidates.get(timeout=.2)
+                device, camera, frame = self.ocr_candidates.get(timeout=.2)
             except queue.Empty:
                 continue
-            result = self.ocr.recognize(frame) if self.enabled() else None
+            if not self.enabled():
+                continue
+            try:
+                frame = self.cameras.correct_orientation(device, frame)
+            except (ValueError, OSError):
+                logger.debug("Could not correct OCR frame orientation")
+            result = self.ocr.recognize(frame)
             if result and self.enabled() and not self.stop.is_set():
                 now = time.monotonic()
                 self.ocr_seen = {key: at for key, at in self.ocr_seen.items() if now - at < 30}

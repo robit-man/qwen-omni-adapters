@@ -626,7 +626,7 @@ class CallSession:
             "from the user's latest spoken turn"
         )
         content += (
-            " and the attached image is a fresh ambient view from the embodied "
+            " and the attached media is a fresh ambient view from the embodied "
             "client's cameras. Use it only when it materially helps answer the "
             "speaker's request; otherwise ignore it. Never inventory or mention "
             "the scene merely because the view is present. This is real current "
@@ -652,13 +652,16 @@ class CallSession:
                     "data": base64.b64encode(wav_audio).decode("ascii"),
                 }
             ]
+        orientation = None
         if frame:
+            media = dict(frame)
+            orientation = media.pop("camera_orientation", None)
             key = (
                 "videos"
                 if str(frame.get("mime_type") or "").startswith("video/")
                 else "images"
             )
-            message[key] = [frame]
+            message[key] = [media]
 
         split_speech = self.config.prepare_speech is not None
         # The browser client is the reference for spoken-turn context: its
@@ -666,6 +669,15 @@ class CallSession:
         # (failure notes, task summaries, array direction) were text about the
         # machinery that the model narrated instead of answering.
         system_content = LIVE_CALL_SYSTEM_PROMPT
+        if orientation:
+            system_content += (
+                "\nNative camera orientation, one entry per attached view from left to right. "
+                "The pixels already include any correction reported here. Upright confidence refers "
+                "to the source camera within 10 degrees of upright. An uncertain state is not a "
+                "confirmed angle, and held means the last confirmed correction is still applied. "
+                "Use these estimates only when relevant to the spoken request.\n"
+                + json.dumps(orientation, separators=(",", ":"))
+            )
         history = self._history_for_prompt()
         if earlier_speech:
             history.append({

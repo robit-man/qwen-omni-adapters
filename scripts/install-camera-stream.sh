@@ -55,3 +55,6 @@ install_advanced_ocr() {
   "$ocr/bin/python" -c 'import cv2, numpy, pytesseract, PIL'
 }
 install_advanced_ocr || printf 'Optional Omnius batch OCR could not be provisioned.\n' >&2
+
+OMNI_PYTHON_BIN="$venv/bin/python" bash "$repo/scripts/install-camera-orientation.sh" \
+  || printf 'Camera roll calibration is unavailable until the model can be installed.\n' >&2

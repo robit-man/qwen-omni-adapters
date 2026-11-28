@@ -18,5 +18,7 @@ if ! printf '%s  %s\n' "$MODEL_SHA256" "$MODEL_DIR/$MODEL_NAME" | sha256sum --st
   printf '%s  %s\n' "$MODEL_SHA256" "$download" | sha256sum -c
   mv -f -- "$download" "$MODEL_DIR/$MODEL_NAME"
 fi
-"$PYTHON" -m pip install -e "$REPO_ROOT[camera-orientation]"
+if ! "$PYTHON" -c 'import onnxruntime' >/dev/null 2>&1; then
+  "$PYTHON" -m pip install -e "$REPO_ROOT[camera-orientation]"
+fi
 printf 'Camera roll model installed at %s\n' "$MODEL_DIR/$MODEL_NAME"

@@ -7,12 +7,25 @@ import logging
 import threading
 import time
 from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageOps
 
 logger = logging.getLogger(__name__)
+
+ESTIMATE_INTERVAL = 4
+ESTIMATE_MAX_AGE = 16
+CORRECTION_MAX_AGE = 120
+STRICT_CONFIDENCE = .833
+
+
+@dataclass(frozen=True)
+class RollReading:
+    angle: float
+    confidence: float
+    upright_confidence: float
 
 
 def _difference(a: float, b: float) -> float:
@@ -49,10 +62,11 @@ class CameraOrientation:
         self._next = {}
         self._global_next = 0.0
         self._angles = {}
+        self._readings = {}
         self._history = {}
         self._lock = threading.Lock()
 
-    def _predict(self, frame: bytes) -> tuple[float, float] | None:
+    def _predict(self, frame: bytes) -> RollReading | None:
         if self._failed:
             return None
         try:
@@ -64,43 +78,77 @@ class CameraOrientation:
                 options.inter_op_num_threads = 1
                 self._session = ort.InferenceSession(str(self.model), options,
                                                      providers=["CPUExecutionProvider"])
-            return _roll(self._session.run(["prob"], {"image": _image_input(frame)})[0])
+            probabilities = self._session.run(["prob"], {"image": _image_input(frame)})[0].reshape(360)
+            angle, confidence = _roll(probabilities)
+            upright = float(probabilities[:11].sum() + probabilities[-10:].sum())
+            return RollReading(angle, confidence, upright)
         except Exception:  # optional estimator must never disable capture
             self._failed = True
             logger.warning("Camera orientation is unavailable; check the configured RightWayUp Pico ONNX model")
             return None
 
+    def due(self, device: str, now: float) -> bool:
+        return not self._failed and now >= self._global_next and now >= self._next.get(device, 0)
+
     def observe(self, device: str, frame: bytes, now: float) -> None:
-        if now < self._global_next or now < self._next.get(device, 0):
+        if not self.due(device, now):
             return
         self._global_next = now + 0.35
-        self._next[device] = now + 4
+        self._next[device] = now + ESTIMATE_INTERVAL
         estimate = self._predict(frame)
-        history = self._history.setdefault(device, deque(maxlen=3))
-        if estimate is None or not np.isfinite(estimate).all() or estimate[1] < 0.833:
-            history.clear()
-            return
-        angle, _ = estimate
-        if any(abs(_difference(angle, earlier)) > 12 for earlier in history):
-            history.clear()
-        history.append(angle)
-        if len(history) == history.maxlen:
-            estimate = _difference(angle + float(np.mean([_difference(value, angle) for value in history])), 0)
-            with self._lock:
-                self._angles[device] = (estimate, now)
+        if estimate is not None and not np.isfinite(
+            [estimate.angle, estimate.confidence, estimate.upright_confidence]
+        ).all():
+            estimate = None
+
+        with self._lock:
+            self._readings[device] = (estimate, now)
+            history = self._history.setdefault(device, deque(maxlen=3))
+            if estimate is None or estimate.confidence < STRICT_CONFIDENCE:
+                history.clear()
+                return
+            angle = estimate.angle
+            if any(abs(_difference(angle, previous.angle)) > 12 for previous in history):
+                history.clear()
+            history.append(estimate)
+            if len(history) == history.maxlen:
+                agreed_angle = _difference(angle + sum(_difference(previous.angle, angle)
+                                                       for previous in history) / len(history), 0)
+                self._angles[device] = (agreed_angle, now)
+
+    def status(self, device: str, *, now: float | None = None) -> dict:
+        now = time.monotonic() if now is None else now
+        with self._lock:
+            reading, measured = self._readings.get(device, (None, 0.))
+            angle, confirmed = self._angles.get(device, (None, 0.))
+            available = not self._failed
+        fresh_reading = reading is not None and now - measured < ESTIMATE_MAX_AGE
+        has_correction = angle is not None and now - confirmed < CORRECTION_MAX_AGE
+        confirmed_current = fresh_reading and has_correction and confirmed == measured
+        state = "unavailable" if not available else "uncertain"
+        if confirmed_current:
+            state = "upright" if abs(angle) <= 10 else "tilted"
+        return {
+            "state": state,
+            "confidence": round(min(1., max(0., reading.confidence)), 3) if fresh_reading else None,
+            "upright_confidence": round(min(1., max(0., reading.upright_confidence)), 3) if fresh_reading else None,
+            "correction_degrees": round(angle if abs(angle) >= 2 else 0., 1) if has_correction else None,
+            "held": has_correction and not confirmed_current,
+        }
 
     def roll(self, device: str) -> float:
-        with self._lock:
-            angle, updated = self._angles.get(device, (0.0, 0.0))
-        return angle if abs(angle) >= 2 and time.monotonic() - updated < 120 else 0.0
+        return self.status(device)["correction_degrees"] or 0.
 
     def correct(self, device: str, frame: bytes) -> bytes:
-        angle = self.roll(device)
-        if not angle:
-            return frame
-        with Image.open(io.BytesIO(frame)) as source:
-            corrected = ImageOps.exif_transpose(source).convert("RGB").rotate(
-                angle, Image.Resampling.BICUBIC, expand=True)
-        output = io.BytesIO()
-        corrected.save(output, "JPEG", quality=90)
-        return output.getvalue()
+        return rotate_image(frame, self.roll(device))
+
+
+def rotate_image(frame: bytes, angle: float) -> bytes:
+    if not angle:
+        return frame
+    with Image.open(io.BytesIO(frame)) as source:
+        corrected = ImageOps.exif_transpose(source).convert("RGB").rotate(
+            angle, Image.Resampling.BICUBIC, expand=True)
+    output = io.BytesIO()
+    corrected.save(output, "JPEG", quality=90)
+    return output.getvalue()

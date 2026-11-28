@@ -480,20 +480,18 @@ def main(argv: list[str] | None = None) -> int:
     model_switch_requested = threading.Event()
     muted = threading.Event()
     cameras = CameraSet.discover(args.camera_device if args.camera_device_only else None)
+    roll_model = Path(args.camera_roll_model) if args.camera_roll_model else (
+        repo_root / "runtime-data/components/camera-orientation/pico-s70-int8.onnx")
+    orient = CameraOrientation(roll_model) if roll_model.is_file() else None
+    cameras.orientation = orient
     persistent_camera = persistent_camera_enabled(repo_root)
     camera_stream = None
     if persistent_camera:
         devices = gmsl_devices()
         if args.camera_device_only:
             devices = [device for device in devices if device == args.camera_device]
-        camera_stream = CameraStreamHub(devices)
+        camera_stream = CameraStreamHub(devices, orientation=orient)
         cameras.stream = camera_stream
-    roll_model = Path(args.camera_roll_model) if args.camera_roll_model else (
-        repo_root / "runtime-data/components/camera-orientation/pico-s70-int8.onnx")
-    orient = CameraOrientation(roll_model) if roll_model.is_file() else None
-    if orient is not None:
-        cameras.frame_correction = orient.correct
-        cameras.roll_correction = orient.roll
     indicator_holder: dict[str, Any] = {}
 
     def request_shutdown(*_args: object) -> None:
@@ -722,7 +720,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def camera_scan(submit):
         return CameraScanner(cameras, enabled=camera_scan_enabled, submit=submit,
-                             auto_tune=args.camera_auto_tune, orient=orient)
+                             auto_tune=args.camera_auto_tune, orient=None if camera_stream else orient)
 
     def worker() -> None:
         while not stop.is_set():
